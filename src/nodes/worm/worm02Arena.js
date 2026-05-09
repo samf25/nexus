@@ -1,5 +1,5 @@
 import { escapeHtml } from "../../templates/shared.js";
-import { createWormBattleState, infoDebuffStatKeys, resolveWormRound, selectableWormActions } from "./wormCombatSystem.js";
+import { createWormBattleState, infoDebuffStatKeys, renderWormCombatEventCard, resolveWormRound, selectableWormActions } from "./wormCombatSystem.js";
 import { renderWormCard } from "./wormCardRenderer.js";
 import { wormCardById } from "./wormData.js";
 import { normalizeWormSystemState, wormDrawWindowPack, wormOwnedCards } from "../../systems/wormDeck.js";
@@ -157,6 +157,21 @@ function teamCardsMarkup(team, role) {
       ),
     )
     .join("");
+}
+
+function loadoutMetaMarkup(entry) {
+  const rarity = Number(entry && entry.card && entry.card.rarity);
+  const currentHp = Math.max(0, Math.round(Number(entry && entry.currentHp ? entry.currentHp : 0)));
+  return `
+    <span class="worm02-loadout-slot-meta-line">
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-rarity">Rarity ${escapeHtml(Number.isFinite(rarity) ? rarity.toFixed(1) : "0.0")}</span>
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-hp">HP ${escapeHtml(String(currentHp))}</span>
+    </span>
+  `;
+}
+
+function turnEventMarkup(line, index) {
+  return renderWormCombatEventCard(line, index);
 }
 
 function normalizePreferenceForActor(combatant, enemyTeam, preference) {
@@ -321,7 +336,7 @@ function loadoutSlotMarkup(slot, selectedEntry, pickerOpen, locked) {
         hasCard
           ? `
               <span class="worm02-loadout-slot-name">${escapeHtml(selectedEntry.card.heroName)}</span>
-              <span class="worm02-loadout-slot-meta">R ${escapeHtml(selectedEntry.card.rarity.toFixed(1))} | HP ${escapeHtml(String(Math.max(0, Math.round(Number(selectedEntry.currentHp || 0)))))}</span>
+              ${loadoutMetaMarkup(selectedEntry)}
             `
           : `<span class="worm02-loadout-slot-empty">Select Cape</span>`
       }
@@ -349,8 +364,7 @@ function pickerCardMarkup(entry, slotId, activeLoadout) {
       aria-label="${escapeHtml(`Choose ${entry.card.heroName}`)}"
     >
       <strong>${escapeHtml(entry.card.heroName)}</strong>
-      <span>R ${escapeHtml(entry.card.rarity.toFixed(1))} | HP ${escapeHtml(String(Math.max(0, Math.round(Number(entry.currentHp || 0)))))}</span>
-      <span>x${escapeHtml(String(Math.max(1, Math.floor(Number(entry.copies || 1)))))}</span>
+      ${loadoutMetaMarkup(entry)}
     </button>
   `;
 }
@@ -406,11 +420,6 @@ function battleMarkup(runtime, cloutMultiplier) {
 
   return `
     <section class="worm02-battle">
-      <header class="worm02-battle-header">
-        <p><strong>Combat Turn:</strong> ${escapeHtml(String(turnNumber))}</p>
-        <p><strong>Status:</strong> ${escapeHtml(winnerLabel)}</p>
-      </header>
-
       <section class="worm02-board worm02-board-lanes">
         <section class="worm02-team-column">
           <h3>Your Team</h3>
@@ -458,12 +467,7 @@ function battleMarkup(runtime, cloutMultiplier) {
       <section class="card worm02-turn-panel">
         <h3>Combat Turn ${escapeHtml(String(turnNumber))}</h3>
         <div class="worm02-turn-grid">
-          ${turnEvents.map((line, index) => `
-            <article class="worm02-turn-event">
-              <span>${escapeHtml(String(index + 1))}</span>
-              <p>${escapeHtml(line)}</p>
-            </article>
-          `).join("")}
+          ${turnEvents.map((line, index) => turnEventMarkup(line, index)).join("")}
         </div>
       </section>
     </section>
@@ -478,14 +482,44 @@ function outcomePopupMarkup(runtime) {
     return "";
   }
   const lines = Array.isArray(popup.lines) ? popup.lines : [];
+  const lootDrops = Array.isArray(popup.lootDrops) ? popup.lootDrops : [];
+  const artifactRewards = Array.isArray(popup.artifactRewards) ? popup.artifactRewards : [];
+  const cloutAward = Math.max(0, Number(popup.cloutAward || 0));
   return `
     <section class="worm02-picker-overlay" aria-modal="true" role="dialog">
-      <section class="card worm02-picker-panel">
+      <section class="card worm02-picker-panel worm02-outcome-panel">
         <header class="worm02-picker-header">
           <h4>${escapeHtml(String(popup.title || "Outcome"))}</h4>
         </header>
-        <div class="worm02-help">
-          ${lines.map((line) => `<p>${escapeHtml(String(line || ""))}</p>`).join("")}
+        <div class="worm02-outcome-grid">
+          <section class="worm02-outcome-section">
+            <span class="worm02-outcome-label">Clout</span>
+            <strong class="worm02-outcome-value">${cloutAward > 0 ? `+${escapeHtml(String(cloutAward))}` : "None"}</strong>
+          </section>
+          <section class="worm02-outcome-section">
+            <span class="worm02-outcome-label">Artifacts</span>
+            <div class="worm02-outcome-list">
+              ${artifactRewards.length
+                ? artifactRewards.map((reward) => `<span class="worm02-outcome-chip">${escapeHtml(String(reward || ""))}</span>`).join("")
+                : `<span class="worm02-outcome-empty">None</span>`}
+            </div>
+          </section>
+          <section class="worm02-outcome-section is-wide">
+            <span class="worm02-outcome-label">Loot Recovered</span>
+            <div class="worm02-outcome-list is-blocks">
+              ${lootDrops.length
+                ? lootDrops.map((drop) => `<span class="worm02-outcome-drop">${escapeHtml(String(drop || ""))}</span>`).join("")
+                : `<span class="worm02-outcome-empty">No loot recovered.</span>`}
+            </div>
+          </section>
+          ${lines.length ? `
+            <section class="worm02-outcome-section is-wide">
+              <span class="worm02-outcome-label">Notes</span>
+              <div class="worm02-outcome-notes">
+                ${lines.map((line) => `<p>${escapeHtml(String(line || ""))}</p>`).join("")}
+              </div>
+            </section>
+          ` : ""}
         </div>
         <div class="toolbar">
           <button type="button" data-node-id="${NODE_ID}" data-node-action="worm02-close-outcome-popup">Close</button>
@@ -748,10 +782,7 @@ export function reduceWorm02Runtime(runtime, action) {
         lines: winner === "player"
           ? [
             mode === "boss" ? "Boss clear registered." : `Difficulty: ${String(current.battleDifficulty || "easy").toUpperCase()}.`,
-            "Clout has been awarded.",
-            lootEvents.length
-              ? `Reward bundle generated: ${lootEvents.length} loot drop${lootEvents.length === 1 ? "" : "s"}.`
-              : "No bonus loot this round.",
+            mode === "boss" ? "Your team held the arena against the boss pairing." : "Your team secured the bout.",
           ]
           : ["No clout gained.", "Your capes return with their current injuries."],
       },

@@ -13,7 +13,7 @@ Snapshot date: 2026-04-26
 - Worm endboss sigils:
   - `Leviathan Core Sigil`, `Simurgh Feather Sigil`, `Behemoth Ember Sigil`
 - DCC gates and finale locks:
-  - `DCC Floor-3 Key`, `The Dungeon Anarchist's Cookbook`, `The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity`
+  - `DCC Floor-2 Key`, `DCC Floor-3 Key`, `The Dungeon Anarchist's Cookbook`, `The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity`
 - Practical Guide gate set (persistent):
   - `Westwall Ram`, `Oathbreaker Bell`, `Sunforge Powder`, `Mirror of Nine Lies`, `Green Wax Seal`, `Veiled Signet`, `Sunless Lantern`, `Bone Key`, `River-Map of Silt`, `Ashen Treaty Pins`, `Red Petition Docket`, `Saintglass Vial`, `Ivory Truce Fork`, `Nightwine Ledger`, `Mercy Bell Chime`
 - Revelation chains (consumed by progression):
@@ -25,12 +25,10 @@ Snapshot date: 2026-04-26
 
 ## Referenced but Not Fully Implemented
 
-- `DCC Floor-2 Key`
-  - Granted from TWI03 reward chain, but DCC gate logic currently only checks `DCC Floor-3 Key`.
 - `DCC Floor-4 Key`
-  - No active grant/use path found.
+  - DCC gate hook exists, but no active grant path found.
 - `DCC Floor-5 Key`
-  - No active grant/use path found.
+  - DCC gate hook exists, but no active grant path found.
 
 ## Removed from Reward Pool (auto-pruned)
 

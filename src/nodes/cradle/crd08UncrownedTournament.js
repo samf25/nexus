@@ -8,10 +8,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -564,11 +566,16 @@ export function renderCrd08Experience(context) {
   }
 
   const enemy = runtime.enemy || opponentAt(runtime.index);
+  const logLines = recentCombatLogLines(runtime.log, 6);
   return `
     <article class="crd04-node" data-node-id="${NODE_ID}">
       <section class="crd04-combat-head">
         <h3>Tournament Battle ${runtime.index + 1} / ${OPPONENTS.length}</h3>
-        <p class="muted">Opponent: ${escapeHtml(enemy.name)}</p>
+        <div class="crd04-combat-meta">
+          <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(runtime.playerStage))}</span>
+          <span class="crd04-meta-chip"><strong>Opponent</strong> ${escapeHtml(enemy.name)}</span>
+          <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(combatStageLabel(enemy.stage))}</span>
+        </div>
       </section>
 
       <section class="crd04-bars">
@@ -589,7 +596,7 @@ export function renderCrd08Experience(context) {
       <section class="crd04-log">
         <h4>Combat Log</h4>
         <ul>
-          ${(runtime.log || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          ${logLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
         </ul>
       </section>
     </article>

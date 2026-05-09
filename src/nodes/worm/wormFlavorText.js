@@ -178,9 +178,14 @@ function ensureSentence(text) {
   return /[.!?]$/.test(compact) ? compact : `${compact}.`;
 }
 
-function buildActionPrefix(name, actionKey) {
+function buildActionPrefix(name, actionKey, success, targetName) {
   const actionLabel = ACTION_TYPE_LABELS[actionKey] || ACTION_TYPE_LABELS[WORM_ACTION_TYPES.info];
-  return `${name} | ${actionLabel}: `;
+  const parts = [name, actionLabel, success ? "success" : "fail"];
+  const target = safeText(targetName);
+  if (target) {
+    parts.push(target);
+  }
+  return `${parts.join(" | ")}: `;
 }
 
 export function buildWormActionFlavor({ card = {}, actionType, success, targetName, amount, rng } = {}) {
@@ -198,5 +203,5 @@ export function buildWormActionFlavor({ card = {}, actionType, success, targetNa
   };
 
   const body = ensureSentence(applyTokens(template, values));
-  return `${buildActionPrefix(cardName, actionKey)}${body}`;
+  return `${buildActionPrefix(cardName, actionKey, isSuccess, targetName)}${body}`;
 }

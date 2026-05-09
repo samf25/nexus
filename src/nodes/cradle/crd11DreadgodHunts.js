@@ -8,10 +8,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -590,11 +592,16 @@ export function renderCrd11Experience(context) {
   const defeatedTotal = countDefeated(runtime.defeated);
 
   if (runtime.phase === "battle" && runtime.enemy && runtime.player) {
+    const logLines = recentCombatLogLines(runtime.log, 6);
     return `
       <article class="crd04-node" data-node-id="${NODE_ID}">
         <section class="crd04-combat-head">
           <h3>Dreadgod Hunt</h3>
-          <p class="muted">Target: ${escapeHtml(runtime.enemy.name)}</p>
+          <div class="crd04-combat-meta">
+            <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(runtime.player.stage))}</span>
+            <span class="crd04-meta-chip"><strong>Target</strong> ${escapeHtml(runtime.enemy.name)}</span>
+            <span class="crd04-meta-chip"><strong>Target Stage</strong> ${escapeHtml(combatStageLabel(runtime.enemy.stage))}</span>
+          </div>
         </section>
         <section class="crd04-bars">
           ${barMarkup("Health", runtime.player.hp, runtime.player.maxHp, "is-health")}
@@ -612,7 +619,7 @@ export function renderCrd11Experience(context) {
         <section class="crd04-log">
           <h4>Combat Log</h4>
           <ul>
-            ${(runtime.log || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+            ${logLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
           </ul>
         </section>
       </article>

@@ -57,9 +57,34 @@ const MADRA_POOL_MULTIPLIER = Object.freeze({
   archlord: 8.9,
 });
 
+const COMBAT_STAGE_LABELS = Object.freeze({
+  foundation: "Foundation",
+  copper: "Copper",
+  iron: "Iron",
+  jade: "Jade",
+  gold: "Gold",
+  lowgold: "Lowgold",
+  highgold: "Highgold",
+  truegold: "Truegold",
+  underlord: "Underlord",
+  overlord: "Overlord",
+  archlord: "Archlord",
+});
+
 export function normalizeCombatStage(stageId) {
   const candidate = String(stageId || "").trim().toLowerCase();
   return COMBAT_STAGES.includes(candidate) ? candidate : "foundation";
+}
+
+export function combatStageLabel(stageId) {
+  return COMBAT_STAGE_LABELS[normalizeCombatStage(stageId)] || "Foundation";
+}
+
+export function recentCombatLogLines(lines, count = 6) {
+  const limit = Math.max(1, Number(count) || 6);
+  return (Array.isArray(lines) ? lines : [])
+    .slice(-limit)
+    .reverse();
 }
 
 export function attackMultiplierForStage(stageId) {
@@ -92,10 +117,22 @@ export function emptyPalmSuccessRoll({
   severeGapChance = 0.01,
 } = {}) {
   const gap = stageGap(defenderStage, attackerStage);
-  let chance = Math.max(minChance, Math.min(0.95, Number(baseChance) - gap * Number(penaltyPerStage)));
-  if (gap >= Math.max(1, Number(severeGapThreshold) || 2)) {
-    chance = Math.max(0, Math.min(chance, Math.max(0, Number(severeGapChance) || 0.01)));
+  const parsedBase = Math.max(0, Math.min(0.95, Number(baseChance) || 0));
+  const parsedPenalty = Math.max(0, Number(penaltyPerStage) || 0);
+  let chance = parsedBase;
+  if (gap === 1) {
+    chance = parsedBase - parsedPenalty * 0.62;
+  } else if (gap === 2) {
+    chance = Math.min(
+      parsedBase - parsedPenalty * 2.7,
+      parsedBase * 0.17,
+    );
+  } else if (gap >= Math.max(2, Number(severeGapThreshold) || 2)) {
+    const severeFloor = Math.max(0, Number(severeGapChance) || 0.01);
+    const scaledSevere = Math.max(severeFloor, parsedBase * Math.pow(0.18, gap - 1));
+    chance = Math.min(severeFloor * 1.6, scaledSevere);
   }
+  chance = Math.max(minChance, Math.min(0.95, chance));
   const rng = randomUnit(seed, salt);
   return {
     seed: rng.seed,

@@ -44,6 +44,11 @@ function numericNodeSuffix(nodeId) {
   return Number.parseInt(match[1], 10);
 }
 
+function isRetiredSectionName(sectionName) {
+  const name = String(sectionName || "").trim();
+  return RETIRED_SECTION_NAMES.has(name) || name.startsWith("Convergence ");
+}
+
 function nodeOrderIndex(node) {
   const explicit = Number(node && node.orderIndex);
   if (Number.isFinite(explicit)) {
@@ -90,7 +95,7 @@ export async function loadBlueprint(path = DEFAULT_BLUEPRINT_PATH) {
     blueprint.nodes
       .filter(
         (node) =>
-          RETIRED_SECTION_NAMES.has(String(node.section || "")) ||
+          isRetiredSectionName(node.section) ||
           String(node.route || "").startsWith("/cosmere/") ||
           RETIRED_NODE_IDS.has(String(node.node_id || "")),
       )

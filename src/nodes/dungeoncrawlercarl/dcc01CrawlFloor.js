@@ -2,11 +2,12 @@ import { escapeHtml } from "../../templates/shared.js";
 import { renderArtifactSymbol } from "../../core/artifacts.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import { prestigeModifiersFromState } from "../../systems/prestige.js";
+import { formatLootItemEffectSummary, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "DCC01";
-const MAP_SIZE = 7;
-const FLOOR_ROOMS = 18;
+const BASE_MAP_SIZE = 7;
+const BASE_FLOOR_ROOMS = 18;
 const ROOM_WIDTH = 13;
 const ROOM_HEIGHT = 9;
 const ENEMY_ACTION_INTERVAL_MS = 1000;
@@ -95,6 +96,38 @@ const ABILITIES = Object.freeze({
     bonusDamage: 5,
     detail: "Prestige technique with high burst.",
   }),
+  improvised_bomb: Object.freeze({
+    id: "improvised_bomb",
+    label: "Improvised Bombardment",
+    staminaCost: 4,
+    range: 3,
+    multiplier: 1.25,
+    bonusDamage: 6,
+    inflictBlind: true,
+    detail: "Heavy ranged burst that leaves the enemy reeling.",
+  }),
+  heel_hook: Object.freeze({
+    id: "heel_hook",
+    label: "Heel Hook Hell",
+    staminaCost: 3,
+    range: 1,
+    multiplier: 1.4,
+    bonusDamage: 5,
+    inflictStun: true,
+    detail: "Close-range takedown that stops momentum cold.",
+  }),
+  second_wind: Object.freeze({
+    id: "second_wind",
+    label: "Second Wind",
+    staminaCost: 2,
+    range: 1,
+    multiplier: 0.95,
+    bonusDamage: 2,
+    gainBlock: 4,
+    healSelf: 10,
+    restoreStamina: 2,
+    detail: "A steady strike that restores rhythm, health, and stamina.",
+  }),
 });
 
 const ABILITY_BOOKS = Object.freeze([
@@ -122,6 +155,27 @@ const ABILITY_BOOKS = Object.freeze([
     abilityId: "threat_call",
     rarity: "common",
   }),
+  Object.freeze({
+    itemId: "book_grenade",
+    label: "Satchel Notes on Improvised Bombardment",
+    abilityId: "improvised_bomb",
+    rarity: "rare",
+    minFloor: 3,
+  }),
+  Object.freeze({
+    itemId: "book_heel_hook",
+    label: "Heel Hook for Monsters",
+    abilityId: "heel_hook",
+    rarity: "rare",
+    minFloor: 3,
+  }),
+  Object.freeze({
+    itemId: "book_second_wind",
+    label: "Second Wind Breathing Cadence",
+    abilityId: "second_wind",
+    rarity: "epic",
+    minFloor: 4,
+  }),
 ]);
 
 const KEY_DEFINITIONS = Object.freeze([
@@ -136,7 +190,11 @@ const KEY_LABEL_BY_ID = Object.freeze(
 
 const LOOT_TABLE = Object.freeze([
   Object.freeze({ type: "consumable", itemId: "health_potion", label: "Health Potion", weight: 32, rarity: "common" }),
+  Object.freeze({ type: "consumable", itemId: "greater_health_potion", label: "Greater Health Potion", weight: 8, rarity: "rare", minFloor: 3 }),
+  Object.freeze({ type: "consumable", itemId: "legend_health_potion", label: "Legend Health Potion", weight: 2, rarity: "epic", minFloor: 4 }),
   Object.freeze({ type: "consumable", itemId: "stamina_potion", label: "Stamina Potion", weight: 28, rarity: "common" }),
+  Object.freeze({ type: "consumable", itemId: "greater_stamina_potion", label: "Greater Stamina Potion", weight: 7, rarity: "rare", minFloor: 3 }),
+  Object.freeze({ type: "consumable", itemId: "legend_stamina_potion", label: "Legend Stamina Potion", weight: 2, rarity: "epic", minFloor: 4 }),
   Object.freeze({ type: "key", itemId: "bronze_key", label: "Bronze Key", weight: 11, rarity: "uncommon" }),
   Object.freeze({ type: "key", itemId: "silver_key", label: "Silver Key", weight: 7, rarity: "uncommon" }),
   Object.freeze({ type: "key", itemId: "obsidian_key", label: "Obsidian Key", weight: 4, rarity: "rare" }),
@@ -145,7 +203,7 @@ const LOOT_TABLE = Object.freeze([
     type: "book",
     itemId: book.itemId,
     label: book.label,
-    weight: book.rarity === "rare" ? 5 : 10,
+    weight: book.rarity === "epic" ? 2 : book.rarity === "rare" ? 5 : 10,
     rarity: book.rarity,
     abilityId: book.abilityId,
   })),
@@ -170,10 +228,22 @@ const BOSS_ENEMIES = Object.freeze([
   Object.freeze({ name: "Mongoliensis", hp: 108, attack: 11, range: 1, trait: "door_lockdown", goldMin: 78, goldMax: 102 }),
 ]);
 
+const MINI_BOSS_ENEMIES = Object.freeze([
+  Object.freeze({ name: "Howler Matriarch", hp: 56, attack: 9, range: 2, trait: "opening_strike", goldMin: 28, goldMax: 40 }),
+  Object.freeze({ name: "Kiosk Executioner", hp: 62, attack: 8, range: 3, trait: "armor_bite", goldMin: 30, goldMax: 43 }),
+  Object.freeze({ name: "Reaper Spider Broodlord", hp: 64, attack: 9, range: 2, trait: "bleed_bite", goldMin: 32, goldMax: 46 }),
+]);
+
 const FLOOR_BOSS_REWARD_ARTIFACTS = Object.freeze({
   3: "Dockside Broker Contract",
   4: "National Broker Mandate",
   5: "The Dungeon Anarchist's Cookbook",
+});
+const EXTERNAL_FLOOR_GATE_ARTIFACTS = Object.freeze({
+  2: "DCC Floor-2 Key",
+  3: "DCC Floor-3 Key",
+  4: "DCC Floor-4 Key",
+  5: "DCC Floor-5 Key",
 });
 
 const ENCOUNTERS = Object.freeze([
@@ -250,10 +320,24 @@ function randomPick(rand, values) {
   return list[randomInt(rand, 0, list.length - 1)];
 }
 
+function mapSizeForFloor(floor) {
+  const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
+  return BASE_MAP_SIZE + Math.min(4, depth);
+}
+
+function roomCountForFloor(floor, size) {
+  const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
+  const cap = Math.max(BASE_FLOOR_ROOMS, (size * size) - 4);
+  return Math.min(cap, BASE_FLOOR_ROOMS + depth * 4);
+}
+
 function withDefaultMeta(meta) {
   const source = meta && typeof meta === "object" ? meta : {};
   const upgrades = source.upgrades && typeof source.upgrades === "object" ? source.upgrades : {};
   const preparedEquipment = normalizeEquipment(source.preparedEquipment);
+  const encounteredAbilityIds = Array.isArray(source.encounteredAbilityIds)
+    ? source.encounteredAbilityIds.map((entry) => safeText(entry)).filter((entry) => entry && ABILITIES[entry])
+    : [];
   const bossRewardsClaimed =
     source.bossRewardsClaimed && typeof source.bossRewardsClaimed === "object"
       ? source.bossRewardsClaimed
@@ -271,6 +355,7 @@ function withDefaultMeta(meta) {
     totalDeaths: Math.max(0, Math.floor(Number(source.totalDeaths) || 0)),
     bestFloor: Math.max(1, Math.floor(Number(source.bestFloor) || 1)),
     preparedEquipment,
+    encounteredAbilityIds: [...new Set(encounteredAbilityIds)],
     bossRewardsClaimed: {
       3: Boolean(bossRewardsClaimed[3] || bossRewardsClaimed["3"]),
       4: Boolean(bossRewardsClaimed[4] || bossRewardsClaimed["4"]),
@@ -298,9 +383,36 @@ function dccProgressFromState(state) {
       ? state.systems.dungeonCrawl
       : {};
   return {
+    floor2Unlocked: Boolean(source.floor2Unlocked),
     floor3Unlocked: Boolean(source.floor3Unlocked),
+    floor4Unlocked: Boolean(source.floor4Unlocked),
+    floor5Unlocked: Boolean(source.floor5Unlocked),
     checkpointFloor: Math.max(1, Math.floor(Number(source.checkpointFloor) || 1)),
   };
+}
+
+function isExternalFloorUnlocked(progress, floor) {
+  const numericFloor = Math.max(1, Math.floor(Number(floor) || 1));
+  if (numericFloor <= 1) {
+    return true;
+  }
+  if (numericFloor === 2) {
+    return Boolean(progress.floor2Unlocked);
+  }
+  if (numericFloor === 3) {
+    return Boolean(progress.floor3Unlocked);
+  }
+  if (numericFloor === 4) {
+    return Boolean(progress.floor4Unlocked);
+  }
+  if (numericFloor === 5) {
+    return Boolean(progress.floor5Unlocked);
+  }
+  return true;
+}
+
+function externalFloorArtifactName(floor) {
+  return safeText(EXTERNAL_FLOOR_GATE_ARTIFACTS[Math.max(1, Math.floor(Number(floor) || 1))]);
 }
 
 function deriveBaseStats(meta, modifiers) {
@@ -440,13 +552,13 @@ function consumePreparedEquipmentForRun(preparedEquipment) {
   };
 }
 
-function collectNeighbors(openRooms, key) {
+function collectNeighbors(openRooms, key, size = BASE_MAP_SIZE) {
   const from = parseRoomKey(key);
   const result = [];
   for (const [direction, vector] of Object.entries(DIRECTIONS)) {
     const targetX = from.x + vector.dx;
     const targetY = from.y + vector.dy;
-    if (targetX < 0 || targetX >= MAP_SIZE || targetY < 0 || targetY >= MAP_SIZE) {
+    if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
       continue;
     }
     const targetKey = roomKey(targetX, targetY);
@@ -468,13 +580,22 @@ function farthestRooms(startKey, roomKeys) {
   });
 }
 
-function chooseLootDrop(rand, rareBonus) {
+function chooseLootDrop(rand, rareBonus, floor = 1) {
   const entries = LOOT_TABLE.map((entry) => {
     let weight = Number(entry.weight) || 1;
-    if (entry.rarity === "rare") {
-      weight *= 1 + (rareBonus * 4.2);
+    const minFloor = Math.max(1, Math.floor(Number(entry.minFloor) || 1));
+    const currentFloor = Math.max(1, Math.floor(Number(floor) || 1));
+    if (currentFloor < minFloor) {
+      weight = 0;
+    }
+    if (entry.rarity === "epic") {
+      weight *= 1 + (rareBonus * 8.5);
+    } else if (entry.rarity === "rare") {
+      weight *= 1 + (rareBonus * 5.2);
+    } else if (entry.rarity === "uncommon") {
+      weight *= 1 + (rareBonus * 2.3);
     } else if (entry.rarity === "common") {
-      weight *= Math.max(0.55, 1 - (rareBonus * 0.35));
+      weight *= Math.max(0.22, 1 - (rareBonus * 0.95));
     }
     return {
       ...entry,
@@ -506,20 +627,252 @@ function chooseLootDrop(rand, rareBonus) {
   };
 }
 
+function currentFloorRareBonus(run, extra = 0) {
+  const floor = Math.max(1, Math.floor(Number(run && run.floor) || 1));
+  const floorDepth = Math.max(0, floor - 1);
+  return Math.max(0, Number(run && run.rareBonus ? run.rareBonus : 0) + floorDepth * 0.04 + Number(extra || 0));
+}
+
+function titleCaseWords(value) {
+  return safeText(value)
+    .split(/[_\s-]+/u)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function dccEnemyTraitLabel(trait) {
+  const key = safeText(trait);
+  const known = {
+    dodge_after_move: "Dodge After Move",
+    slow_strike: "Slow Strike",
+    thief_lunge: "Thief Lunge",
+    armor_bite: "Armor Bite",
+    self_patch: "Self Patch",
+    opening_strike: "Opening Strike",
+    corridor_power: "Corridor Power",
+    bleed_bite: "Bleed Bite",
+    ambush: "Ambush",
+    leech_hit: "Leech Hit",
+    swarm_summoner: "Swarm Summoner",
+    silence_pulse: "Silence Pulse",
+    door_lockdown: "Door Lockdown",
+  };
+  return known[key] || titleCaseWords(key);
+}
+
+function dccAbilityDamageLabel(ability, attackValue = 0) {
+  if (!ability || typeof ability !== "object") {
+    return "Damage: none";
+  }
+  const attack = Math.max(0, Number(attackValue) || 0);
+  const mult = Number(ability.multiplier || 1);
+  const bonus = Number(ability.bonusDamage || 0);
+  const low = Math.max(1, Math.round((attack * mult) + bonus));
+  const high = Math.max(low, Math.round((attack * mult) + bonus + 3));
+  return low === high ? `Damage: ${low}` : `Damage: ${low}-${high}`;
+}
+
+function dccAbilityTooltip(ability, attackValue = 0) {
+  if (!ability || typeof ability !== "object") {
+    return "Empty slot\nLearn a book to fill this slot.";
+  }
+  return [
+    ability.label,
+    dccAbilityDamageLabel(ability, attackValue),
+    `Range: ${Math.max(1, Number(ability.range) || 1)}`,
+    `Stamina: ${Math.max(0, Number(ability.staminaCost) || 0)}`,
+    safeText(ability.detail),
+  ].join("\n");
+}
+
+function dccAbilityTooltipMarkup(ability, attackValue = 0) {
+  if (!ability || typeof ability !== "object") {
+    return `
+      <div class="dcc-ability-tooltip-card" aria-hidden="true">
+        <div class="dcc-ability-tooltip-title">Empty Slot</div>
+        <div class="dcc-ability-tooltip-left">
+          <p>Damage: none</p>
+        </div>
+        <div class="dcc-ability-tooltip-right">
+          <p>Learn a book to fill this slot.</p>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="dcc-ability-tooltip-card" aria-hidden="true">
+      <div class="dcc-ability-tooltip-title">${escapeHtml(ability.label)}</div>
+      <div class="dcc-ability-tooltip-left">
+        <p>${escapeHtml(dccAbilityDamageLabel(ability, attackValue))}</p>
+        <p>Range: ${escapeHtml(String(Math.max(1, Number(ability.range) || 1)))}</p>
+        <p>Stamina: ${escapeHtml(String(Math.max(0, Number(ability.staminaCost) || 0)))}</p>
+      </div>
+      <div class="dcc-ability-tooltip-right">
+        <p>${escapeHtml(safeText(ability.detail))}</p>
+      </div>
+    </div>
+  `;
+}
+
+function dccEnemyTraitDetail(enemy) {
+  const trait = safeText(enemy && enemy.trait);
+  const details = {
+    dodge_after_move: "Slides after advancing, making retaliation less reliable if you let it dictate the distance.",
+    slow_strike: "Hits late but hard. If it reaches you cleanly, the blow lands with extra weight.",
+    thief_lunge: "Can surge forward twice when it smells weakness, closing corridors faster than normal monsters.",
+    armor_bite: "Its hit chews through guard and turns steady defenses into a liability.",
+    self_patch: "Mends itself mid-fight if you give it breathing room.",
+    opening_strike: "Starts the fight with a sharper first hit than the rest of its pattern.",
+    corridor_power: "Fights best in tight lanes and gains force when it can press straight through you.",
+    bleed_bite: "Its bite turns small openings into nastier follow-up damage.",
+    ambush: "Explodes out of the first exchange with a larger opening hit.",
+    leech_hit: "Feeds on landed blows and can convert your lost health into its own recovery.",
+    swarm_summoner: "Grows more dangerous over time as the swarm thickens around it.",
+    silence_pulse: "Emits disruptive pulses that can shut down technique timing.",
+    door_lockdown: "Turns the room itself hostile, reinforcing exits while it fights.",
+  };
+  return details[trait] || "This monster carries a distinct combat pattern.";
+}
+
+function dccEnemyDamageLabel(enemy) {
+  if (!enemy || typeof enemy !== "object") {
+    return "Damage: unknown";
+  }
+  let low = Math.max(1, Number(enemy.attack) || 1);
+  let high = low + 3;
+  const trait = safeText(enemy.trait);
+  if (trait === "opening_strike" || trait === "ambush") {
+    high += 3;
+  }
+  if (trait === "armor_bite" || trait === "bleed_bite") {
+    high += 2;
+  }
+  if (trait === "corridor_power") {
+    low += 1;
+    high += 1;
+  }
+  return `Damage: ${Math.round(low)}-${Math.round(high)}`;
+}
+
+function dccEnemyTraitTooltip(enemy) {
+  if (!enemy || typeof enemy !== "object") {
+    return "";
+  }
+  const label = dccEnemyTraitLabel(enemy.trait);
+  const range = Math.max(1, Number(enemy.range) || 1);
+  return [
+    label,
+    dccEnemyDamageLabel(enemy),
+    `Range: ${range}`,
+    dccEnemyTraitDetail(enemy),
+  ].join("\n");
+}
+
+function dccEnemyTraitTooltipMarkup(enemy) {
+  if (!enemy || typeof enemy !== "object") {
+    return "";
+  }
+  return `
+    <div class="dcc-ability-tooltip-card dcc-enemy-trait-tooltip" aria-hidden="true">
+      <div class="dcc-ability-tooltip-title">${escapeHtml(dccEnemyTraitLabel(enemy.trait))}</div>
+      <div class="dcc-ability-tooltip-left">
+        <p>${escapeHtml(dccEnemyDamageLabel(enemy))}</p>
+        <p>Range: ${escapeHtml(String(Math.max(1, Number(enemy.range) || 1)))}</p>
+      </div>
+      <div class="dcc-ability-tooltip-right">
+        <p>${escapeHtml(dccEnemyTraitDetail(enemy))}</p>
+      </div>
+    </div>
+  `;
+}
+
+function abilityTomeEntries(meta) {
+  const ids = Array.isArray(meta && meta.encounteredAbilityIds) ? meta.encounteredAbilityIds : [];
+  const entries = ids
+    .map((abilityId) => ABILITIES[safeText(abilityId)])
+    .filter(Boolean);
+  return [ABILITIES.basic, ...entries.filter((entry) => entry && entry.id !== "basic")];
+}
+
+function dccEquipmentEffectSummary(item) {
+  if (!item || typeof item !== "object") {
+    return "No stat bonuses.";
+  }
+  if (safeText(item.effectSummary)) {
+    return safeText(item.effectSummary);
+  }
+  const parts = [];
+  if (Number(item.hpBonus || 0)) {
+    parts.push(`Max HP +${Math.round(Number(item.hpBonus || 0))}`);
+  }
+  if (Number(item.attackBonus || 0)) {
+    parts.push(`Attack +${Number(item.attackBonus || 0).toFixed(0)}`);
+  }
+  if (Number(item.staminaBonus || 0)) {
+    parts.push(`Stamina +${Number(item.staminaBonus || 0).toFixed(0)}`);
+  }
+  if (Number(item.abilitySlotBonus || 0)) {
+    parts.push(`Ability slots +${Math.round(Number(item.abilitySlotBonus || 0))}`);
+  }
+  if (Array.isArray(item.abilityUnlocks) && item.abilityUnlocks.length) {
+    parts.push(`Unlocks ${item.abilityUnlocks.length} ability${item.abilityUnlocks.length === 1 ? "" : "ies"}`);
+  }
+  return parts.length ? parts.join(" | ") : "No stat bonuses.";
+}
+
+function enemySheetMarkup(run) {
+  const enemy = run && run.combat && run.combat.enemy ? run.combat.enemy : null;
+  const roomState = roomStateFromRun(run);
+  if (!enemy || !roomState) {
+    return "";
+  }
+  const distance = manhattanDistance(roomState.player.x, roomState.player.y, enemy.x, enemy.y);
+  const roomType = currentRoom(run) && currentRoom(run).type ? currentRoom(run).type : "";
+  return `
+    <section class="card dcc-enemy-sheet${roomType === "boss" ? " is-boss" : roomType === "miniBoss" ? " is-mini-boss" : ""}">
+      <h4>${escapeHtml(enemy.name)}</h4>
+      <div class="dcc-enemy-grid">
+        <article class="dcc-enemy-chip">
+          <span>HP</span>
+          <strong>${escapeHtml(String(enemy.hp))}/${escapeHtml(String(enemy.maxHp))}</strong>
+        </article>
+        <article class="dcc-enemy-chip">
+          <span>Range</span>
+          <strong>${escapeHtml(String(Math.max(1, Number(enemy.range) || 1)))}</strong>
+        </article>
+        <article class="dcc-enemy-chip">
+          <span>Distance</span>
+          <strong>${escapeHtml(String(distance))}</strong>
+        </article>
+        <article class="dcc-enemy-chip">
+          <span>Trait</span>
+          <strong class="dcc-tooltip-anchor">
+            ${escapeHtml(dccEnemyTraitLabel(enemy.trait))}
+            ${dccEnemyTraitTooltipMarkup(enemy)}
+          </strong>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function generateFloorMap(seed, floor) {
   const rand = createRng(seed + floor * 101);
-  const center = roomKey(Math.floor(MAP_SIZE / 2), Math.floor(MAP_SIZE / 2));
+  const size = mapSizeForFloor(floor);
+  const roomTarget = roomCountForFloor(floor, size);
+  const center = roomKey(Math.floor(size / 2), Math.floor(size / 2));
   const openRooms = new Set([center]);
   let current = center;
 
-  while (openRooms.size < FLOOR_ROOMS) {
+  while (openRooms.size < roomTarget) {
     const neighbors = collectNeighbors(new Set(
-      Array.from({ length: MAP_SIZE * MAP_SIZE }, (_, index) => {
-        const x = index % MAP_SIZE;
-        const y = Math.floor(index / MAP_SIZE);
+      Array.from({ length: size * size }, (_, index) => {
+        const x = index % size;
+        const y = Math.floor(index / size);
         return roomKey(x, y);
       }),
-    ), current).map((entry) => entry.targetKey);
+    ), current, size).map((entry) => entry.targetKey);
     current = randomPick(rand, neighbors) || center;
     openRooms.add(current);
   }
@@ -527,7 +880,10 @@ function generateFloorMap(seed, floor) {
   const ranked = farthestRooms(center, openRooms);
   const bossRoomId = ranked[0] || center;
   const stairsRoomId = ranked.find((key) => key !== bossRoomId) || center;
-  const specialExcluded = new Set([center, bossRoomId, stairsRoomId]);
+  const miniBossRoomId = floor >= 4
+    ? ranked.find((key) => key !== bossRoomId && key !== stairsRoomId && key !== center) || ""
+    : "";
+  const specialExcluded = new Set([center, bossRoomId, stairsRoomId, miniBossRoomId]);
 
   const candidateRooms = ranked.filter((key) => !specialExcluded.has(key));
   const shopRoomId = randomPick(rand, candidateRooms) || "";
@@ -538,12 +894,14 @@ function generateFloorMap(seed, floor) {
   const rooms = {};
   for (const key of openRooms) {
     const position = parseRoomKey(key);
-    const neighbors = collectNeighbors(openRooms, key);
+    const neighbors = collectNeighbors(openRooms, key, size);
     let type = "monster";
     if (key === center) {
       type = "start";
     } else if (key === bossRoomId) {
       type = "boss";
+    } else if (key === miniBossRoomId) {
+      type = "miniBoss";
     } else if (key === stairsRoomId) {
       type = "stairs";
     } else if (key === shopRoomId) {
@@ -638,9 +996,10 @@ function generateFloorMap(seed, floor) {
 
   return {
     floor,
-    size: MAP_SIZE,
+    size,
     startRoomId: center,
     bossRoomId,
+    miniBossRoomId,
     stairsRoomId,
     rooms,
     lockState,
@@ -652,6 +1011,7 @@ function normalizeRuntime(candidate) {
   const inventoryTabCandidate = String(source.inventoryTab || "potions").trim().toLowerCase();
   return {
     solved: Boolean(source.solved),
+    abilityTomeOpen: Boolean(source.abilityTomeOpen),
     inventoryOpen: Boolean(source.inventoryOpen),
     inventoryTab: ["potions", "keys", "tomes", "misc"].includes(inventoryTabCandidate)
       ? inventoryTabCandidate
@@ -671,6 +1031,7 @@ function normalizeRuntime(candidate) {
 function createInitialRuntime() {
   return {
     solved: false,
+    abilityTomeOpen: false,
     inventoryOpen: false,
     inventoryTab: "potions",
     lootEvents: [],
@@ -708,7 +1069,7 @@ function withLootEventsFromBagGrowth(previousRuntime, nextRuntime, actionType) {
   const run = nextRuntime && nextRuntime.run && typeof nextRuntime.run === "object" ? nextRuntime.run : {};
   const floor = Math.max(1, Math.floor(Number(run.floor) || 1));
   const floorDepth = Math.max(0, floor - 1);
-  const rarityBias = Math.max(0, Number(run.rareBonus || 0) + floorDepth * 0.015);
+  const rarityBias = currentFloorRareBonus(run);
   const dropChance = Math.min(0.6, 0.35 + floorDepth * 0.03);
   const outRegionChance = Math.min(0.38, 0.2 + floorDepth * 0.02);
   const events = Array.from({ length: growth }, () => ({
@@ -808,9 +1169,9 @@ function buildRoomState(run, room, entryDoorDirection = "") {
     };
   });
 
-  const spawnDoor =
-    state.doors.find((door) => door.direction === String(entryDoorDirection || "")) ||
-    (!entryDoorDirection && state.doors.length ? state.doors[0] : null);
+  const spawnDoor = entryDoorDirection
+    ? state.doors.find((door) => door.direction === String(entryDoorDirection || ""))
+    : null;
   if (spawnDoor) {
     state.player.x = spawnDoor.x;
     state.player.y = spawnDoor.y;
@@ -841,17 +1202,42 @@ function buildRoomState(run, room, entryDoorDirection = "") {
   return state;
 }
 
-function makeEnemy(rand, roomType) {
+function makeEnemy(rand, roomType, floor = 1) {
   const template = roomType === "boss"
     ? (randomPick(rand, BOSS_ENEMIES) || BOSS_ENEMIES[0])
-    : (randomPick(rand, MINOR_ENEMIES) || MINOR_ENEMIES[0]);
+    : roomType === "miniBoss"
+      ? (randomPick(rand, MINI_BOSS_ENEMIES) || MINI_BOSS_ENEMIES[0])
+      : (randomPick(rand, MINOR_ENEMIES) || MINOR_ENEMIES[0]);
+  const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
+  const hpScale = roomType === "boss"
+    ? 1 + (depth * 0.32)
+    : roomType === "miniBoss"
+      ? 1 + (depth * 0.24)
+      : 1 + (depth * 0.18);
+  const attackScale = roomType === "boss"
+    ? 1 + (depth * 0.2)
+    : roomType === "miniBoss"
+      ? 1 + (depth * 0.16)
+      : 1 + (depth * 0.12);
+  const scaledHp = Math.max(1, Math.round(template.hp * hpScale));
+  const scaledAttack = Math.max(1, Math.round(template.attack * attackScale));
+  const scaledRange = Math.max(
+    1,
+    Number(template.range) || 1,
+  ) + (
+    roomType === "boss"
+      ? Math.floor(depth / 3)
+      : roomType === "miniBoss"
+        ? Math.floor(depth / 4)
+        : Math.floor(depth / 5)
+  );
   return {
     name: template.name,
     trait: template.trait,
-    maxHp: template.hp,
-    hp: template.hp,
-    attack: template.attack,
-    range: Math.max(1, Number(template.range) || 1),
+    maxHp: scaledHp,
+    hp: scaledHp,
+    attack: scaledAttack,
+    range: scaledRange,
     goldMin: template.goldMin,
     goldMax: template.goldMax,
     acted: 0,
@@ -859,6 +1245,7 @@ function makeEnemy(rand, roomType) {
     stunned: false,
     swarm: 0,
     lockdownTriggered: false,
+    tier: roomType === "boss" ? "boss" : roomType === "miniBoss" ? "miniBoss" : "enemy",
     x: 1,
     y: 1,
   };
@@ -868,7 +1255,7 @@ function startCombat(run, roomType, seedOffset = 0) {
   const roomState = run.roomState || buildRoomState(run, currentRoom(run));
   const blocked = new Set([roomKey(roomState.player.x, roomState.player.y)]);
   const rand = createRng(Date.now() + seedOffset + run.floor * 31 + hashText(run.currentRoomId));
-  const enemy = makeEnemy(rand, roomType);
+  const enemy = makeEnemy(rand, roomType, run.floor);
   const spawn = randomRoomPoint(rand, blocked);
   enemy.x = spawn.x;
   enemy.y = spawn.y;
@@ -896,6 +1283,13 @@ function startFloor(runtime, state, floor = 1) {
   const slots = Array.from({ length: stats.slotCount }, () => "");
   if (modifiers.startWithSponsorSkill) {
     slots[0] = "sponsor_blast";
+    runtime.meta = withDefaultMeta({
+      ...(runtime && runtime.meta ? runtime.meta : {}),
+      encounteredAbilityIds: [
+        ...((runtime && runtime.meta && Array.isArray(runtime.meta.encounteredAbilityIds)) ? runtime.meta.encounteredAbilityIds : []),
+        "sponsor_blast",
+      ],
+    });
   }
   const gearUse = consumePreparedEquipmentForRun(runtime && runtime.meta ? runtime.meta.preparedEquipment : null);
   if (runtime && runtime.meta) {
@@ -1027,21 +1421,96 @@ function shopValueForItem(item) {
   return 2;
 }
 
+function shopStackKey(item) {
+  if (!item || typeof item !== "object") {
+    return "misc::item";
+  }
+  return [
+    inventoryCategory(item),
+    String(item.type || ""),
+    String(item.itemId || ""),
+    String(item.label || ""),
+    String(item.abilityId || ""),
+  ].join("::");
+}
+
 function startShopEvent(run) {
   const bag = Array.isArray(run && run.bag) ? run.bag : [];
-  const sellOptions = bag.slice(0, 12).map((item, index) => {
+  const activeTab =
+    run &&
+    run.event &&
+    typeof run.event === "object" &&
+    ["all", "potions", "keys", "tomes", "misc"].includes(String(run.event.shopTab || "").toLowerCase())
+      ? String(run.event.shopTab).toLowerCase()
+      : "all";
+  const stackMap = new Map();
+  for (let index = 0; index < bag.length; index += 1) {
+    const item = bag[index];
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const key = shopStackKey(item);
+    if (!stackMap.has(key)) {
+      stackMap.set(key, {
+        item,
+        indices: [],
+      });
+    }
+    stackMap.get(key).indices.push(index);
+  }
+  const sellOptions = [];
+  for (const [key, entry] of stackMap.entries()) {
+    const item = entry.item;
+    const indices = Array.isArray(entry.indices) ? entry.indices.slice() : [];
     const value = shopValueForItem(item);
-    return {
-      id: `sell-${index}`,
+    const quantity = indices.length;
+    if (!quantity) {
+      continue;
+    }
+    sellOptions.push({
+      id: `sell-${key}-1`,
       label: `Sell ${item.label} (+${value} gold)`,
       effect: "sell",
-      itemIndex: index,
+      itemLabel: item.label,
+      itemCategory: inventoryCategory(item),
+      itemIndices: indices.slice(0, 1),
       gold: value,
-    };
-  });
+      quantity,
+      unitValue: value,
+    });
+    if (quantity > 5) {
+      sellOptions.push({
+        id: `sell-${key}-5`,
+        label: `Sell 5 ${item.label} (+${value * 5} gold)`,
+        effect: "sell",
+        itemLabel: item.label,
+        itemCategory: inventoryCategory(item),
+        itemIndices: indices.slice(0, 5),
+        gold: value * 5,
+        quantity,
+        unitValue: value,
+        bulkSize: 5,
+      });
+    }
+    if (quantity > 10) {
+      sellOptions.push({
+        id: `sell-${key}-10`,
+        label: `Sell 10 ${item.label} (+${value * 10} gold)`,
+        effect: "sell",
+        itemLabel: item.label,
+        itemCategory: inventoryCategory(item),
+        itemIndices: indices.slice(0, 10),
+        gold: value * 10,
+        quantity,
+        unitValue: value,
+        bulkSize: 10,
+      });
+    }
+  }
   run.event = {
     id: "shop",
     mode: "shop",
+    shopTab: activeTab,
     title: "Pop-Up Bazaar",
     text: "A vendor appears between floors, buying almost anything at a bad rate.",
     options: [
@@ -1053,6 +1522,21 @@ function startShopEvent(run) {
       },
     ],
   };
+}
+
+function closeEncounterModal(runtime) {
+  const run = runtime.run;
+  if (!run || !run.event) {
+    return "No active encounter.";
+  }
+  const mode = String(run.event.mode || "");
+  run.event = null;
+  if (mode === "shop") {
+    addLog(run, "You step away from the pop-up bazaar.");
+    return "Shop closed.";
+  }
+  addLog(run, "You step away from the encounter.");
+  return "Encounter closed.";
 }
 
 function enterRoom(run, roomId, entryDoorDirection = "") {
@@ -1068,10 +1552,10 @@ function enterRoom(run, roomId, entryDoorDirection = "") {
   run.roomState = buildRoomState(run, room, entryDoorDirection);
   run.nextEnemyActAt = 0;
 
-  if (room.type === "monster" || room.type === "boss") {
+  if (room.type === "monster" || room.type === "miniBoss" || room.type === "boss") {
     if (!room.cleared) {
       startCombat(run, room.type, room.x + room.y);
-      addLog(run, `Encountered ${room.type === "boss" ? "a boss" : "a monster"} in room ${room.id}.`);
+      addLog(run, `Encountered ${room.type === "boss" ? "a boss" : room.type === "miniBoss" ? "a mini-boss" : "a monster"} in room ${room.id}.`);
     }
     return;
   }
@@ -1150,20 +1634,36 @@ function resolveRoomVictory(runtime, run) {
   const goldLow = Math.max(8, Number(enemy && enemy.goldMin ? enemy.goldMin : 10));
   const goldHigh = Math.max(goldLow, Number(enemy && enemy.goldMax ? enemy.goldMax : 18));
   const floorGoldBoost = 1 + floorDepth * 0.12;
-  const bossBoost = room.type === "boss" ? 1.35 + floorDepth * 0.05 : 1 + floorDepth * 0.04;
+  const tierBoost = room.type === "boss"
+    ? 1.35 + floorDepth * 0.05
+    : room.type === "miniBoss"
+      ? 1.16 + floorDepth * 0.045
+      : 1 + floorDepth * 0.04;
   const goldGain = Math.max(
     1,
-    Math.round(randomInt(rand, goldLow, goldHigh) * bossBoost * floorGoldBoost * run.goldMultiplier),
+    Math.round(randomInt(rand, goldLow, goldHigh) * tierBoost * floorGoldBoost * run.goldMultiplier),
   );
   runtime.meta.gold += goldGain;
   addLog(run, `Victory. +${goldGain} gold.`);
 
-  const dropCount = room.type === "boss" ? 3 + Math.floor(floorDepth / 2) : 1 + (floorDepth >= 4 ? 1 : 0);
-  const bossRareBonus = room.type === "boss" ? 0.25 + floorDepth * 0.03 : floorDepth * 0.02;
-  const dropChance = room.type === "boss" ? 1 : Math.min(0.82, 0.62 + floorDepth * 0.04);
+  const dropCount = room.type === "boss"
+    ? 3 + Math.floor(floorDepth / 2)
+    : room.type === "miniBoss"
+      ? 2 + Math.floor(floorDepth / 3)
+      : 1 + (floorDepth >= 4 ? 1 : 0);
+  const tierRareBonus = room.type === "boss"
+    ? 0.25 + floorDepth * 0.03
+    : room.type === "miniBoss"
+      ? 0.12 + floorDepth * 0.025
+      : floorDepth * 0.02;
+  const dropChance = room.type === "boss"
+    ? 1
+    : room.type === "miniBoss"
+      ? Math.min(0.94, 0.78 + floorDepth * 0.03)
+      : Math.min(0.82, 0.62 + floorDepth * 0.04);
   for (let index = 0; index < dropCount; index += 1) {
     if (rand() < dropChance) {
-      const item = chooseLootDrop(rand, run.rareBonus + bossRareBonus);
+      const item = chooseLootDrop(rand, currentFloorRareBonus(run, tierRareBonus), run.floor);
       run.bag.push(item);
       addLog(run, `Loot drop: ${item.label}.`);
     }
@@ -1360,10 +1860,30 @@ function useItemInRun(run, itemIndex) {
     bag.splice(index, 1);
     return "Health restored.";
   }
+  if (item.type === "consumable" && item.itemId === "greater_health_potion") {
+    run.hp = Math.min(run.maxHp, run.hp + 55);
+    bag.splice(index, 1);
+    return "Greater health restored.";
+  }
+  if (item.type === "consumable" && item.itemId === "legend_health_potion") {
+    run.hp = Math.min(run.maxHp, run.hp + 95);
+    bag.splice(index, 1);
+    return "Legendary health restored.";
+  }
   if (item.type === "consumable" && item.itemId === "stamina_potion") {
     run.stamina = Math.min(run.maxStamina, run.stamina + 4);
     bag.splice(index, 1);
     return "Stamina restored.";
+  }
+  if (item.type === "consumable" && item.itemId === "greater_stamina_potion") {
+    run.stamina = Math.min(run.maxStamina, run.stamina + 7);
+    bag.splice(index, 1);
+    return "Greater stamina restored.";
+  }
+  if (item.type === "consumable" && item.itemId === "legend_stamina_potion") {
+    run.stamina = Math.min(run.maxStamina, run.stamina + 10);
+    bag.splice(index, 1);
+    return "Legendary stamina restored.";
   }
   if (item.type === "key") {
     return "Keys are used automatically on matching locks.";
@@ -1483,6 +2003,12 @@ function resolveCombatAction(runtime, abilityIndex) {
     if (ability.gainBlock) {
       combat.block = Math.max(0, Number(combat.block) || 0) + ability.gainBlock;
     }
+    if (ability.healSelf) {
+      run.hp = Math.min(run.maxHp, run.hp + Math.max(0, Number(ability.healSelf) || 0));
+    }
+    if (ability.restoreStamina) {
+      run.stamina = Math.min(run.maxStamina, run.stamina + Math.max(0, Number(ability.restoreStamina) || 0));
+    }
   }
 
   if (enemy.hp <= 0) {
@@ -1511,18 +2037,28 @@ function resolveEncounter(runtime, optionId) {
       return "Shop option unavailable.";
     }
     const bag = Array.isArray(run.bag) ? run.bag : [];
-    const index = Math.floor(Number(sellOption.itemIndex));
-    if (!Number.isInteger(index) || index < 0 || index >= bag.length) {
+    const itemIndices = Array.isArray(sellOption.itemIndices)
+      ? sellOption.itemIndices
+        .map((value) => Math.floor(Number(value)))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value < bag.length)
+      : [];
+    if (!itemIndices.length) {
       startShopEvent(run);
       return "That item is no longer available.";
     }
-    const item = bag[index];
-    const value = Math.max(1, Number(sellOption.gold) || shopValueForItem(item));
-    bag.splice(index, 1);
+    const item = bag[itemIndices[0]];
+    const bulkSize = Math.max(1, itemIndices.length);
+    const value = Math.max(1, Number(sellOption.gold) || (shopValueForItem(item) * bulkSize));
+    itemIndices
+      .slice()
+      .sort((a, b) => b - a)
+      .forEach((index) => {
+        bag.splice(index, 1);
+      });
     runtime.meta.gold += value;
-    addLog(run, `Sold ${item.label} for ${value} gold.`);
+    addLog(run, `Sold ${bulkSize > 1 ? `${bulkSize}x ` : ""}${item.label} for ${value} gold.`);
     startShopEvent(run);
-    return `Sold ${item.label}.`;
+    return `Sold ${bulkSize > 1 ? `${bulkSize}x ` : ""}${item.label}.`;
   }
 
   const option = (event.options || []).find((entry) => entry.id === optionId);
@@ -1533,7 +2069,7 @@ function resolveEncounter(runtime, optionId) {
   const room = currentRoom(run);
   const rand = createRng(Date.now() + run.floor * 521);
   if (option.effect === "loot") {
-    const item = chooseLootDrop(rand, run.rareBonus);
+    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor);
     run.bag.push(item);
     room.cleared = true;
     run.event = null;
@@ -1635,15 +2171,29 @@ function descendFloor(runtime, state) {
 
   const nextFloor = run.floor + 1;
   const progress = dccProgressFromState(state);
-  if (nextFloor >= 3 && !progress.floor3Unlocked) {
-    return "A sealed gate blocks descent. Seek the Floor-3 Key (rumored in Cradle).";
+  if (!isExternalFloorUnlocked(progress, nextFloor)) {
+    const artifactName = externalFloorArtifactName(nextFloor);
+    return artifactName
+      ? `A sealed gate blocks descent. Seek ${artifactName}.`
+      : "A sealed gate blocks descent.";
   }
   runtime.solved = true;
   runtime.meta.bestFloor = Math.max(runtime.meta.bestFloor, nextFloor);
-  const nextRun = startFloor(runtime, state, nextFloor);
-  // Preserve current wounds for persistence feel.
-  nextRun.hp = Math.max(1, Math.min(nextRun.maxHp, Math.round((run.hp / Math.max(1, run.maxHp)) * nextRun.maxHp)));
-  nextRun.stamina = nextRun.maxStamina;
+  const nextRun = {
+    ...run,
+    floor: nextFloor,
+    seed: Date.now() + nextFloor * 7919,
+    map: generateFloorMap(Date.now() + nextFloor * 7919, nextFloor),
+    currentRoomId: "",
+    combat: null,
+    event: null,
+    roomState: null,
+    nextEnemyActAt: 0,
+    bossDefeated: false,
+    hasFloorMap: false,
+    log: [`Floor ${nextFloor} opens. Keep moving.`],
+  };
+  nextRun.currentRoomId = nextRun.map.startRoomId;
   enterRoom(nextRun, nextRun.currentRoomId);
   runtime.run = nextRun;
   return `Descended to floor ${nextFloor}.`;
@@ -1663,7 +2213,7 @@ function resolveTileInteraction(runtime, contextState) {
 
   if (roomState.chest && player.x === roomState.chest.x && player.y === roomState.chest.y && !room.cleared) {
     const rand = createRng(Date.now() + run.floor * 977 + hashText(room.id));
-    const item = chooseLootDrop(rand, run.rareBonus);
+    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor);
     run.bag.push(item);
     room.cleared = true;
     roomState.chest = null;
@@ -1689,7 +2239,7 @@ function resolveTileInteraction(runtime, contextState) {
   if (roomState.stairs && player.x === roomState.stairs.x && player.y === roomState.stairs.y) {
     const stairMessage = descendFloor(runtime, contextState);
     if (stairMessage) {
-      addLog(run, stairMessage);
+      addLog(runtime.run || run, stairMessage);
     }
     return stairMessage;
   }
@@ -1794,7 +2344,35 @@ function reduceDccRuntime(runtime, action, context = {}) {
     return withLootEventsFromBagGrowth(current, {
       ...current,
       inventoryOpen: !current.inventoryOpen,
+      abilityTomeOpen: false,
       lastMessage: "",
+    }, action.type);
+  }
+
+  if (action.type === "dcc-open-ability-tome") {
+    return {
+      ...current,
+      abilityTomeOpen: true,
+      inventoryOpen: false,
+    };
+  }
+
+  if (action.type === "dcc-close-ability-tome") {
+    return {
+      ...current,
+      abilityTomeOpen: false,
+    };
+  }
+
+  if (action.type === "dcc-exit-encounter") {
+    const next = {
+      ...current,
+      run: current.run ? cloneRun(current.run) : null,
+    };
+    const message = closeEncounterModal(next);
+    return withLootEventsFromBagGrowth(current, {
+      ...next,
+      lastMessage: message,
     }, action.type);
   }
 
@@ -1804,6 +2382,22 @@ function reduceDccRuntime(runtime, action, context = {}) {
       ...current,
       inventoryTab: ["potions", "keys", "tomes", "misc"].includes(tab) ? tab : current.inventoryTab,
     };
+  }
+
+  if (action.type === "dcc-open-shop-tab") {
+    const tab = String(action.tab || "").trim().toLowerCase();
+    const next = {
+      ...current,
+      run: current.run ? cloneRun(current.run) : null,
+    };
+    if (!next.run || !next.run.event || next.run.event.mode !== "shop") {
+      return current;
+    }
+    next.run.event = {
+      ...next.run.event,
+      shopTab: ["all", "potions", "keys", "tomes", "misc"].includes(tab) ? tab : "all",
+    };
+    return next;
   }
 
   if (action.type === "dcc-enter-floor") {
@@ -1825,28 +2419,30 @@ function reduceDccRuntime(runtime, action, context = {}) {
         totalRuns: current.meta.totalRuns + 1,
       },
       run: nextRun,
+      abilityTomeOpen: false,
       inventoryOpen: false,
       inventoryTab: "potions",
       lastMessage: `Floor ${startAt} generated.`,
     }, action.type);
   }
 
-  if (action.type === "dcc-unlock-floor3") {
+  if (action.type === "dcc-unlock-floor-gate") {
+    const floor = Math.max(2, Math.floor(Number(action.floor) || 0));
     if (action.atGate !== true) {
       return {
         ...current,
-        lastMessage: "Reach the sealed stair gate on Floor 2 first.",
+        lastMessage: `Reach the sealed stair gate on Floor ${Math.max(1, floor - 1)} first.`,
       };
     }
     if (action.ready !== true) {
       return {
         ...current,
-        lastMessage: "You need the Floor-3 Key selected to unlock this gate.",
+        lastMessage: `You need ${externalFloorArtifactName(floor)} selected to unlock this gate.`,
       };
     }
     return {
       ...current,
-      lastMessage: "The floor-three gate unlocks with a deep mechanical shudder.",
+      lastMessage: `The floor-${floor} gate unlocks with a deep mechanical shudder.`,
     };
   }
 
@@ -1978,10 +2574,21 @@ function reduceDccRuntime(runtime, action, context = {}) {
   }
 
   if (action.type === "dcc-learn-book") {
+    const bag = next.run && Array.isArray(next.run.bag) ? next.run.bag : [];
+    const bookEntry = bag.find((entry) => entry && String(entry.id || "") === String(action.itemId || ""));
+    const learnedAbilityId = bookEntry && bookEntry.type === "book" ? safeText(bookEntry.abilityId) : "";
     const message = learnBook(next.run, action.itemId || action.itemIndex, action.slotIndex);
+    const learnedSuccessfully = /^.+ learned in slot \d+\.$/u.test(String(message || "")) && learnedAbilityId && ABILITIES[learnedAbilityId];
+    const nextMeta = learnedSuccessfully
+      ? withDefaultMeta({
+          ...next.meta,
+          encounteredAbilityIds: [...(next.meta.encounteredAbilityIds || []), learnedAbilityId],
+        })
+      : next.meta;
     addLog(next.run, message);
     return withLootEventsFromBagGrowth(current, {
       ...next,
+      meta: nextMeta,
       lastMessage: message,
     }, action.type);
   }
@@ -2024,6 +2631,9 @@ function roomSymbol(room, run) {
   if (room.type === "boss") {
     return room.cleared ? "b" : "B";
   }
+  if (room.type === "miniBoss") {
+    return room.cleared ? "m" : "V";
+  }
   if (room.type === "loot") {
     return room.cleared ? "l" : "L";
   }
@@ -2065,7 +2675,7 @@ function discoveredMapMarkup(run) {
   return `
     <section class="card dcc-floor-map">
       <h4>Floor Map</h4>
-      <section class="dcc-map-grid">${cells.join("")}</section>
+      <section class="dcc-map-grid" style="grid-template-columns: repeat(${escapeHtml(String(Math.max(1, Number(run.map.size) || BASE_MAP_SIZE)))}, minmax(0, 1fr));">${cells.join("")}</section>
     </section>
   `;
 }
@@ -2117,8 +2727,8 @@ function roomViewMarkup(run) {
         kind = "chest";
       }
       if (enemy && x === enemy.x && y === enemy.y) {
-        glyph = "M";
-        kind = "enemy";
+        glyph = room.type === "boss" ? "B" : room.type === "miniBoss" ? "V" : "M";
+        kind = room.type === "boss" ? "boss" : room.type === "miniBoss" ? "mini-boss" : "enemy";
       }
       if (x === roomState.player.x && y === roomState.player.y) {
         glyph = "@";
@@ -2131,7 +2741,7 @@ function roomViewMarkup(run) {
 
   return `
     <section class="card dcc-room">
-      <h4>Active Room ${escapeHtml(room.id)}</h4>
+      <h4>Active Room</h4>
       <div class="dcc-room-grid">${cells.join("")}</div>
     </section>
   `;
@@ -2143,7 +2753,7 @@ function combatMarkup(run) {
     {
       index: 0,
       label: `1: ${ABILITIES.basic.label}`,
-      detail: ABILITIES.basic.detail,
+      detail: dccAbilityTooltip(ABILITIES.basic, run && run.attack),
       empty: false,
       ability: ABILITIES.basic,
     },
@@ -2152,7 +2762,7 @@ function combatMarkup(run) {
       return {
         index: slotIndex + 1,
         label: `${slotIndex + 2}: ${ability ? ability.label : "Empty Slot"}`,
-        detail: ability ? ability.detail : "Learn a book to fill this slot.",
+        detail: ability ? dccAbilityTooltip(ability, run && run.attack) : "Empty slot\nLearn a book to fill this slot.",
         empty: !ability,
         ability,
       };
@@ -2162,27 +2772,22 @@ function combatMarkup(run) {
   return `
     <section class="card dcc-combat">
       <h4>Abilities</h4>
-      ${
-        enemy
-          ? `<p><strong>Enemy:</strong> ${escapeHtml(enemy.name)} (${escapeHtml(String(enemy.hp))}/${escapeHtml(String(enemy.maxHp))} HP)</p>`
-          : `<p class="muted">No active enemy in this room.</p>`
-      }
+      ${enemy ? "" : `<p class="muted">No active enemy in this room.</p>`}
       <div class="dcc-ability-grid">
         ${abilityButtons.map((entry) => `
           <button
             type="button"
+            class="dcc-ability-button"
             data-node-id="${NODE_ID}"
             data-node-action="dcc-combat-use"
             data-ability-index="${entry.index}"
             ${entry.empty || !enemy ? "disabled" : ""}
-            title="${escapeHtml(entry.detail)}"
           >
             ${escapeHtml(entry.label)}
-            ${entry.ability ? `<small>R${escapeHtml(String(entry.ability.range || 1))} | S${escapeHtml(String(entry.ability.staminaCost || 0))}</small>` : ""}
+            ${dccAbilityTooltipMarkup(entry.ability, run && run.attack)}
           </button>
         `).join("")}
       </div>
-      <p class="muted">Use number keys 1-${escapeHtml(String(abilityButtons.length))} to attack while moving.</p>
     </section>
   `;
 }
@@ -2191,23 +2796,164 @@ function encounterMarkup(run) {
   if (!run.event) {
     return "";
   }
+  if (run.event.mode === "shop") {
+    const sellOptions = (run.event.options || []).filter((option) => option && option.effect === "sell");
+    const shopTab = String(run.event.shopTab || "all");
+    const shopTabs = [
+      { id: "all", label: "All" },
+      { id: "potions", label: "Potions" },
+      { id: "keys", label: "Keys" },
+      { id: "tomes", label: "Tomes" },
+      { id: "misc", label: "Misc" },
+    ];
+    const groupedSellRows = new Map();
+    sellOptions.forEach((option) => {
+      const key = `${String(option.itemCategory || "misc")}::${String(option.itemLabel || option.label || option.id || "item")}`;
+      if (!groupedSellRows.has(key)) {
+        groupedSellRows.set(key, {
+          category: String(option.itemCategory || "misc"),
+          label: String(option.itemLabel || option.label || "Item"),
+          quantity: Math.max(1, Number(option.quantity) || 1),
+          unitValue: Math.max(1, Number(option.unitValue) || 1),
+          sell1: null,
+          sell5: null,
+          sell10: null,
+        });
+      }
+      const row = groupedSellRows.get(key);
+      const bulkSize = Math.max(1, Number(option.bulkSize) || 1);
+      if (bulkSize >= 10) {
+        row.sell10 = option;
+      } else if (bulkSize >= 5) {
+        row.sell5 = option;
+      } else {
+        row.sell1 = option;
+      }
+    });
+    const filteredSellRows = Array.from(groupedSellRows.values()).filter((row) => (
+      shopTab === "all" ? true : row.category === shopTab
+    ));
+    return `
+      <div class="dcc-modal-backdrop" role="dialog" aria-label="${escapeHtml(run.event.title)}">
+        <section class="card dcc-modal dcc-encounter-modal dcc-shop-modal">
+          <header class="dcc-modal-header">
+            <div>
+              <h3>${escapeHtml(run.event.title)}</h3>
+              <p class="muted">${escapeHtml(run.event.text)}</p>
+            </div>
+            <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-exit-encounter">Leave</button>
+          </header>
+          <div class="dcc-shop-panel">
+            <div class="dcc-shop-summary">
+              <span>Sellable Items</span>
+              <strong>${escapeHtml(String(filteredSellRows.length))}</strong>
+            </div>
+            <div class="dcc-shop-tabs" role="tablist" aria-label="Shop categories">
+              ${shopTabs.map((tab) => `
+                <button
+                  type="button"
+                  class="ghost ${shopTab === tab.id ? "is-active" : ""}"
+                  data-node-id="${NODE_ID}"
+                  data-node-action="dcc-open-shop-tab"
+                  data-tab="${escapeHtml(tab.id)}"
+                >
+                  ${escapeHtml(tab.label)}
+                </button>
+              `).join("")}
+            </div>
+            <div class="dcc-shop-list">
+              ${
+                filteredSellRows.length
+                  ? filteredSellRows.map((row) => {
+                    return `
+                      <article class="dcc-shop-row">
+                        <div class="dcc-shop-item-copy">
+                          <h4>${escapeHtml(row.label)}${row.quantity > 1 ? ` x${row.quantity}` : ""}</h4>
+                          <p>${escapeHtml(row.category)}</p>
+                        </div>
+                        <div class="dcc-shop-item-value">
+                          <span>${escapeHtml(String(Math.max(1, Number(row.unitValue) || 1)))} gold each</span>
+                          <div class="toolbar dcc-shop-actions">
+                            ${
+                              row.sell1
+                                ? `
+                                  <button
+                                    type="button"
+                                    data-node-id="${NODE_ID}"
+                                    data-node-action="dcc-encounter-option"
+                                    data-option-id="${escapeHtml(row.sell1.id)}"
+                                  >
+                                    Sell 1
+                                  </button>
+                                `
+                                : ""
+                            }
+                            ${
+                              row.sell5
+                                ? `
+                                  <button
+                                    type="button"
+                                    data-node-id="${NODE_ID}"
+                                    data-node-action="dcc-encounter-option"
+                                    data-option-id="${escapeHtml(row.sell5.id)}"
+                                  >
+                                    Sell 5
+                                  </button>
+                                `
+                                : ""
+                            }
+                            ${
+                              row.sell10
+                                ? `
+                                  <button
+                                    type="button"
+                                    data-node-id="${NODE_ID}"
+                                    data-node-action="dcc-encounter-option"
+                                    data-option-id="${escapeHtml(row.sell10.id)}"
+                                  >
+                                    Sell 10
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </div>
+                        </div>
+                      </article>
+                    `;
+                  }).join("")
+                  : `<p class="muted">Nothing in this tab is worth pawning right now.</p>`
+              }
+            </div>
+          </div>
+        </section>
+      </div>
+    `;
+  }
   return `
-    <section class="card dcc-encounter">
-      <h4>${escapeHtml(run.event.title)}</h4>
-      <p>${escapeHtml(run.event.text)}</p>
-      <div class="toolbar">
+    <div class="dcc-modal-backdrop" role="dialog" aria-label="${escapeHtml(run.event.title)}">
+      <section class="card dcc-modal dcc-encounter-modal">
+        <header class="dcc-modal-header">
+          <div>
+            <h3>${escapeHtml(run.event.title)}</h3>
+            <p class="muted">${escapeHtml(run.event.text)}</p>
+          </div>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-exit-encounter">Close</button>
+        </header>
+        <div class="dcc-encounter-options">
         ${(run.event.options || []).map((option) => `
           <button
             type="button"
+            class="dcc-encounter-option-card"
             data-node-id="${NODE_ID}"
             data-node-action="dcc-encounter-option"
             data-option-id="${escapeHtml(option.id)}"
           >
-            ${escapeHtml(option.label)}
+            <span>${escapeHtml(option.label)}</span>
           </button>
         `).join("")}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -2361,17 +3107,35 @@ function dccLootPanelMarkup(runtime, state) {
     { slot: "legs", label: "Legs" },
     { slot: "trinket", label: "Trinket" },
   ];
+  const lootState = lootInventoryFromState(state || {}, Date.now());
   const selectedLootItemId = String(runtime && runtime.selectedLootItemId ? runtime.selectedLootItemId : "");
-  const canEquip = Boolean(runtime && !runtime.run && selectedLootItemId);
+  const selectedLoot = selectedLootItemId ? lootState.items[selectedLootItemId] : null;
+  const selectedIsSocketable = Boolean(selectedLoot && isManualSocketLootItem(selectedLoot, "dcc"));
+  const canInteract = Boolean(runtime && !runtime.run);
   const ringSlots = rows.map((row) => {
     const item = equipment[row.slot];
     const lives = item ? Math.max(1, Math.floor(Number(item.remainingRunLifespan ?? item.runLifespan ?? 1) || 1)) : 0;
     const details = item
-      ? `${row.label}: ${item.label || "Armor"} (${item.rarity || "common"})${item.enchantLabel ? ` | Enchant: ${item.enchantLabel}` : ""} | ${lives} run${lives === 1 ? "" : "s"} left`
+      ? `${row.label}: ${item.label || "Armor"} (${item.rarity || "common"})${item.enchantLabel ? ` | Enchant: ${item.enchantLabel}` : ""} | ${lives} run${lives === 1 ? "" : "s"} left\n${dccEquipmentEffectSummary(item)}`
       : `${row.label}: empty`;
+    const attrs = {};
+    let clickable = false;
+    if (canInteract && selectedIsSocketable) {
+      clickable = true;
+      attrs["data-action"] = "loot-equip-target";
+      attrs["data-region"] = "dcc";
+      attrs["data-slot-id"] = row.slot;
+      attrs["data-target-id"] = row.slot;
+    } else if (canInteract && item) {
+      clickable = true;
+      attrs["data-action"] = "loot-unequip-target";
+      attrs["data-region"] = "dcc";
+      attrs["data-slot-id"] = row.slot;
+      attrs["data-target-id"] = row.slot;
+    }
     return {
       filled: Boolean(item),
-      clickable: canEquip,
+      clickable,
       title: details,
       ariaLabel: `${row.label} gear slot`,
       symbolHtml: item
@@ -2383,14 +3147,7 @@ function dccLootPanelMarkup(runtime, state) {
             artifactName: `${row.label} Slot`,
             className: "slot-ring-symbol artifact-symbol is-slot-ghost",
           }),
-      attrs: canEquip
-        ? {
-            "data-action": "loot-equip-target",
-            "data-region": "dcc",
-            "data-slot-id": row.slot,
-            "data-target-id": row.slot,
-          }
-        : {},
+      attrs,
     };
   });
 
@@ -2407,9 +3164,124 @@ function dccLootPanelMarkup(runtime, state) {
         }),
         ariaLabel: "Dungeon Crawler Carl gear slots",
       })}
-      <p class="muted">${canEquip ? "Click a slot to set run gear." : "Select Dungeon Crawler Carl loot, then click a gear slot before entering a run."}</p>
+      ${selectedIsSocketable && canInteract ? `<p class="muted">Click a slot to set run gear.</p>` : ""}
       <div class="toolbar">
         <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>
+      </div>
+    </section>
+  `;
+}
+
+function abilityTomeButtonMarkup() {
+  return `
+    <button
+      type="button"
+      class="dcc-tome-button"
+      data-node-id="${NODE_ID}"
+      data-node-action="dcc-open-ability-tome"
+      aria-label="Open Tome of Abilities"
+      title="Tome of Abilities"
+    >
+      <span class="dcc-book-icon" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
+function abilityTomeModalMarkup(runtime, attackValue = 0) {
+  if (!runtime.abilityTomeOpen) {
+    return "";
+  }
+  const entries = abilityTomeEntries(runtime.meta);
+  return `
+    <div class="dcc-modal-backdrop" role="dialog" aria-label="Tome of Abilities">
+      <section class="card dcc-modal dcc-tome-modal">
+        <header class="dcc-modal-header">
+          <h3>Tome of Abilities</h3>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-close-ability-tome">Close</button>
+        </header>
+        ${
+          entries.length
+            ? `
+              <div class="dcc-tome-list">
+                ${entries.map((ability) => `
+                  <article class="dcc-tome-entry">
+                    <div class="dcc-tome-entry-head">
+                      <h4>${escapeHtml(ability.label)}</h4>
+                    </div>
+                    <div class="dcc-tome-entry-body">
+                      <div class="dcc-tome-entry-stats">
+                        <p class="dcc-tome-stat">${escapeHtml(dccAbilityDamageLabel(ability, attackValue))}</p>
+                        <p class="dcc-tome-stat">Range: ${escapeHtml(String(Math.max(1, Number(ability.range) || 1)))}</p>
+                        <p class="dcc-tome-stat">Stamina: ${escapeHtml(String(Math.max(0, Number(ability.staminaCost) || 0)))}</p>
+                      </div>
+                      <div class="dcc-tome-entry-detail">
+                        <p class="dcc-tome-detail">${escapeHtml(safeText(ability.detail))}</p>
+                      </div>
+                    </div>
+                  </article>
+                `).join("")}
+              </div>
+            `
+            : `<p class="muted">No learned techniques have been recorded yet.</p>`
+        }
+      </section>
+    </div>
+  `;
+}
+
+function dccCharacterSheetMarkup(stats, meta, runtime, state) {
+  const progress = dccProgressFromState(state);
+  const bestFloor = Math.max(progress.checkpointFloor, meta.bestFloor || 1);
+  const preparedBonuses = equippedBonuses({ equipment: meta.preparedEquipment });
+  const upgradeRows = [
+    { id: "hp", label: "Max HP", value: stats.maxHp, level: meta.upgrades.hp, gearBonus: preparedBonuses.hp },
+    { id: "attack", label: "Attack", value: stats.attack, level: meta.upgrades.attack, gearBonus: preparedBonuses.attack },
+    { id: "stamina", label: "Max Stamina", value: stats.maxStamina, level: meta.upgrades.stamina, gearBonus: preparedBonuses.stamina },
+    { id: "slots", label: "Ability Slots", value: stats.slotCount, level: meta.upgrades.slots, gearBonus: preparedBonuses.abilitySlots },
+    { id: "rare", label: "Loot Rarity", value: `${Math.round((stats.rareBonus || 0) * 100)}%`, level: meta.upgrades.rare },
+  ];
+  return `
+    <section class="card dcc-sheet dcc-hero-sheet">
+      <div class="dcc-hero-sheet-head">
+        <h4>Character Sheet</h4>
+        <div class="dcc-meta-row">
+          <article class="dcc-meta-chip"><span>Runs</span><strong>${escapeHtml(String(meta.totalRuns))}</strong></article>
+          <article class="dcc-meta-chip"><span>Deepest Floor</span><strong>${escapeHtml(String(bestFloor))}</strong></article>
+        </div>
+      </div>
+      <div class="dcc-hero-sheet-body">
+        <section class="dcc-stat-column">
+          ${upgradeRows.map((row) => {
+            const cost = upgradeCost(meta, row.id);
+            return `
+            <article class="dcc-stat-chip">
+              <div class="dcc-stat-chip-copy">
+                <span>${escapeHtml(row.label)}</span>
+                <div class="dcc-stat-chip-mainline">
+                  <strong>${escapeHtml(String(row.value))}</strong>
+                  ${row.gearBonus ? `<span class="dcc-gear-bonus">+ Gear ${escapeHtml(String(row.gearBonus))}</span>` : ""}
+                </div>
+              </div>
+              <div class="dcc-upgrade-stack">
+                <small>Lv ${escapeHtml(String(row.level))}</small>
+                <button
+                  type="button"
+                  class="dcc-upgrade-button"
+                  data-node-id="${NODE_ID}"
+                  data-node-action="dcc-buy-upgrade"
+                  data-upgrade-id="${escapeHtml(row.id)}"
+                  ${meta.gold >= cost ? "" : "disabled"}
+                >
+                  Upgrade ${escapeHtml(String(cost))}g
+                </button>
+              </div>
+            </article>
+          `;
+          }).join("")}
+        </section>
+        <section class="dcc-gear-artboard">
+          ${dccLootPanelMarkup(runtime, state)}
+        </section>
       </div>
     </section>
   `;
@@ -2427,7 +3299,7 @@ function compactGearSummaryMarkup(run) {
     const item = equipment[entry.slot];
     const lives = item ? Math.max(1, Math.floor(Number(item.remainingRunLifespan ?? item.runLifespan ?? 1) || 1)) : 0;
     const title = item
-      ? `${entry.label}: ${item.label || "Armor"} (${item.rarity || "common"})${item.enchantLabel ? ` | Enchant: ${item.enchantLabel}` : ""} | ${lives} run${lives === 1 ? "" : "s"} left`
+      ? `${entry.label}: ${item.label || "Armor"} (${item.rarity || "common"})${item.enchantLabel ? ` | Enchant: ${item.enchantLabel}` : ""} | ${lives} run${lives === 1 ? "" : "s"} left\n${dccEquipmentEffectSummary(item)}`
       : `${entry.label}: empty`;
     return {
       filled: Boolean(item),
@@ -2473,21 +3345,18 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
   const pyramidSelected = artifact === "Checkpoint Pyramid";
   const canSetCheckpoint = pyramidSelected && progress.floor3Unlocked;
   const showCheckpointButton = hasCheckpointPyramid && progress.floor3Unlocked;
-
-  const upgradeRows = [
-    { id: "hp", label: "Max Health", value: meta.upgrades.hp },
-    { id: "attack", label: "Attack", value: meta.upgrades.attack },
-    { id: "stamina", label: "Max Stamina", value: meta.upgrades.stamina },
-    { id: "slots", label: "Ability Slots", value: meta.upgrades.slots },
-    { id: "rare", label: "Loot Rarity", value: meta.upgrades.rare },
-  ];
-
   return `
     <section class="card dcc-outside">
-      <h3>Outside The Dungeon</h3>
-      <p>Gold: <strong>${escapeHtml(String(meta.gold))}</strong> | Runs: ${escapeHtml(String(meta.totalRuns))} | Deaths: ${escapeHtml(String(meta.totalDeaths))} | Best Floor: ${escapeHtml(String(meta.bestFloor))}</p>
+      <div class="dcc-outside-head">
+        <div>
+          <div class="dcc-title-row">
+            <h3>Outside The Dungeon</h3>
+            <div class="dcc-gold-chip"><span>Gold</span><strong>${escapeHtml(String(meta.gold))}</strong></div>
+          </div>
+        </div>
+      </div>
       <div class="toolbar">
-        <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-enter-floor">Enter Floor ${escapeHtml(String(progress.checkpointFloor))}</button>
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-enter-floor">Enter Floor ${escapeHtml(String(dccProgressFromState(state).checkpointFloor))}</button>
         ${
           showCheckpointButton
             ? `
@@ -2506,42 +3375,7 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
         }
       </div>
     </section>
-
-    <section class="card dcc-sheet dcc-sheet-summary">
-      <h4>Character Sheet</h4>
-      <p><strong>Max HP:</strong> ${escapeHtml(String(stats.maxHp))} | <strong>Attack:</strong> ${escapeHtml(String(stats.attack))} | <strong>Max Stamina:</strong> ${escapeHtml(String(stats.maxStamina))} | <strong>Ability Slots:</strong> ${escapeHtml(String(stats.slotCount))}</p>
-      <p><strong>Base Abilities:</strong> Basic Attack</p>
-    </section>
-
-    <section class="dcc-sheet-grid">
-      <section class="card dcc-upgrades">
-        <h4>Gold Upgrades</h4>
-        <div class="dcc-upgrade-grid">
-          ${upgradeRows.map((row) => {
-            const cost = upgradeCost(meta, row.id);
-            return `
-              <article class="dcc-upgrade-card">
-                <h5>${escapeHtml(row.label)}</h5>
-                <p>Level: ${escapeHtml(String(row.value))}</p>
-                <p>Cost: ${escapeHtml(String(cost))} gold</p>
-                <button
-                  type="button"
-                  data-node-id="${NODE_ID}"
-                  data-node-action="dcc-buy-upgrade"
-                  data-upgrade-id="${escapeHtml(row.id)}"
-                  ${meta.gold >= cost ? "" : "disabled"}
-                >
-                  Upgrade
-                </button>
-              </article>
-            `;
-          }).join("")}
-        </div>
-      </section>
-      <div class="dcc-gear-column">
-        ${dccLootPanelMarkup(runtime, state)}
-      </div>
-    </section>
+    ${dccCharacterSheetMarkup(stats, meta, runtime, state)}
   `;
 }
 
@@ -2552,53 +3386,77 @@ function runMarkup(runtime, state, selectedArtifact = "") {
   }
   const progress = dccProgressFromState(state);
   const artifact = safeText(selectedArtifact);
-  const keySelected = artifact === "DCC Floor-3 Key";
-  const atFloorGate = run.floor === 2 && run.bossDefeated;
   const room = currentRoom(run);
   const roomState = roomStateFromRun(run);
+  const onStairs = Boolean(
+    roomState &&
+    roomState.stairs &&
+    roomState.player &&
+    roomState.player.x === roomState.stairs.x &&
+    roomState.player.y === roomState.stairs.y,
+  );
+  const nextFloor = run.floor + 1;
+  const lockedNextFloor = onStairs && !isExternalFloorUnlocked(progress, nextFloor) ? nextFloor : 0;
+  const nextFloorArtifact = lockedNextFloor ? externalFloorArtifactName(lockedNextFloor) : "";
+  const keySelected = nextFloorArtifact ? artifact === nextFloorArtifact : false;
   const enemy = run.combat && run.combat.enemy ? run.combat.enemy : null;
   const distance = enemy && roomState
     ? manhattanDistance(roomState.player.x, roomState.player.y, enemy.x, enemy.y)
     : 0;
   const feedEntries = visibleNotifications(run.log || []);
+  const controlButtons = `
+    <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-rest" ${run.combat || run.event ? "disabled" : ""}>Rest (R)</button>
+    <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-toggle-inventory">Inventory (I)</button>
+    ${
+      lockedNextFloor
+        ? `
+          <button
+            type="button"
+            class="dcc-gate-button"
+            data-node-id="${NODE_ID}"
+            data-node-action="dcc-unlock-floor-gate"
+            data-artifact="${escapeHtml(artifact)}"
+            data-ready="${keySelected ? "true" : "false"}"
+            data-at-gate="${onStairs ? "true" : "false"}"
+            data-floor="${escapeHtml(String(lockedNextFloor))}"
+            ${keySelected ? "" : "disabled"}
+          >
+            ${nextFloorArtifact ? renderArtifactSymbol({
+              artifactName: nextFloorArtifact,
+              className: "dcc-gate-symbol artifact-symbol",
+            }) : ""}
+            Unlock Floor ${escapeHtml(String(lockedNextFloor))}
+          </button>
+        `
+        : ""
+    }
+    <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-reset-run">Abandon Run</button>
+  `;
 
   return `
     <section class="dcc-run-layout">
       <div class="dcc-run-main">
-        <section class="card dcc-status">
-          <h3>Floor ${escapeHtml(String(run.floor))}</h3>
-          <div class="dcc-status-grid">
-            <div class="dcc-status-left">
-              <p><strong>HP:</strong> ${escapeHtml(String(run.hp))}/${escapeHtml(String(run.maxHp))} | <strong>Stamina:</strong> ${escapeHtml(String(run.stamina))}/${escapeHtml(String(run.maxStamina))}</p>
-              <p><strong>Gold:</strong> ${escapeHtml(String(runtime.meta.gold))} | <strong>Current Room:</strong> ${escapeHtml(room ? room.id : "Unknown")}</p>
-              ${
-                enemy
-                  ? `<p><strong>Enemy Range:</strong> ${escapeHtml(String(distance))} tiles | <strong>Block:</strong> ${escapeHtml(String(Math.max(0, Number(run.combat.block) || 0)))}</p>`
-                  : ""
-              }
+        <section class="card dcc-status dcc-run-status-card">
+          <div class="dcc-run-status-head">
+            <div class="dcc-run-status-copy">
+              <div class="dcc-title-row">
+                <h3>Floor ${escapeHtml(String(run.floor))}</h3>
+              </div>
+              <p>Current Room: ${escapeHtml(room ? room.id : "Unknown")}</p>
+              <div class="dcc-run-stat-row">
+                <article class="dcc-stat-chip"><span>HP</span><strong>${escapeHtml(String(run.hp))}/${escapeHtml(String(run.maxHp))}</strong></article>
+                <article class="dcc-stat-chip"><span>Stamina</span><strong>${escapeHtml(String(run.stamina))}/${escapeHtml(String(run.maxStamina))}</strong></article>
+                <article class="dcc-stat-chip"><span>Gold</span><strong>${escapeHtml(String(runtime.meta.gold))}</strong></article>
+                <article class="dcc-stat-chip"><span>Block</span><strong>${escapeHtml(String(Math.max(0, Number((run.combat && run.combat.block) || 0) || 0)))}</strong></article>
+              </div>
             </div>
-            ${compactGearSummaryMarkup(run)}
+            <div class="dcc-status-right">
+              ${compactGearSummaryMarkup(run)}
+              ${abilityTomeButtonMarkup()}
+            </div>
           </div>
-          <div class="toolbar">
-            <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-rest" ${run.combat || run.event ? "disabled" : ""}>Rest (R)</button>
-            <button type="button" data-node-id="${NODE_ID}" data-node-action="dcc-toggle-inventory">Toggle Inventory (I)</button>
-            ${
-              !progress.floor3Unlocked && atFloorGate
-                ? `
-                  <button
-                    type="button"
-                    data-node-id="${NODE_ID}"
-                    data-node-action="dcc-unlock-floor3"
-                    data-artifact="${escapeHtml(artifact)}"
-                    data-ready="${keySelected ? "true" : "false"}"
-                    data-at-gate="true"
-                  >
-                    Unlock Floor 3 Gate
-                  </button>
-                `
-                : ""
-            }
-            <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-reset-run">Abandon Run</button>
+          <div class="toolbar dcc-run-controls">
+            ${controlButtons}
           </div>
         </section>
 
@@ -2606,15 +3464,10 @@ function runMarkup(runtime, state, selectedArtifact = "") {
         ${roomViewMarkup(run)}
         ${combatMarkup(run)}
         ${discoveredMapMarkup(run)}
-
-        <section class="card dcc-sheet">
-          <h4>Combat Loadout</h4>
-          <p><strong>Attack:</strong> ${escapeHtml(String(run.attack))} | <strong>Rare Drop Bias:</strong> ${escapeHtml((run.rareBonus * 100).toFixed(0))}%</p>
-          ${abilitySlotMarkup(run)}
-        </section>
       </div>
 
       <aside class="card dcc-feed">
+        ${enemySheetMarkup(run)}
         <h4>Notifications</h4>
         <div class="dcc-feed-scroll">
           <ul>
@@ -2637,6 +3490,7 @@ function renderDcc01(context) {
         <h3>The Crawl</h3>
       </section>
       ${runtime.run ? runMarkup(runtime, context.state, selectedArtifact) : outsideMarkup(runtime, context.state, selectedArtifact)}
+      ${abilityTomeModalMarkup(runtime, runtime.run ? runtime.run.attack : deriveBaseStats(runtime.meta, dccModifiers(context.state)).attack)}
     </article>
   `;
 }
@@ -2663,6 +3517,12 @@ function actionFromElement(element) {
   if (actionName === "dcc-toggle-inventory") {
     return { type: "dcc-toggle-inventory", ...common };
   }
+  if (actionName === "dcc-open-ability-tome") {
+    return { type: "dcc-open-ability-tome", ...common };
+  }
+  if (actionName === "dcc-close-ability-tome") {
+    return { type: "dcc-close-ability-tome", ...common };
+  }
   if (actionName === "dcc-move") {
     return {
       type: "dcc-move",
@@ -2676,12 +3536,13 @@ function actionFromElement(element) {
   if (actionName === "dcc-descend") {
     return { type: "dcc-descend", ...common };
   }
-  if (actionName === "dcc-unlock-floor3") {
+  if (actionName === "dcc-unlock-floor-gate") {
     return {
-      type: "dcc-unlock-floor3",
+      type: "dcc-unlock-floor-gate",
       artifact: element.getAttribute("data-artifact") || "",
       ready: element.getAttribute("data-ready") === "true",
       atGate: element.getAttribute("data-at-gate") === "true",
+      floor: Number(element.getAttribute("data-floor") || 0),
       ...common,
     };
   }
@@ -2716,6 +3577,13 @@ function actionFromElement(element) {
       ...common,
     };
   }
+  if (actionName === "dcc-open-shop-tab") {
+    return {
+      type: "dcc-open-shop-tab",
+      tab: element.getAttribute("data-tab") || "",
+      ...common,
+    };
+  }
   if (actionName === "dcc-combat-use") {
     return {
       type: "dcc-combat-use",
@@ -2729,6 +3597,9 @@ function actionFromElement(element) {
       optionId: element.getAttribute("data-option-id") || "",
       ...common,
     };
+  }
+  if (actionName === "dcc-exit-encounter") {
+    return { type: "dcc-exit-encounter", ...common };
   }
   return null;
 }
@@ -2756,6 +3627,9 @@ function keyAction(event, runtime) {
   }
   if (lowerKey === "e") {
     return { type: "dcc-descend", ...common };
+  }
+  if (event.key === "Escape" && current.run.event) {
+    return { type: "dcc-exit-encounter", ...common };
   }
   if (Object.prototype.hasOwnProperty.call(DIRECTION_BY_KEY, lowerKey)) {
     return {
@@ -2797,6 +3671,13 @@ function synchronizeDccRuntime(runtime, context = {}) {
   }
 
   const now = Number(context.now) || Date.now();
+  if (next.inventoryOpen || next.abilityTomeOpen || next.run.event) {
+    if (next.run.combat) {
+      next.run.nextEnemyActAt = now + ENEMY_ACTION_INTERVAL_MS;
+    }
+    return next;
+  }
+
   const pressureMessage = runEnemyTimeline(next, now, false);
   if (pressureMessage) {
     next.lastMessage = pressureMessage;

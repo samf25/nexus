@@ -1,16 +1,33 @@
 import { escapeHtml } from "../templates/shared.js";
 import { renderRegionSymbol } from "../core/symbology.js";
 import { renderArtifactSymbol } from "../core/artifacts.js";
-import { formatLootItemEffectSummary, isDirectUseLootItem, isLootItemEquipped, lootItemsByRegion } from "../systems/loot.js";
+import { formatDurationRemaining, formatLootItemEffectSummary, isDirectUseLootItem, isLootItemEquipped, isManualSocketLootItem, lootItemsByRegion } from "../systems/loot.js";
 
 const ARTIFACT_SOURCE_LABEL_MAP = Object.freeze({
-  "The Wandering Inn": "Wandering Inn",
-  "A Practical Guide to Evil": "Practical Guide",
+  "The Wandering Inn": "Inn",
+  "Wandering Inn": "Inn",
+  "Mother of Learning": "MoL",
+  "A Practical Guide to Evil": "Guide",
+  "Practical Guide": "Guide",
+  "Arcane Ascension": "Arcane",
+  "Dungeon Crawler Carl": "Dungeon",
+  "Hall of Proofs": "Math",
+  "Prime Vault": "Math",
+  "Symmetry Forge": "Math",
+  "Curved Atlas": "Math",
 });
 
 function compactArtifactSourceLabel(source) {
   const text = String(source || "").trim();
   return ARTIFACT_SOURCE_LABEL_MAP[text] || text || "Unknown source";
+}
+
+function artifactSourceGroup(source) {
+  const text = String(source || "").trim();
+  if (["Hall of Proofs", "Prime Vault", "Symmetry Forge", "Curved Atlas"].includes(text)) {
+    return "Math";
+  }
+  return text;
 }
 
 function renderInventory(state, selectedArtifactReward, selectedArtifactSource = "all") {
@@ -25,7 +42,7 @@ function renderInventory(state, selectedArtifactReward, selectedArtifactSource =
   const sources = Array.from(
     new Set(
       rewardEntries
-        .map((entry) => String(entry.meta.section || "").trim())
+        .map((entry) => artifactSourceGroup(entry.meta.section || ""))
         .filter(Boolean),
     ),
   ).sort((left, right) => left.localeCompare(right));
@@ -34,7 +51,7 @@ function renderInventory(state, selectedArtifactReward, selectedArtifactSource =
     : "all";
   const filtered = selectedSource === "all"
     ? rewardEntries.slice()
-    : rewardEntries.filter((entry) => String(entry.meta.section || "").trim() === selectedSource);
+    : rewardEntries.filter((entry) => artifactSourceGroup(entry.meta.section || "") === selectedSource);
 
   const tabs = `
     <div class="toolbar widget-artifact-tabs">
@@ -84,7 +101,7 @@ function renderInventory(state, selectedArtifactReward, selectedArtifactSource =
                 })}
                 <span class="widget-artifact-labels">
                   <strong>${escapeHtml(reward)}</strong>
-                  <small>${escapeHtml(compactArtifactSourceLabel(meta.section || "Unknown source"))}</small>
+                  <small>${escapeHtml(compactArtifactSourceLabel(artifactSourceGroup(meta.section || "Unknown source")))}</small>
                 </span>
               </button>
             </li>
@@ -96,7 +113,87 @@ function renderInventory(state, selectedArtifactReward, selectedArtifactSource =
 }
 
 function effectSummary(item) {
-  return formatLootItemEffectSummary(item, { maxEffects: 3 });
+  const summary = formatLootItemEffectSummary(item, { maxEffects: 3 });
+  if (String(item && item.kind ? item.kind : "").toLowerCase() === "consumable_boost" && Number(item && item.durationMs ? item.durationMs : 0) > 0) {
+    return `${summary} | Duration: ${formatDurationRemaining(Number(item.durationMs || 0))}`;
+  }
+  return summary;
+}
+
+function effectSummaryLines(item) {
+  return effectSummary(item)
+    .split("|")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+}
+
+function normalizeLootEffectSignature(effects) {
+  const list = Array.isArray(effects) ? effects : [];
+  return list
+    .map((effect) => ({
+      key: String(effect && effect.key ? effect.key : ""),
+      type: String(effect && effect.type ? effect.type : ""),
+      value: Number(effect && effect.value ? effect.value : 0),
+    }))
+    .sort((left, right) => `${left.key}:${left.type}:${left.value}`.localeCompare(`${right.key}:${right.type}:${right.value}`));
+}
+
+function normalizeLootEnchantSignature(enchantments) {
+  const list = Array.isArray(enchantments) ? enchantments : [];
+  return list
+    .map((entry) => ({
+      id: String(entry && entry.id ? entry.id : ""),
+      label: String(entry && entry.label ? entry.label : ""),
+      abilityId: String(entry && entry.abilityId ? entry.abilityId : ""),
+      effects: normalizeLootEffectSignature(entry && entry.effects),
+    }))
+    .sort((left, right) => `${left.id}:${left.label}:${left.abilityId}`.localeCompare(`${right.id}:${right.label}:${right.abilityId}`));
+}
+
+function displayStackSignature(item) {
+  if (!item || String(item.kind || "").toLowerCase() !== "dcc_armor") {
+    return String(item && item.id ? item.id : "");
+  }
+  return JSON.stringify({
+    region: item.region || "",
+    kind: item.kind || "",
+    rarity: item.rarity || "",
+    label: displayItemLabel(item),
+    runLifespan: Number(item.runLifespan || 0),
+    effects: normalizeLootEffectSignature(item.effects),
+    enchantments: normalizeLootEnchantSignature(item.enchantments),
+  });
+}
+
+function groupLootDisplayItems(items) {
+  const list = Array.isArray(items) ? items : [];
+  const groups = [];
+  const bySignature = new Map();
+  for (const item of list) {
+    const signature = displayStackSignature(item);
+    if (!signature || String(item.kind || "").toLowerCase() !== "dcc_armor") {
+      groups.push({
+        representative: item,
+        quantity: Math.max(1, Number(item && item.quantity ? item.quantity : 1) || 1),
+        memberIds: [String(item && item.id ? item.id : "")].filter(Boolean),
+      });
+      continue;
+    }
+    const existing = bySignature.get(signature);
+    if (existing) {
+      existing.quantity += Math.max(1, Number(item && item.quantity ? item.quantity : 1) || 1);
+      existing.memberIds.push(String(item && item.id ? item.id : ""));
+      continue;
+    }
+    const group = {
+      representative: item,
+      quantity: Math.max(1, Number(item && item.quantity ? item.quantity : 1) || 1),
+      memberIds: [String(item && item.id ? item.id : "")].filter(Boolean),
+    };
+    bySignature.set(signature, group);
+    groups.push(group);
+  }
+  return groups;
 }
 
 function displayItemLabel(item) {
@@ -123,7 +220,10 @@ function placementHintForItem(item, activeNodeId) {
     return "Cradle gear selected. Open Madra Well soul/combat slots to place it.";
   }
   if (kind === "aa_focus") {
-    return "Workshop focus selected. Open The Workshop slots and click a socket.";
+    return "Workshop loot selected. Open The Workshop slots and click a socket.";
+  }
+  if (kind === "aa_upgrade" || kind === "slot_expansion") {
+    return "This loot is a permanent upgrade. Use it instead of slotting it.";
   }
   if (kind === "dcc_armor") {
     return "Dungeon Crawler Carl armor selected. Place it from The Crawl slot controls before entering a run.";
@@ -152,6 +252,7 @@ function renderLootInventory(state, selectedLootItemId, selectedLootRegion, acti
     ? String(selectedLootRegion || "").toLowerCase()
     : "crd";
   const list = (groups[region] || []).filter((item) => !isLootItemEquipped(state, item.id));
+  const displayGroups = groupLootDisplayItems(list);
 
   const regionTabs = `
     <div class="toolbar">
@@ -162,20 +263,24 @@ function renderLootInventory(state, selectedLootItemId, selectedLootRegion, acti
     </div>
   `;
 
-  if (!list.length) {
+  if (!displayGroups.length) {
     return `${regionTabs}<div class="widget-empty">No loot in this region tab.</div>`;
   }
 
   return `
     ${regionTabs}
-    <ul class="widget-list widget-artifact-list">
-      ${list.map((item) => `
+    <ul class="widget-list widget-artifact-list widget-scroll-list">
+      ${displayGroups.map((entry) => {
+        const item = entry.representative;
+        const itemId = String(item && item.id ? item.id : "");
+        const isSelected = entry.memberIds.includes(String(selectedLootItemId || ""));
+        return `
         <li class="widget-item">
           <button
             type="button"
-              class="widget-artifact-chip ${selectedLootItemId === item.id ? "is-selected" : ""}"
+              class="widget-artifact-chip ${isSelected ? "is-selected" : ""}"
               data-action="loot-select-item"
-              data-item-id="${escapeHtml(item.id)}"
+              data-item-id="${escapeHtml(itemId)}"
             >
             ${renderRegionSymbol({
               section:
@@ -190,16 +295,23 @@ function renderLootInventory(state, selectedLootItemId, selectedLootRegion, acti
             })}
             <span class="widget-artifact-labels">
               <strong>${escapeHtml(displayItemLabel(item))}</strong>
-              <small>${escapeHtml(String(item.quantity || 1))}x | ${escapeHtml(String(item.rarity || "common"))}</small>
+              <small>${escapeHtml(String(item.rarity || "common"))}</small>
+            </span>
+            <span class="widget-loot-meta">
+              <span class="widget-loot-chip">x${escapeHtml(String(entry.quantity || 1))}</span>
+              <span class="widget-loot-chip">${escapeHtml(String(item.rarity || "common"))}</span>
             </span>
           </button>
-          <p class="muted" style="padding:0 10px; margin:4px 0;">${effectSummary(item)}</p>
+          <div class="widget-loot-detail-list">
+            ${effectSummaryLines(item).map((line) => `<span class="widget-loot-detail-line">${escapeHtml(line)}</span>`).join("")}
+          </div>
           ${isDirectUseLootItem(item)
-            ? `<div class="toolbar" style="margin-top:6px;"><button type="button" class="ghost" data-action="loot-use-item" data-item-id="${escapeHtml(item.id)}">Use</button></div>`
+            ? `<div class="toolbar" style="margin-top:6px;"><button type="button" class="ghost" data-action="loot-use-item" data-item-id="${escapeHtml(itemId)}">Use</button></div>`
             : ""}
-          ${selectedLootItemId === item.id ? renderUniversalTargetActions(state, item, activeNodeId) : ""}
+          ${isSelected && !isDirectUseLootItem(item) && isManualSocketLootItem(item, item.region) ? renderUniversalTargetActions(state, item, activeNodeId) : ""}
         </li>
-      `).join("")}
+      `;
+      }).join("")}
     </ul>
   `;
 }

@@ -11,7 +11,7 @@ import {
   pulsePhaseDelaySeconds,
 } from "./rhythmCore.js";
 import { prestigeModifiersFromState } from "../../systems/prestige.js";
-import { getCradleLootModifiers, lootInventoryFromState } from "../../systems/loot.js";
+import { formatDurationRemaining, getCradleActiveBoosts, getCradleLootModifiers, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "CRD02";
@@ -1698,7 +1698,7 @@ function soulCircuitMarkup({
     const equippedId = soulSlotIds[index];
     const equippedItem = equippedId ? lootState.items[equippedId] : null;
     const selectedLoot = selectedLootItemId ? lootState.items[selectedLootItemId] : null;
-    const clickToEquip = Boolean(selectedLoot);
+    const clickToEquip = Boolean(selectedLoot && isManualSocketLootItem(selectedLoot, "crd") && selectedLoot.kind === "soul_crystal");
     const clickToUnequip = Boolean(equippedItem) && !clickToEquip;
 
     return {
@@ -1754,7 +1754,7 @@ function soulCircuitMarkup({
 function combatLoadoutMarkup({ lootState, selectedLootItemId, equippedCombatId, combatRelics }) {
   const selectedLoot = selectedLootItemId ? lootState.items[selectedLootItemId] : null;
   const equippedItem = equippedCombatId ? lootState.items[equippedCombatId] : null;
-  const clickToEquip = Boolean(selectedLoot);
+  const clickToEquip = Boolean(selectedLoot && isManualSocketLootItem(selectedLoot, "crd") && selectedLoot.kind === "combat_item");
   const clickToUnequip = Boolean(equippedItem) && !clickToEquip;
   const slots = [
     {
@@ -1776,8 +1776,9 @@ function combatLoadoutMarkup({ lootState, selectedLootItemId, equippedCombatId, 
           }
         : clickToUnequip
           ? {
-              "data-node-id": NODE_ID,
-              "data-node-action": "crd02-unequip-combat-item",
+              "data-action": "loot-unequip-target",
+              "data-region": "crd",
+              "data-target-id": "combat",
             }
           : {},
     },
@@ -1809,6 +1810,7 @@ export function renderCrd02Experience(context) {
   const crd06Solved = solvedIds.has("CRD06");
   const mps = passiveMadraPerSecond(runtime);
   const canSeeMenus = runtime.manualCompletions > 0;
+  const activeCradleBoosts = getCradleActiveBoosts(context.state || {}, nowMs());
 
   if (!runtime.wellUnlocked) {
     if (runtime.introPhase !== "rejected") {
@@ -1928,6 +1930,24 @@ export function renderCrd02Experience(context) {
     ? `
       <section class="crd02-panel">
         <h4>Cycling Techniques</h4>
+        ${
+          activeCradleBoosts.length
+            ? `
+              <section class="crd02-boost-strip">
+                <h5>Active Drafts</h5>
+                <div class="crd02-boost-list">
+                  ${activeCradleBoosts.map((boost) => `
+                    <article class="crd02-boost-chip">
+                      <strong>${escapeHtml(boost.label)}</strong>
+                      <span>${escapeHtml(boost.summary || "Temporary cradle boost")}</span>
+                      <small>${escapeHtml(formatDurationRemaining(boost.remainingMs))} remaining</small>
+                    </article>
+                  `).join("")}
+                </div>
+              </section>
+            `
+            : ""
+        }
         <div class="crd02-tech-row">
           <div>
             <p><strong>The Heart of Twin Stars</strong></p>
@@ -2036,6 +2056,18 @@ export function renderCrd02Experience(context) {
           <p><strong>Madra</strong></p>
           <p class="crd02-counter-value">${escapeHtml(runtime.madra.toFixed(2))}</p>
           <p class="muted">${escapeHtml(mps.toFixed(3))}/sec passive</p>
+          ${
+            activeCradleBoosts.length
+              ? `
+                <p class="muted">
+                  Active boost:
+                  ${escapeHtml(activeCradleBoosts[0].label)}
+                  ${activeCradleBoosts[0].summary ? ` | ${escapeHtml(activeCradleBoosts[0].summary)}` : ""}
+                  (${escapeHtml(formatDurationRemaining(activeCradleBoosts[0].remainingMs))})
+                </p>
+              `
+              : ""
+          }
         </div>
       </section>
 

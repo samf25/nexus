@@ -8,10 +8,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -460,7 +462,9 @@ function combatProfileFromContext(state) {
 export function renderCrd05Experience(context) {
   const runtime = normalizeRuntime(context.runtime);
   const profile = combatProfileFromContext(context.state);
-  const logLines = runtime.log.length ? runtime.log : ["The school gates await your challenge."];
+  const logLines = runtime.log.length
+    ? recentCombatLogLines(runtime.log, 6)
+    : ["The school gates await your challenge."];
 
   if (runtime.phase === "intro") {
     return `
@@ -522,7 +526,11 @@ export function renderCrd05Experience(context) {
     <article class="crd04-node" data-node-id="${NODE_ID}">
       <section class="crd04-combat-head">
         <h3>Duel in Heaven's Glory</h3>
-        <p class="muted">Your stage: ${escapeHtml(runtime.playerStage)} | Opponent: Elder Rahm (Jade)</p>
+        <div class="crd04-combat-meta">
+          <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(runtime.playerStage))}</span>
+          <span class="crd04-meta-chip"><strong>Opponent</strong> Elder Rahm</span>
+          <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(combatStageLabel("jade"))}</span>
+        </div>
       </section>
 
       <section class="crd04-bars">

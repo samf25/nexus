@@ -26,16 +26,18 @@ const LOOT_TABLES = Object.freeze({
       label: "Cycling Surge Draft",
       kind: "consumable_boost",
       stackable: true,
+      weight: 4.4,
       effects: Object.freeze([
         Object.freeze({ key: "madra_gain_mult", type: "mult", base: 1.5, perTier: 0.35 }),
       ]),
-      durationMinutes: 10,
+      durationMinutes: 60,
     }),
     Object.freeze({
       templateId: "crd_focus_draft",
       label: "Refiner's Focus Draft",
       kind: "consumable_boost",
       stackable: true,
+      weight: 3.9,
       effects: Object.freeze([
         Object.freeze({ key: "cycling_cost_divider", type: "mult", base: 1.3, perTier: 0.2 }),
       ]),
@@ -46,6 +48,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Soul Crystal",
       kind: "soul_crystal",
       stackable: false,
+      weight: 1,
       effects: Object.freeze([
         Object.freeze({ key: "madra_gain_mult", type: "mult", base: 1.2, perTier: 0.15 }),
         Object.freeze({ key: "cycling_cost_divider", type: "mult", base: 1.08, perTier: 0.08 }),
@@ -57,6 +60,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Deep Well Socket",
       kind: "slot_expansion",
       stackable: true,
+      weight: 0.55,
       effects: Object.freeze([
         Object.freeze({ key: "crd_soul_slot_plus", type: "flat", base: 1, perTier: 0 }),
       ]),
@@ -66,6 +70,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Combat Relic",
       kind: "combat_item",
       stackable: false,
+      weight: 0.9,
       effects: Object.freeze([
         Object.freeze({ key: "crd_attack_mult", type: "mult", base: 1.08, perTier: 0.09 }),
       ]),
@@ -77,6 +82,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Shard Enhancement",
       kind: "worm_enhancement",
       stackable: false,
+      weight: 4.5,
       effects: Object.freeze([
         Object.freeze({ key: "attack", type: "flat", base: 1, perTier: 1 }),
         Object.freeze({ key: "defense", type: "flat", base: 1, perTier: 1 }),
@@ -88,6 +94,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Shard Lattice Socket",
       kind: "slot_expansion",
       stackable: true,
+      weight: 0.75,
       effects: Object.freeze([
         Object.freeze({ key: "worm_shard_slot_plus", type: "flat", base: 1, perTier: 0 }),
       ]),
@@ -97,18 +104,21 @@ const LOOT_TABLES = Object.freeze({
       label: "Sickbay Expansion Permit",
       kind: "slot_expansion",
       stackable: true,
+      weight: 0.7,
       effects: Object.freeze([
         Object.freeze({ key: "worm_sickbay_slot_plus", type: "flat", base: 1, perTier: 0 }),
       ]),
     }),
     Object.freeze({
       templateId: "worm_hiring_window_token",
-      label: "Advanced Hiring Dossier",
-      kind: "slot_expansion",
+      label: "Basic Window Favor",
+      kind: "consumable_boost",
       stackable: true,
+      weight: 3.8,
       effects: Object.freeze([
-        Object.freeze({ key: "worm_hiring_rarity_plus", type: "flat", base: 1, perTier: 0 }),
+        Object.freeze({ key: "worm_basic_window_weight_mult", type: "mult", base: 1.75, perTier: 0.2 }),
       ]),
+      durationMinutes: 15,
     }),
   ]),
   dcc: Object.freeze([
@@ -117,6 +127,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Crawler Armor",
       kind: "dcc_armor",
       stackable: false,
+      weight: 1,
       effects: Object.freeze([
         Object.freeze({ key: "dcc_run_hp_bonus", type: "flat", base: 8, perTier: 6 }),
       ]),
@@ -128,6 +139,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Aether Capacitor",
       kind: "aa_upgrade",
       stackable: true,
+      weight: 3.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_mana_max_flat", type: "flat", base: 10, perTier: 8 }),
       ]),
@@ -137,6 +149,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Precision Lens",
       kind: "aa_upgrade",
       stackable: true,
+      weight: 3.2,
       effects: Object.freeze([
         Object.freeze({ key: "aa_accuracy_flat", type: "flat", base: 2, perTier: 1 }),
       ]),
@@ -146,6 +159,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Regeneration Coil",
       kind: "aa_upgrade",
       stackable: true,
+      weight: 3.2,
       effects: Object.freeze([
         Object.freeze({ key: "aa_mana_regen_pct", type: "flat", base: 0.06, perTier: 0.03 }),
       ]),
@@ -155,6 +169,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Auxiliary Workshop Armature",
       kind: "aa_upgrade",
       stackable: true,
+      weight: 0.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_extra_workshop_slot", type: "flat", base: 1, perTier: 0 }),
       ]),
@@ -164,6 +179,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Court Market Seal",
       kind: "aa_upgrade",
       stackable: true,
+      weight: 2.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_sell_bonus_pct", type: "flat", base: 0.04, perTier: 0.02 }),
         Object.freeze({ key: "aa_buy_discount_pct", type: "flat", base: 0.02, perTier: 0.01 }),
@@ -174,6 +190,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Glyphwork Focus Charm",
       kind: "aa_focus",
       stackable: false,
+      weight: 0.95,
       effects: Object.freeze([
         Object.freeze({ key: "aa_accuracy_flat", type: "flat", base: 2, perTier: 2 }),
       ]),
@@ -183,6 +200,7 @@ const LOOT_TABLES = Object.freeze({
       label: "Junk Enchantment Fragment",
       kind: "aa_junk",
       stackable: true,
+      weight: 1.35,
       effects: Object.freeze([]),
     }),
   ]),
@@ -233,6 +251,7 @@ function effectSummaryLabelAndValue(effect) {
     worm_shard_slot_plus: { label: "Shard slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     worm_sickbay_slot_plus: { label: "Sickbay slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     worm_hiring_rarity_plus: { label: "Hiring quality", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
+    worm_basic_window_weight_mult: { label: "Basic window favor", value: `x${Number(value).toFixed(2)}` },
     dcc_run_hp_bonus: { label: "Max HP", value: signedNumber(value, 0) },
     dcc_run_attack_bonus: { label: "Attack", value: signedNumber(value, 2) },
     dcc_run_stamina_bonus: { label: "Stamina", value: signedNumber(value, 2) },
@@ -286,7 +305,31 @@ export function isDirectUseLootItem(item) {
   const source = item && typeof item === "object" ? item : {};
   const kind = safeText(source.kind).toLowerCase();
   const durationMs = Math.max(0, Math.floor(safeFinite(source.durationMs, 0)));
-  return kind === "consumable_boost" && durationMs > 0;
+  if (kind === "consumable_boost" && durationMs > 0) {
+    return true;
+  }
+  if (safeText(source.templateId) === "worm_shard_slot_token") {
+    return false;
+  }
+  return kind === "slot_expansion" || kind === "aa_upgrade";
+}
+
+export function isManualSocketLootItem(item, region = "") {
+  const source = item && typeof item === "object" ? item : {};
+  const regionKey = normalizeRegion(region || source.region);
+  if (regionKey === "crd") {
+    return source.kind === "soul_crystal" || source.kind === "combat_item";
+  }
+  if (regionKey === "worm") {
+    return source.kind === "worm_enhancement" || safeText(source.templateId) === "worm_shard_slot_token";
+  }
+  if (regionKey === "dcc") {
+    return source.kind === "dcc_armor";
+  }
+  if (regionKey === "aa") {
+    return source.kind === "aa_focus";
+  }
+  return false;
 }
 
 function hashText(value) {
@@ -549,6 +592,8 @@ function normalizeActiveEffect(candidate) {
   return {
     id: safeText(source.id),
     sourceItemId: safeText(source.sourceItemId),
+    sourceLabel: safeText(source.sourceLabel),
+    sourceSummary: safeText(source.sourceSummary),
     region: safeText(source.region).toLowerCase(),
     key: safeText(source.key),
     type: safeText(source.type) || "flat",
@@ -749,6 +794,14 @@ function buildRarityEntry(rarity, bias) {
   };
 }
 
+function buildTemplateEntry(template) {
+  const source = template && typeof template === "object" ? template : {};
+  return {
+    template: source,
+    weight: Math.max(0.05, safeFinite(source.weight, 1)),
+  };
+}
+
 export function rollRegionalLoot({
   sourceRegion,
   triggerType = "",
@@ -783,7 +836,8 @@ export function rollRegionalLoot({
   );
   const rarity = rarityEntry ? rarityEntry.rarity : "common";
   const table = LOOT_TABLES[targetRegion] || [];
-  const template = randomPick(rng, table);
+  const templateEntry = weightedPick(rng, table.map((entry) => buildTemplateEntry(entry)));
+  const template = templateEntry ? templateEntry.template : null;
   if (!template) {
     return null;
   }
@@ -983,6 +1037,8 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
     const activated = effects.map((effect, index) => ({
       id: `${itemId}-fx-${now}-${index}`,
       sourceItemId: itemId,
+      sourceLabel: item.label,
+      sourceSummary: formatLootItemEffectSummary(item, { maxEffects: 6 }),
       region: item.region,
       key: effect.key,
       type: effect.type,
@@ -992,135 +1048,117 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
     nextLoot.activeEffects = [...nextLoot.activeEffects, ...activated];
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
     message = `${item.label} activated.`;
-  } else if (item.templateId === "crd_soul_slot_token") {
-    nextLoot.progression.crdSoulCrystalSlots = clamp(
-      nextLoot.progression.crdSoulCrystalSlots + 1,
-      3,
-      SLOT_CAPS.crdSoulCrystalSlots,
-    );
-    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    message = "Cradle soul crystal slot capacity increased.";
   } else if (item.templateId === "worm_shard_slot_token") {
     return {
       nextState: sourceState,
       changed: false,
       message: "Shard Lattice Sockets must be applied to a specific cape in The Undersiders' Loft.",
     };
-  } else if (item.templateId === "worm_sickbay_slot_token") {
-    nextLoot.progression.wormSickbaySlots = clamp(
-      nextLoot.progression.wormSickbaySlots + 1,
-      1,
-      SLOT_CAPS.wormSickbaySlots,
-    );
-    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    message = "Worm sickbay capacity increased.";
   } else if (item.templateId === "worm_hiring_window_token") {
-    nextLoot.progression.wormHiringRarityBonus = clamp(
-      nextLoot.progression.wormHiringRarityBonus + 1,
-      0,
-      SLOT_CAPS.wormHiringRarityBonus,
-    );
+    const activated = [{
+      id: `${itemId}-fx-${now}-0`,
+      sourceItemId: itemId,
+      sourceLabel: item.label,
+      sourceSummary: formatLootItemEffectSummary(item, { maxEffects: 6 }),
+      region: item.region,
+      key: "worm_basic_window_weight_mult",
+      type: "mult",
+      value: Math.max(1, Number(effectListFromItem(item)[0]?.value || 1.75)),
+      expiresAt: now + Math.max(1000, Math.floor(safeFinite(item.durationMs, 0))),
+    }];
+    nextLoot.activeEffects = [...nextLoot.activeEffects, ...activated];
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    message = "Worm hiring window quality increased.";
-  } else if (item.templateId === "aa_mana_capacitor") {
-    const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
-    const delta = Math.max(1, Math.floor(effectListFromItem(item)[0]?.value || 10));
-    const nextArcane = normalizeArcaneSystemState({
-      ...arcane,
-      workshop: {
-        ...arcane.workshop,
-        manaMax: arcane.workshop.manaMax + delta,
-        manaCurrent: arcane.workshop.manaCurrent + delta,
-      },
-    }, now);
+    message = "Basic Window favor invoked.";
+  } else if (item.kind === "slot_expansion") {
+    const effects = effectListFromItem(item);
+    let handled = false;
+    for (const effect of effects) {
+      if (effect.key === "crd_soul_slot_plus") {
+        nextLoot.progression.crdSoulCrystalSlots = clamp(
+          nextLoot.progression.crdSoulCrystalSlots + Math.max(1, Math.floor(effect.value || 0)),
+          3,
+          SLOT_CAPS.crdSoulCrystalSlots,
+        );
+        message = "Cradle soul crystal slot capacity increased.";
+        handled = true;
+      }
+      if (effect.key === "worm_sickbay_slot_plus") {
+        nextLoot.progression.wormSickbaySlots = clamp(
+          nextLoot.progression.wormSickbaySlots + Math.max(1, Math.floor(effect.value || 0)),
+          1,
+          SLOT_CAPS.wormSickbaySlots,
+        );
+        message = "Worm sickbay capacity increased.";
+        handled = true;
+      }
+      if (effect.key === "worm_hiring_rarity_plus") {
+        nextLoot.progression.wormHiringRarityBonus = clamp(
+          nextLoot.progression.wormHiringRarityBonus + Math.max(1, Math.floor(effect.value || 0)),
+          0,
+          SLOT_CAPS.wormHiringRarityBonus,
+        );
+        message = "Worm hiring window quality increased.";
+        handled = true;
+      }
+    }
+    if (!handled) {
+      return {
+        nextState: sourceState,
+        changed: false,
+        message: "This slot expansion must be applied in its matching region.",
+      };
+    }
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    return {
-      nextState: {
-        ...withLootState(sourceState, nextLoot),
-        systems: {
-          ...(sourceState.systems || {}),
-          arcane: nextArcane,
-        },
-      },
-      changed: true,
-      message: "Workshop mana capacity increased.",
-    };
-  } else if (item.templateId === "aa_precision_lens") {
-    const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
-    const delta = Math.max(1, Math.floor(effectListFromItem(item)[0]?.value || 1));
-    const nextArcane = normalizeArcaneSystemState({
-      ...arcane,
-      bonuses: {
-        ...arcane.bonuses,
-        accuracyFlat: arcane.bonuses.accuracyFlat + delta,
-      },
-    }, now);
-    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    return {
-      nextState: {
-        ...withLootState(sourceState, nextLoot),
-        systems: {
-          ...(sourceState.systems || {}),
-          arcane: nextArcane,
-        },
-      },
-      changed: true,
-      message: "Rune appraisal accuracy improved.",
-    };
-  } else if (item.templateId === "aa_regen_coil") {
-    const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
-    const delta = Math.max(0.01, Number(effectListFromItem(item)[0]?.value || 0.03));
-    const nextArcane = normalizeArcaneSystemState({
-      ...arcane,
-      bonuses: {
-        ...arcane.bonuses,
-        manaRegenPct: arcane.bonuses.manaRegenPct + delta,
-      },
-    }, now);
-    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    return {
-      nextState: {
-        ...withLootState(sourceState, nextLoot),
-        systems: {
-          ...(sourceState.systems || {}),
-          arcane: nextArcane,
-        },
-      },
-      changed: true,
-      message: "Workshop mana regeneration increased.",
-    };
-  } else if (item.templateId === "aa_workshop_slot_token") {
-    const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
-    const nextArcane = normalizeArcaneSystemState({
-      ...arcane,
-      workshop: {
-        ...arcane.workshop,
-        equipSlotCount: clamp(arcane.workshop.equipSlotCount + 1, 2, 6),
-      },
-    }, now);
-    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
-    return {
-      nextState: {
-        ...withLootState(sourceState, nextLoot),
-        systems: {
-          ...(sourceState.systems || {}),
-          arcane: nextArcane,
-        },
-      },
-      changed: true,
-      message: "Workshop equip slot capacity increased.",
-    };
-  } else if (item.templateId === "aa_market_seal") {
+  } else if (item.kind === "aa_upgrade") {
     const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
     const effects = effectListFromItem(item);
-    const sellBonus = Number((effects.find((effect) => effect.key === "aa_sell_bonus_pct") || {}).value || 0.02);
-    const buyDiscount = Number((effects.find((effect) => effect.key === "aa_buy_discount_pct") || {}).value || 0.01);
+    let manaMaxDelta = 0;
+    let accuracyDelta = 0;
+    let regenDelta = 0;
+    let sellBonus = 0;
+    let buyDiscount = 0;
+    let workshopSlots = 0;
+    for (const effect of effects) {
+      if (effect.key === "aa_mana_max_flat") {
+        manaMaxDelta += Math.max(0, Math.floor(effect.value || 0));
+      }
+      if (effect.key === "aa_accuracy_flat") {
+        accuracyDelta += Math.max(0, Number(effect.value || 0));
+      }
+      if (effect.key === "aa_mana_regen_pct") {
+        regenDelta += Math.max(0, Number(effect.value || 0));
+      }
+      if (effect.key === "aa_sell_bonus_pct") {
+        sellBonus += Math.max(0, Number(effect.value || 0));
+      }
+      if (effect.key === "aa_buy_discount_pct") {
+        buyDiscount += Math.max(0, Number(effect.value || 0));
+      }
+      if (effect.key === "aa_extra_workshop_slot") {
+        workshopSlots += Math.max(0, Math.floor(effect.value || 0));
+      }
+    }
+    if (!(manaMaxDelta || accuracyDelta || regenDelta || sellBonus || buyDiscount || workshopSlots)) {
+      return {
+        nextState: sourceState,
+        changed: false,
+        message: "This Arcane Ascension loot belongs in workshop slots, not as a direct upgrade.",
+      };
+    }
     const nextArcane = normalizeArcaneSystemState({
       ...arcane,
+      workshop: {
+        ...arcane.workshop,
+        manaMax: arcane.workshop.manaMax + manaMaxDelta,
+        manaCurrent: arcane.workshop.manaCurrent + manaMaxDelta,
+        equipSlotCount: clamp(arcane.workshop.equipSlotCount + workshopSlots, 2, 6),
+      },
       bonuses: {
         ...arcane.bonuses,
-        sellBonusPct: arcane.bonuses.sellBonusPct + Math.max(0, sellBonus),
-        buyDiscountPct: arcane.bonuses.buyDiscountPct + Math.max(0, buyDiscount),
+        accuracyFlat: arcane.bonuses.accuracyFlat + accuracyDelta,
+        manaRegenPct: arcane.bonuses.manaRegenPct + regenDelta,
+        sellBonusPct: arcane.bonuses.sellBonusPct + sellBonus,
+        buyDiscountPct: arcane.bonuses.buyDiscountPct + buyDiscount,
       },
     }, now);
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
@@ -1133,7 +1171,7 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
         },
       },
       changed: true,
-      message: "Court market modifiers improved.",
+      message: "Arcane workshop upgrade applied.",
     };
   } else {
     return {
@@ -1310,11 +1348,12 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
   }
 
   if (regionKey === "aa") {
-    if (item.kind !== "aa_focus") {
+    const aaEquippable = item.region === "aa" && item.kind === "aa_focus";
+    if (!aaEquippable) {
       return {
         nextState: sourceState,
         changed: false,
-        message: "Only Arcane Ascension focus loot can be equipped in workshop slots.",
+        message: "Only Arcane Ascension socketed workshop loot can be equipped in workshop slots.",
       };
     }
     const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, Date.now());
@@ -1387,6 +1426,24 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
   };
 
   if (regionKey === "crd") {
+    if (safeText(targetId).toLowerCase() === "combat") {
+      if (!nextLoadouts.cradle.combatItemId) {
+        return {
+          nextState: sourceState,
+          changed: false,
+          message: "Combat gear slot already empty.",
+        };
+      }
+      nextLoadouts.cradle.combatItemId = null;
+      return {
+        nextState: withLootState(sourceState, {
+          ...lootState,
+          loadouts: nextLoadouts,
+        }),
+        changed: true,
+        message: "Cleared combat gear slot.",
+      };
+    }
     const slotIndex = clamp(Math.floor(safeFinite(slotId, 0)), 0, SLOT_CAPS.crdSoulCrystalSlots - 1);
     if (!nextLoadouts.cradle.soulCrystalSlots[slotIndex]) {
       return {
@@ -1468,6 +1525,55 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
       },
       changed: true,
       message: `Cleared workshop slot ${slotIndex + 1}.`,
+    };
+  }
+
+  if (regionKey === "dcc") {
+    const slotKey = safeText(slotId || targetId).toLowerCase();
+    if (!["head", "chest", "legs", "trinket"].includes(slotKey)) {
+      return {
+        nextState: sourceState,
+        changed: false,
+        message: "Choose a valid Dungeon Crawler Carl gear slot.",
+      };
+    }
+    const runtime = sourceState && sourceState.nodeRuntime && sourceState.nodeRuntime.DCC01 && typeof sourceState.nodeRuntime.DCC01 === "object"
+      ? sourceState.nodeRuntime.DCC01
+      : {};
+    const meta = runtime.meta && typeof runtime.meta === "object" ? runtime.meta : {};
+    const preparedEquipment = meta.preparedEquipment && typeof meta.preparedEquipment === "object"
+      ? meta.preparedEquipment
+      : {};
+    if (!preparedEquipment[slotKey]) {
+      return {
+        nextState: sourceState,
+        changed: false,
+        message: "Gear slot already empty.",
+      };
+    }
+    const nextPreparedEquipment = {
+      head: preparedEquipment.head ?? null,
+      chest: preparedEquipment.chest ?? null,
+      legs: preparedEquipment.legs ?? null,
+      trinket: preparedEquipment.trinket ?? null,
+      [slotKey]: null,
+    };
+    return {
+      nextState: {
+        ...sourceState,
+        nodeRuntime: {
+          ...(sourceState.nodeRuntime || {}),
+          DCC01: {
+            ...runtime,
+            meta: {
+              ...meta,
+              preparedEquipment: nextPreparedEquipment,
+            },
+          },
+        },
+      },
+      changed: true,
+      message: `Cleared ${slotKey} gear slot.`,
     };
   }
 
@@ -1568,14 +1674,65 @@ export function getCradleLootModifiers(state, now = Date.now()) {
   return result;
 }
 
+export function formatDurationRemaining(ms) {
+  const duration = Math.max(0, Math.floor(safeFinite(ms, 0)));
+  const totalSeconds = Math.floor(duration / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  }
+  return `${seconds}s`;
+}
+
+export function getCradleActiveBoosts(state, now = Date.now()) {
+  const loot = lootInventoryFromState(state, now);
+  const active = (Array.isArray(loot.activeEffects) ? loot.activeEffects : [])
+    .filter((entry) => entry && entry.region === "crd" && entry.expiresAt > now);
+  const grouped = new Map();
+  active.forEach((entry) => {
+    const key = safeText(entry.sourceItemId) || safeText(entry.id);
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        label: safeText(entry.sourceLabel) || "Cradle Draft",
+        summary: safeText(entry.sourceSummary),
+        expiresAt: Math.max(0, Number(entry.expiresAt) || 0),
+      });
+    } else {
+      const existing = grouped.get(key);
+      existing.expiresAt = Math.max(existing.expiresAt, Math.max(0, Number(entry.expiresAt) || 0));
+      if (!existing.summary && safeText(entry.sourceSummary)) {
+        existing.summary = safeText(entry.sourceSummary);
+      }
+    }
+  });
+  return Array.from(grouped.values())
+    .map((entry) => ({
+      ...entry,
+      remainingMs: Math.max(0, entry.expiresAt - now),
+    }))
+    .sort((left, right) => left.remainingMs - right.remainingMs);
+}
+
 export function getWormSickbaySlotCount(state, now = Date.now()) {
   const loot = lootInventoryFromState(state, now);
   return clamp(Math.floor(safeFinite(loot.progression.wormSickbaySlots, 1)), 1, SLOT_CAPS.wormSickbaySlots);
 }
 
-export function getWormHiringRarityBonus(state, now = Date.now()) {
+export function getWormHiringWeightModifier(state, now = Date.now()) {
   const loot = lootInventoryFromState(state, now);
-  return clamp(Math.floor(safeFinite(loot.progression.wormHiringRarityBonus, 0)), 0, SLOT_CAPS.wormHiringRarityBonus);
+  const active = aggregateEffects(loot.activeEffects, now);
+  let multiplier = 1;
+  for (const effect of active) {
+    if (effect.key === "worm_basic_window_weight_mult") {
+      multiplier *= Math.max(1, safeFinite(effect.value, 1));
+    }
+  }
+  return multiplier;
 }
 
 export function getWormShardSlotCount(state, cardIdOrNow = "", now = Date.now()) {
@@ -1750,11 +1907,12 @@ export function estimateLootShopPrice(item, economyContext = {}) {
   const base = 12;
   const rarityMult = rarityScale[normalized.rarity] || 1;
   const kindMult = kindScale[normalized.kind] || 1.3;
+  const regionDiscount = normalized.region === "dcc" ? 0.58 : 1;
   const spent = Math.max(0, Math.floor(safeFinite(economyContext.totalSpentAtCourt, 0)));
   const progressionMult = 1 + Math.min(2.4, Math.log10(1 + spent) * 0.35);
   const discount = clamp(safeFinite(economyContext.buyDiscountPct, 0), 0, 0.5);
   const regionInflation = safeText(economyContext.shopRegion).toLowerCase() === "aa" ? 1.7 : 1;
-  const raw = base * rarityMult * kindMult * progressionMult * regionInflation * (1 - discount);
+  const raw = base * rarityMult * kindMult * regionDiscount * progressionMult * regionInflation * (1 - discount);
   return Math.max(1, Math.floor(raw));
 }
 

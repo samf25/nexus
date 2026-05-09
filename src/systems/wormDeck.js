@@ -157,6 +157,10 @@ export function defaultWormSystemState() {
     starterCardIds: [],
     deck: {},
     sickbayCardIds: [],
+    tenPullUnlocked: false,
+    compactifierUnlocked: false,
+    capeDensityByCardId: {},
+    capeBoostsByCardId: {},
     arenaFirstWinsByDifficulty: {
       easy: false,
       medium: false,
@@ -184,6 +188,10 @@ export function normalizeWormSystemState(candidate, now = nowMs()) {
     starterCardIds,
     deck,
     sickbayCardIds: normalizeSickbayCardIds(deck, baseSickbayList),
+    tenPullUnlocked: Boolean(source.tenPullUnlocked),
+    compactifierUnlocked: Boolean(source.compactifierUnlocked),
+    capeDensityByCardId: source.capeDensityByCardId && typeof source.capeDensityByCardId === "object" ? { ...source.capeDensityByCardId } : {},
+    capeBoostsByCardId: source.capeBoostsByCardId && typeof source.capeBoostsByCardId === "object" ? { ...source.capeBoostsByCardId } : {},
     arenaFirstWinsByDifficulty: {
       easy: Boolean(source.arenaFirstWinsByDifficulty && source.arenaFirstWinsByDifficulty.easy),
       medium: Boolean(source.arenaFirstWinsByDifficulty && source.arenaFirstWinsByDifficulty.medium),
@@ -193,6 +201,41 @@ export function normalizeWormSystemState(candidate, now = nowMs()) {
   };
 
   return snapshotSickbayHealing(base, now);
+}
+
+function capeDensityForCard(state, cardId) {
+  const map = state && state.capeDensityByCardId && typeof state.capeDensityByCardId === "object"
+    ? state.capeDensityByCardId
+    : {};
+  return Math.max(1, Math.floor(safeNumber(map[cardId], 1)));
+}
+
+function capeBoostsForCard(state, cardId) {
+  const raw = state && state.capeBoostsByCardId && typeof state.capeBoostsByCardId === "object"
+    ? state.capeBoostsByCardId[cardId]
+    : null;
+  return raw && typeof raw === "object" ? { ...raw } : {};
+}
+
+function duplicateCostForDensity(density) {
+  return Math.max(2, Math.floor(safeNumber(density, 1)) * 2);
+}
+
+function upgradedCard(card, state, cardId) {
+  const source = card && typeof card === "object" ? card : {};
+  const boosts = capeBoostsForCard(state, cardId);
+  return {
+    ...source,
+    attack: Math.max(0, safeNumber(source.attack, 0) + Math.max(0, safeNumber(boosts.attack, 0))),
+    defense: Math.max(0, safeNumber(source.defense, 0) + Math.max(0, safeNumber(boosts.defense, 0))),
+    endurance: Math.max(0, safeNumber(source.endurance, 0) + Math.max(0, safeNumber(boosts.endurance, 0))),
+    info: Math.max(0, safeNumber(source.info, 0) + Math.max(0, safeNumber(boosts.info, 0))),
+    manipulation: Math.max(0, safeNumber(source.manipulation, 0) + Math.max(0, safeNumber(boosts.manipulation, 0))),
+    range: Math.max(0, safeNumber(source.range, 0) + Math.max(0, safeNumber(boosts.range, 0))),
+    speed: Math.max(0, safeNumber(source.speed, 0) + Math.max(0, safeNumber(boosts.speed, 0))),
+    stealth: Math.max(0, safeNumber(source.stealth, 0) + Math.max(0, safeNumber(boosts.stealth, 0))),
+    density: capeDensityForCard(state, cardId),
+  };
 }
 
 function createWindowPool(maxRarity = BASIC_WINDOW_MAX_RARITY, minRarity = 0) {
@@ -307,7 +350,8 @@ function ownedDeckEntries(state, now = nowMs()) {
   const normalized = normalizeWormSystemState(state, now);
   const entries = [];
   for (const [cardId, entry] of Object.entries(normalized.deck)) {
-    const card = wormCardById(cardId);
+    const baseCard = wormCardById(cardId);
+    const card = baseCard ? upgradedCard(baseCard, normalized, cardId) : null;
     if (!card) {
       continue;
     }
@@ -756,6 +800,88 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
       },
       changed: true,
       message: "Sickbay slot cleared.",
+      meta: {},
+    };
+  }
+
+  if (action.type === "worm01-unlock-ten-pull") {
+    if (current.tenPullUnlocked) {
+      return { nextState: current, changed: false, message: "x10 hiring is already unlocked.", meta: {} };
+    }
+    return {
+      nextState: {
+        ...current,
+        tenPullUnlocked: true,
+      },
+      changed: true,
+      message: "x10 hiring access unlocked at the Job Board.",
+      meta: {},
+    };
+  }
+
+  if (action.type === "worm01-unlock-compactifier") {
+    if (current.compactifierUnlocked) {
+      return { nextState: current, changed: false, message: "The Cape Compactifier is already installed.", meta: {} };
+    }
+    return {
+      nextState: {
+        ...current,
+        compactifierUnlocked: true,
+      },
+      changed: true,
+      message: "The Cape Compactifier hums to life in the Loft.",
+      meta: {},
+    };
+  }
+
+  if (action.type === "worm01-compactify-cape") {
+    if (!current.compactifierUnlocked) {
+      return { nextState: current, changed: false, message: "Install the Cape Compactifier first.", meta: {} };
+    }
+    const cardId = String(action.cardId || "").trim();
+    const statKey = String(action.statKey || "").trim().toLowerCase();
+    if (!cardId || !Object.prototype.hasOwnProperty.call(current.deck, cardId)) {
+      return { nextState: current, changed: false, message: "That cape is not in your deck.", meta: {} };
+    }
+    if (!["attack", "defense", "endurance", "info", "manipulation", "range", "speed", "stealth"].includes(statKey)) {
+      return { nextState: current, changed: false, message: "Choose a valid cape stat to densify.", meta: {} };
+    }
+    const entry = current.deck[cardId];
+    const density = capeDensityForCard(current, cardId);
+    const duplicateCost = duplicateCostForDensity(density);
+    if (Math.max(1, Math.floor(safeNumber(entry.copies, 1))) <= duplicateCost) {
+      return {
+        nextState: current,
+        changed: false,
+        message: `Not enough duplicate copies. Density ${density} requires ${duplicateCost} duplicates.`,
+        meta: {},
+      };
+    }
+    const currentBoosts = capeBoostsForCard(current, cardId);
+    return {
+      nextState: {
+        ...current,
+        deck: {
+          ...current.deck,
+          [cardId]: {
+            ...entry,
+            copies: Math.max(1, Math.floor(safeNumber(entry.copies, 1)) - duplicateCost),
+          },
+        },
+        capeDensityByCardId: {
+          ...current.capeDensityByCardId,
+          [cardId]: density + 1,
+        },
+        capeBoostsByCardId: {
+          ...current.capeBoostsByCardId,
+          [cardId]: {
+            ...currentBoosts,
+            [statKey]: Math.max(0, safeNumber(currentBoosts[statKey], 0)) + 1,
+          },
+        },
+      },
+      changed: true,
+      message: `${wormCardById(cardId)?.heroName || "Cape"} compactified. ${statKey} permanently increased.`,
       meta: {},
     };
   }

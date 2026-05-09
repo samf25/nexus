@@ -12,6 +12,7 @@ import {
 import {
   createWormBattleState,
   infoDebuffStatKeys,
+  parseWormCombatEventLine,
   resolveWormRound,
   selectableWormActions,
 } from "../worm/wormCombatSystem.js";
@@ -35,7 +36,7 @@ const PHASE_DUAL = "dual";
 const PHASE_SYNTHESIS = "synthesis";
 const PHASE_COMPLETE = "complete";
 const RESOURCE_REQUIREMENTS = Object.freeze({
-  madra: 350000,
+  madra: 650000,
   soulfire: 140,
   clout: 5000,
   gold: 7000,
@@ -55,6 +56,8 @@ const HARD_LOCK_ARTIFACTS = Object.freeze({
   box: "The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity",
   cookbook: "The Dungeon Anarchist's Cookbook",
 });
+const FINAL_LEDGER_QUESTION = "Who is the 15th Vistor on the Wandering Inn Guest Ledger?";
+const FINAL_LEDGER_ANSWER = "archmage zelkyr";
 
 const LATE_ARTIFACT_METADATA = Object.freeze({
   "Edict of the Turning Knife": Object.freeze({ group: "doctrine", memory: true, synthesisOrder: 0, synthesisFamily: "doctrine", synthesisStageRole: "memory", synthesisMechanicUnlock: "rotate" }),
@@ -938,6 +941,7 @@ function normalizeRuntime(runtime, context = {}) {
       clout: Boolean(source.lockInvestments && source.lockInvestments.clout),
       gold: Boolean(source.lockInvestments && source.lockInvestments.gold),
     },
+    entryRiddleSolved: Boolean(source.entryRiddleSolved),
     checkpoints: {
       lockin: Boolean(source.checkpoints && source.checkpoints.lockin),
       memory: Boolean(source.checkpoints && source.checkpoints.memory),
@@ -1012,8 +1016,17 @@ function canStartMemory(runtime) {
       runtime.lockInvestments.madra &&
       runtime.lockInvestments.soulfire &&
       runtime.lockInvestments.clout &&
-      runtime.lockInvestments.gold,
+      runtime.lockInvestments.gold &&
+      runtime.entryRiddleSolved,
   );
+}
+
+function normalizeFinalLedgerAnswer(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function resourceRequirementMet(resourceName, resources) {
@@ -1529,11 +1542,29 @@ export function reduceFinal01Runtime(runtime, action, context = {}) {
     };
   }
 
+  if (action.type === "fin01-submit-riddle" && current.phase === PHASE_ENTRY) {
+    if (current.entryRiddleSolved) {
+      return current;
+    }
+    const guess = normalizeFinalLedgerAnswer(action.value);
+    if (guess !== FINAL_LEDGER_ANSWER) {
+      return {
+        ...current,
+        lastMessage: "The gate does not accept that name.",
+      };
+    }
+    return {
+      ...current,
+      entryRiddleSolved: true,
+      lastMessage: "The ledger's missing name settles into the core.",
+    };
+  }
+
   if (action.type === "fin01-begin-memory" && current.phase === PHASE_ENTRY) {
     if (!canStartMemory(current)) {
       return {
         ...current,
-        lastMessage: "Two hard locks and all four investments are required first.",
+        lastMessage: "The two anchors, the four investments, and the ledger name are all required first.",
       };
     }
     return {
@@ -2276,17 +2307,41 @@ function entryMarkup(runtime, context) {
     <section class="card final01-card">
       <h3>Final Gateway</h3>
       <section class="final01-entry-stage">
-        ${renderSlotRing({
-          slots,
-          className: "final01-lock-ring",
-          radiusPct: 43,
-          centerHtml: renderRegionSymbol({
-            symbolKey: FINAL_SYMBOL_KEY,
-            className: "slot-ring-center-symbol final01-center-symbol",
-          }),
-          ariaLabel: "Final hard-lock ring",
-        })}
-        ${resourceSpheres}
+        <div class="final01-entry-core">
+          ${renderSlotRing({
+            slots,
+            className: "final01-lock-ring",
+            radiusPct: 43,
+            centerHtml: renderRegionSymbol({
+              symbolKey: FINAL_SYMBOL_KEY,
+              className: "slot-ring-center-symbol final01-center-symbol",
+            }),
+            ariaLabel: "Final hard-lock ring",
+          })}
+          ${resourceSpheres}
+        </div>
+        <section class="final01-riddle">
+          <p>${escapeHtml(FINAL_LEDGER_QUESTION)}</p>
+          <div class="final01-riddle-row">
+            <input
+              type="text"
+              class="final01-riddle-input"
+              data-final01-riddle-input
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Speak the missing name"
+              ${runtime.entryRiddleSolved ? "value=\"Archmage Zelkyr\" disabled" : ""}
+            />
+            <button
+              type="button"
+              data-node-id="${NODE_ID}"
+              data-node-action="fin01-submit-riddle"
+              ${runtime.entryRiddleSolved ? "disabled" : ""}
+            >
+              Set
+            </button>
+          </div>
+        </section>
       </section>
       <div class="toolbar">
         <button
@@ -2533,12 +2588,19 @@ function dualMarkup(runtime) {
         <section class="card worm02-turn-panel">
           <h3>Combat Turn ${escapeHtml(String(turnNumber))}</h3>
           <div class="worm02-turn-grid">
-            ${turnEvents.map((line, index) => `
-              <article class="worm02-turn-event">
-                <span>${escapeHtml(String(index + 1))}</span>
-                <p>${escapeHtml(line)}</p>
-              </article>
-            `).join("")}
+            ${turnEvents.map((line, index) => {
+              const parsed = parseWormCombatEventLine(line);
+              return `
+                <article class="worm02-turn-event">
+                  <span class="worm02-turn-index">${escapeHtml(String(index + 1))}</span>
+                  <div class="worm02-turn-head">
+                    <span class="worm02-turn-actor">${escapeHtml(parsed.actor || "Field")}</span>
+                    <span class="worm02-turn-action">${escapeHtml(parsed.action || "Shift")}</span>
+                  </div>
+                  <div class="worm02-turn-detail">${escapeHtml(parsed.detail || "")}</div>
+                </article>
+              `;
+            }).join("")}
           </div>
         </section>
       </section>
@@ -2903,6 +2965,15 @@ export function buildFinal01ActionFromElement(element) {
   if (actionName === "fin01-invest-resource") {
     return null;
   }
+  if (actionName === "fin01-submit-riddle") {
+    const surface = element.closest(".final01-riddle");
+    const input = surface && surface.querySelector ? surface.querySelector("[data-final01-riddle-input]") : null;
+    return {
+      type: "fin01-submit-riddle",
+      value: input && "value" in input ? input.value : "",
+      at: Date.now(),
+    };
+  }
   if (actionName === "fin01-begin-memory") {
     return { type: "fin01-begin-memory", at: Date.now() };
   }
@@ -3036,6 +3107,16 @@ export function buildFinal01DropAction(payload, runtime) {
 
 export function buildFinal01KeyAction(event, runtime) {
   const current = runtime && typeof runtime === "object" ? runtime : initialFinal01Runtime();
+  if (event.code === "Enter" || event.key === "Enter") {
+    const target = event.target;
+    if (target instanceof Element && target.matches("input[data-final01-riddle-input]")) {
+      return {
+        type: "fin01-submit-riddle",
+        value: "value" in target ? target.value : "",
+        at: Date.now(),
+      };
+    }
+  }
   const isEditableTarget =
     event.target instanceof Element &&
     (event.target.matches("input, textarea, select, [contenteditable='true'], [contenteditable='']") ||

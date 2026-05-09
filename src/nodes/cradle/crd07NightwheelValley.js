@@ -11,10 +11,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -889,10 +891,15 @@ function huntsTabMarkup(runtime) {
 
   const battle = runtime.battle;
   const enemy = battle.enemy;
+  const logLines = recentCombatLogLines(battle.log, 6);
   return `
     <section class="crd04-combat-head">
       <h3>Nightwheel Hunt</h3>
-      <p class="muted">Opponent: ${escapeHtml(enemy ? enemy.name : "Unknown")} (${escapeHtml(enemy ? enemy.stage : "")})</p>
+      <div class="crd04-combat-meta">
+        <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(battle.playerStage))}</span>
+        <span class="crd04-meta-chip"><strong>Opponent</strong> ${escapeHtml(enemy ? enemy.name : "Unknown")}</span>
+        <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(enemy ? combatStageLabel(enemy.stage) : "")}</span>
+      </div>
     </section>
 
     <section class="crd04-bars">
@@ -914,7 +921,7 @@ function huntsTabMarkup(runtime) {
     <section class="crd04-log">
       <h4>Combat Log</h4>
       <ul>
-        ${(battle.log || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+        ${logLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
       </ul>
     </section>
   `;

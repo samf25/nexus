@@ -16,7 +16,7 @@ import { prestigeModifiersFromState } from "../../systems/prestige.js";
 import {
   formatLootItemEffectSummary,
   getWormCapeLootBonuses,
-  getWormHiringRarityBonus,
+  getWormHiringWeightModifier,
   getWormShardSlotCount,
   getWormSickbaySlotCount,
   lootInventoryFromState,
@@ -28,10 +28,13 @@ const PANELS = Object.freeze({
   deck: "deck",
   sickbay: "sickbay",
   jobs: "jobs",
+  compactifier: "compactifier",
 });
 const POPUPS = Object.freeze({
   none: "",
   cape: "cape-shards",
+  compactPicker: "compact-picker",
+  compactStat: "compact-stat",
 });
 
 function safeText(value) {
@@ -55,8 +58,9 @@ function normalizeRuntime(runtime) {
     selectedStarterIds,
     shardPopupCardId: safeText(source.shardPopupCardId),
     selectedLootItemId: safeText(source.selectedLootItemId),
+    compactifierCardId: safeText(source.compactifierCardId),
     lastPulledCardId: safeText(source.lastPulledCardId),
-    pullPopupCardId: safeText(source.pullPopupCardId || source.lastPulledCardId),
+    pullPopupCardId: safeText(source.pullPopupCardId),
     solved: Boolean(source.solved),
     lastMessage: safeText(source.lastMessage),
   };
@@ -135,7 +139,9 @@ function panelButton(panelId, active) {
     ? "Deck"
     : panelId === PANELS.sickbay
       ? "Sickbay"
-      : "Job Board";
+      : panelId === PANELS.compactifier
+        ? "Cape Compactifier"
+        : "Job Board";
   return `
     <button
       type="button"
@@ -146,6 +152,193 @@ function panelButton(panelId, active) {
     >
       ${escapeHtml(label)}
     </button>
+  `;
+}
+
+function compactifyDuplicateCost(density) {
+  return Math.max(2, Math.floor(Number(density || 1)) * 2);
+}
+
+function compactifierSelectedEntry(runtime, ownedCards) {
+  const selectedId = safeText(runtime.compactifierCardId);
+  return ownedCards.find((entry) => entry.cardId === selectedId) || null;
+}
+
+function compactifierSlotMarkup(runtime, ownedCards) {
+  const selected = compactifierSelectedEntry(runtime, ownedCards);
+  if (!selected) {
+    return `
+      <button
+        type="button"
+        class="worm01-compact-slot is-empty"
+        data-node-id="${NODE_ID}"
+        data-node-action="worm01-open-compact-picker"
+      >
+        <span class="worm01-compact-slot-title">Cape Slot</span>
+        <span class="worm01-compact-slot-empty">Select Cape</span>
+      </button>
+    `;
+  }
+  const density = Math.max(1, Number(selected.card.density || 1));
+  const duplicateCost = compactifyDuplicateCost(density);
+  return `
+    <button
+      type="button"
+      class="worm01-compact-slot"
+      data-node-id="${NODE_ID}"
+      data-node-action="worm01-open-compact-picker"
+    >
+      <span class="worm01-compact-slot-title">Cape Slot</span>
+      <span class="worm01-compact-slot-name">${escapeHtml(selected.card.heroName)}</span>
+      <span class="worm02-loadout-slot-meta-line">
+        <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-rarity">Density ${escapeHtml(String(density))}</span>
+        <span class="worm02-loadout-meta-chip">Copies ${escapeHtml(String(selected.copies))}</span>
+      </span>
+      <span class="worm01-compact-slot-note">${escapeHtml(String(duplicateCost))} duplicates needed next</span>
+    </button>
+  `;
+}
+
+function compactifierPickerPopup(runtime, ownedCards) {
+  return `
+    <div class="worm02-picker-overlay" role="dialog" aria-label="Select cape for compactifier">
+      <section class="card worm02-picker-panel worm01-compact-picker-panel">
+        <div class="worm02-picker-header">
+          <div>
+            <h3>Cape Compactifier</h3>
+            <p class="muted">Choose the cape you want to condense. Duplicate copies fuel permanent stat growth.</p>
+          </div>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="worm01-close-compact-popup">Close</button>
+        </div>
+        <div class="worm02-picker-grid">
+          ${ownedCards.map((entry) => {
+            const density = Math.max(1, Number(entry.card.density || 1));
+            const duplicateCost = compactifyDuplicateCost(density);
+            const canCompactify = Number(entry.copies || 1) > duplicateCost;
+            return `
+              <button
+                type="button"
+                class="worm02-picker-card ${canCompactify ? "" : "is-disabled"}"
+                data-node-id="${NODE_ID}"
+                data-node-action="worm01-select-compact-cape"
+                data-card-id="${escapeHtml(entry.cardId)}"
+              >
+                <strong>${escapeHtml(entry.card.heroName)}</strong>
+                <span>Copies ${escapeHtml(String(entry.copies))}</span>
+                <span>Density ${escapeHtml(String(density))}</span>
+                <span>${escapeHtml(String(duplicateCost))} duplicates needed next</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function compactifierStatPopup(runtime, ownedCards) {
+  const entry = compactifierSelectedEntry(runtime, ownedCards);
+  if (!entry) {
+    return "";
+  }
+  const density = Math.max(1, Number(entry.card.density || 1));
+  const duplicateCost = compactifyDuplicateCost(density);
+  const statOptions = [
+    { key: "attack", label: "Attack" },
+    { key: "defense", label: "Defense" },
+    { key: "endurance", label: "Endurance" },
+    { key: "info", label: "Info" },
+    { key: "manipulation", label: "Manipulation" },
+    { key: "range", label: "Range" },
+    { key: "speed", label: "Speed" },
+    { key: "stealth", label: "Stealth" },
+  ];
+  const ring = renderSlotRing({
+    className: "worm01-compact-stat-ring",
+    radiusPct: 40,
+    ariaLabel: "Choose a stat to increase",
+    centerHtml: `
+      <div class="worm01-compact-stat-center">
+        ${renderWormCard(entry.card, { role: "player" })}
+      </div>
+    `,
+    slots: statOptions.map((option) => ({
+      clickable: true,
+      emptyHtml: `<span class="worm01-compact-stat-token">${escapeHtml(option.label)}</span>`,
+      attrs: {
+        "data-node-id": NODE_ID,
+        "data-node-action": "worm01-compactify-cape",
+        "data-card-id": entry.cardId,
+        "data-stat-key": option.key,
+      },
+      ariaLabel: option.label,
+      className: "worm01-compact-stat-slot",
+    })),
+  });
+
+  return `
+    <div class="worm01-shard-modal-backdrop" role="dialog" aria-label="Choose compactification stat">
+      <section class="card worm01-compact-stat-modal">
+        <div class="worm01-stage-header worm01-compact-stat-header">
+          <div>
+            <h3>Choose Stat Increase</h3>
+            <p class="muted">${escapeHtml(entry.card.heroName)} will consume ${escapeHtml(String(duplicateCost))} duplicate copies. Select one stat to strengthen.</p>
+          </div>
+          <div class="worm01-stage-chip">Copies ${escapeHtml(String(entry.copies))}</div>
+        </div>
+        ${ring}
+      </section>
+    </div>
+  `;
+}
+
+function renderCompactifierPanel(runtime, ownedCards, wormState) {
+  if (!wormState.compactifierUnlocked) {
+    return `
+      <section class="card">
+        <h3>Cape Compactifier</h3>
+        <p>The Compactifier has not been installed in the Loft yet.</p>
+      </section>
+    `;
+  }
+
+  const selected = compactifierSelectedEntry(runtime, ownedCards);
+  const density = Math.max(1, Number(selected && selected.card ? selected.card.density || 1 : 1));
+  const duplicateCost = compactifyDuplicateCost(density);
+  const canCompactify = Boolean(selected) && Number(selected.copies || 1) > duplicateCost;
+  return `
+    <section class="card worm01-compactifier-surface">
+      <div class="worm01-compactifier-stage">
+        <div class="worm01-compactifier-left">
+          <h3>Cape Compactifier</h3>
+          <p class="muted">Seat one cape in the Compactifier. If you have enough duplicates, condense them into permanent stat growth.</p>
+          ${compactifierSlotMarkup(runtime, ownedCards)}
+          <div class="toolbar">
+            <button
+              type="button"
+              data-node-id="${NODE_ID}"
+              data-node-action="worm01-begin-compactify"
+              ${canCompactify ? "" : "disabled"}
+            >
+              Compactify
+            </button>
+          </div>
+        </div>
+        <div class="worm01-compactifier-right">
+          ${
+            selected
+              ? renderWormCard(
+                {
+                  ...selected.card,
+                  heroName: `${selected.card.heroName} x${selected.copies}`,
+                },
+                { role: "player" },
+              )
+              : `<div class="worm01-compactifier-empty">No cape selected.</div>`
+          }
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -190,26 +383,37 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
         ? `
             <button
               type="button"
-              class="ghost"
+              class="worm01-sickbay-chip is-active"
               data-node-id="${NODE_ID}"
               data-node-action="worm01-sickbay-remove"
               data-card-id="${escapeHtml(entry.cardId)}"
+              title="Remove from Sickbay"
+              aria-label="${escapeHtml(`Remove ${entry.card.heroName} from Sickbay`)}"
             >
-              Remove From Sickbay
+              ×
             </button>
           `
         : `
             <button
               type="button"
+              class="worm01-sickbay-chip"
               data-node-id="${NODE_ID}"
               data-node-action="worm01-sickbay-assign"
               data-card-id="${escapeHtml(entry.cardId)}"
               data-max-slots="${escapeHtml(String(maxSickbaySlots))}"
+              title="${escapeHtml(canAssignSickbay ? "Send to Sickbay" : `Sickbay full (${occupiedSickbaySlots}/${maxSickbaySlots})`)}"
+              aria-label="${escapeHtml(`Send ${entry.card.heroName} to Sickbay`)}"
               ${canAssignSickbay ? "" : "disabled"}
             >
-              Send To Sickbay
+              +
             </button>
           `;
+      const headerControls = `
+        <div class="worm01-deck-card-controls">
+          ${shardButton}
+          ${sickbayButton}
+        </div>
+      `;
 
       return `
           <article class="card worm01-deck-card">
@@ -220,7 +424,7 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
         },
         {
           role: "player",
-          headerExtraHtml: shardButton,
+          headerExtraHtml: headerControls,
           combatant: {
             hp: entry.currentHp,
             maxHp: entry.maxHp,
@@ -243,10 +447,6 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
           },
         },
       )}
-            <p class="muted">Health: ${escapeHtml(hpSummary(entry.currentHp, entry.maxHp))}</p>
-            <div class="toolbar">
-              ${sickbayButton}
-            </div>
           </article>
         `;
     })
@@ -368,56 +568,81 @@ function renderSickbayPanel(ownedCards, wormState, maxSickbaySlots) {
   const sickbayEntries = ownedCards.filter((item) => ids.includes(item.cardId));
   if (!sickbayEntries.length) {
     return `
-      <section class="card">
-        <h3>Sickbay</h3>
-        <p>No cape currently assigned.</p>
-        <p><strong>Capacity:</strong> 0 / ${maxSickbaySlots}</p>
-        <p class="muted">Capes heal for 25% of max health every minute while in Sickbay.</p>
+      <section class="card worm01-sickbay-stage">
+        <div class="worm01-stage-header">
+          <div>
+            <h3>Sickbay</h3>
+            <p class="muted">Capes heal for 25% of max health every minute while in Sickbay.</p>
+          </div>
+          <div class="worm01-stage-chip">Capacity 0 / ${maxSickbaySlots}</div>
+        </div>
+        <div class="worm01-sickbay-empty">
+          <div class="worm01-sickbay-emblem">+</div>
+          <p>No cape currently assigned.</p>
+        </div>
       </section>
     `;
   }
 
   return `
-    <section class="card worm01-sickbay-panel">
-      <h3>Sickbay</h3>
-      <p><strong>Capacity:</strong> ${sickbayEntries.length} / ${maxSickbaySlots}</p>
+    <section class="card worm01-sickbay-stage worm01-sickbay-panel">
+      <div class="worm01-stage-header">
+        <div>
+          <h3>Sickbay</h3>
+          <p class="muted">Capes heal for 25% of max health every minute while in Sickbay.</p>
+        </div>
+        <div class="worm01-stage-chip">Capacity ${sickbayEntries.length} / ${maxSickbaySlots}</div>
+      </div>
       <section class="worm01-card-grid">
         ${sickbayEntries.map((entry) => {
           const countdown = formatCountdownFromMinutes(minutesToFull(entry));
           const full = entry.currentHp >= entry.maxHp;
           return `
-            <article class="card worm01-deck-card">
-              ${renderWormCard(
-                entry.card,
-                {
-                  role: "player",
-                  combatant: {
-                    hp: entry.currentHp,
-                    maxHp: entry.maxHp,
-                    stats: {
-                      attack: entry.card.attack,
-                      defense: entry.card.defense,
-                      endurance: entry.card.endurance,
-                      info: entry.card.info,
-                      manipulation: entry.card.manipulation,
-                      range: entry.card.range,
-                      speed: entry.card.speed,
-                      stealth: entry.card.stealth,
+            <article class="card worm01-deck-card worm01-sickbay-card">
+              <button
+                type="button"
+                class="worm01-sickbay-remove"
+                data-node-id="${NODE_ID}"
+                data-node-action="worm01-sickbay-remove"
+                data-card-id="${escapeHtml(entry.cardId)}"
+                aria-label="${escapeHtml(`Remove ${entry.card.heroName} from Sickbay`)}"
+                title="Remove from Sickbay"
+              >
+                ×
+              </button>
+              <div class="worm01-sickbay-card-shell">
+                <div class="worm01-sickbay-card-wrap">
+                  ${renderWormCard(
+                    entry.card,
+                    {
+                      role: "player",
+                      combatant: {
+                        hp: entry.currentHp,
+                        maxHp: entry.maxHp,
+                        stats: {
+                          attack: entry.card.attack,
+                          defense: entry.card.defense,
+                          endurance: entry.card.endurance,
+                          info: entry.card.info,
+                          manipulation: entry.card.manipulation,
+                          range: entry.card.range,
+                          speed: entry.card.speed,
+                          stealth: entry.card.stealth,
+                        },
+                        modifiers: {},
+                        debuffs: {},
+                        guardCharges: 0,
+                        speedReady: false,
+                        stealthReady: false,
+                      },
                     },
-                    modifiers: {},
-                    debuffs: {},
-                    guardCharges: 0,
-                    speedReady: false,
-                    stealthReady: false,
-                  },
-                },
-              )}
-              <p><strong>Recovery:</strong> ${escapeHtml(hpSummary(entry.currentHp, entry.maxHp))}</p>
-              <p><strong>Time To Full:</strong> ${full ? "Ready now" : escapeHtml(countdown)}</p>
-              <div class="toolbar">
-                <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="worm01-sickbay-remove" data-card-id="${escapeHtml(entry.cardId)}">
-                  Remove From Sickbay
-                </button>
+                  )}
+                </div>
+                <div class="worm01-sickbay-readout">
+                  <div class="worm01-sickbay-time ${full ? "is-ready" : ""}">
+                    ${full ? "Ready now" : `Full recovery in ${escapeHtml(countdown)}`}
+                  </div>
+                </div>
               </div>
             </article>
           `;
@@ -451,43 +676,60 @@ function renderJobsPanel(runtime, wormState, weightBase, maxRarity, specialWindo
   const canTenPull = Number(wormState.clout || 0) >= tenPullCost;
   return `
     <section class="card worm01-job-board worm01-job-board-surface">
-      <h3>Job Board</h3>
-      <p><strong>Clout:</strong> ${escapeHtml(String(Number(wormState.clout || 0).toFixed(2)))}</p>
-      <p class="muted">Basic Window | Max rarity ${escapeHtml(String(maxRarity.toFixed(1)))} | Cost ${BASIC_HIRE_COST}</p>
-      <div class="toolbar">
-        <button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-hire-basic" data-weight-base="${escapeHtml(String(weightBase))}" data-max-rarity="${escapeHtml(String(maxRarity))}" ${canHire ? "" : "disabled"}>
-          Hire Underling
-        </button>
-        ${
-          hasTenPullAccess
-            ? `
-              <button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-hire-basic-ten" data-weight-base="${escapeHtml(String(weightBase))}" data-max-rarity="${escapeHtml(String(maxRarity))}" ${canTenPull ? "" : "disabled"}>
-                Hire x10 (${tenPullCost} Clout)
-              </button>
-            `
-            : ""
-        }
+      <div class="worm01-stage-header">
+        <div>
+          <h3>Job Board</h3>
+          <p class="muted">Pull fresh capes through local hiring channels and any special broker windows you have unlocked.</p>
+        </div>
+        <div class="worm01-stage-chip">Clout ${escapeHtml(String(Number(wormState.clout || 0).toFixed(2)))}</div>
       </div>
+      <section class="worm01-job-window">
+        <div class="worm01-job-window-copy">
+          <h4>Basic Window</h4>
+          <p>Rarity ${escapeHtml(String(maxRarity.toFixed(1)))} and below.</p>
+          <p class="muted">Standard underling pulls from Brockton Bay and nearby talent pools.</p>
+        </div>
+        <div class="worm01-job-window-actions">
+          <button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-hire-basic" data-weight-base="${escapeHtml(String(weightBase))}" data-max-rarity="${escapeHtml(String(maxRarity))}" ${canHire ? "" : "disabled"}>
+            Hire Underling (${BASIC_HIRE_COST})
+          </button>
+          ${
+            hasTenPullAccess
+              ? `
+                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-hire-basic-ten" data-weight-base="${escapeHtml(String(weightBase))}" data-max-rarity="${escapeHtml(String(maxRarity))}" ${canTenPull ? "" : "disabled"}>
+                  Hire x10 (${tenPullCost})
+                </button>
+              `
+              : ""
+          }
+        </div>
+      </section>
       ${
   specialWindows.length
     ? `
           <h4>Special Hiring Windows</h4>
-          <div class="toolbar">
+          <div class="worm01-special-window-grid">
             ${specialWindows.map((window) => `
-              <button
-                type="button"
-                data-node-id="${NODE_ID}"
-                data-node-action="worm01-hire-window"
-                data-window-id="${escapeHtml(window.id)}"
-                data-window-label="${escapeHtml(window.label)}"
-                data-window-cost="${escapeHtml(String(window.cost))}"
-                data-weight-base="${escapeHtml(String(window.weightBase))}"
-                data-min-rarity="${escapeHtml(String(window.minRarity))}"
-                data-max-rarity="${escapeHtml(String(window.maxRarity))}"
-                ${Number(wormState.clout || 0) >= Number(window.cost) ? "" : "disabled"}
-              >
-                ${escapeHtml(window.label)} (${escapeHtml(String(window.cost))} Clout)
-              </button>
+              <article class="worm01-special-window-card">
+                <div>
+                  <h5>${escapeHtml(window.label)}</h5>
+                  <p>Rarity ${escapeHtml(String(window.minRarity.toFixed(1)))} to ${escapeHtml(String(window.maxRarity.toFixed(1)))}</p>
+                </div>
+                <button
+                  type="button"
+                  data-node-id="${NODE_ID}"
+                  data-node-action="worm01-hire-window"
+                  data-window-id="${escapeHtml(window.id)}"
+                  data-window-label="${escapeHtml(window.label)}"
+                  data-window-cost="${escapeHtml(String(window.cost))}"
+                  data-weight-base="${escapeHtml(String(window.weightBase))}"
+                  data-min-rarity="${escapeHtml(String(window.minRarity))}"
+                  data-max-rarity="${escapeHtml(String(window.maxRarity))}"
+                  ${Number(wormState.clout || 0) >= Number(window.cost) ? "" : "disabled"}
+                >
+                  Draw (${escapeHtml(String(window.cost))})
+                </button>
+              </article>
             `).join("")}
           </div>
         `
@@ -513,8 +755,14 @@ export function synchronizeWorm01Runtime(runtime, context) {
     return withSelection;
   }
 
+  const ownedCards = wormOwnedCards(wormState, Date.now());
+  const validCompactifierCardId = ownedCards.some((entry) => entry.cardId === withSelection.compactifierCardId)
+    ? withSelection.compactifierCardId
+    : "";
+
   return {
     ...withSelection,
+    compactifierCardId: validCompactifierCardId,
     solved: true,
   };
 }
@@ -582,6 +830,55 @@ export function reduceWorm01Runtime(runtime, action) {
     };
   }
 
+  if (action.type === "worm01-unlock-ten-pull" || action.type === "worm01-unlock-compactifier") {
+    return {
+      ...current,
+      panel: action.type === "worm01-unlock-compactifier" ? PANELS.compactifier : current.panel,
+      lastMessage: safeText(action.message),
+    };
+  }
+
+  if (action.type === "worm01-open-compact-picker") {
+    return {
+      ...current,
+      panel: PANELS.compactifier,
+      popup: POPUPS.compactPicker,
+    };
+  }
+
+  if (action.type === "worm01-select-compact-cape") {
+    return {
+      ...current,
+      panel: PANELS.compactifier,
+      popup: POPUPS.none,
+      compactifierCardId: safeText(action.cardId),
+    };
+  }
+
+  if (action.type === "worm01-close-compact-popup") {
+    return {
+      ...current,
+      popup: POPUPS.none,
+    };
+  }
+
+  if (action.type === "worm01-begin-compactify") {
+    return {
+      ...current,
+      panel: PANELS.compactifier,
+      popup: current.compactifierCardId ? POPUPS.compactStat : POPUPS.none,
+    };
+  }
+
+  if (action.type === "worm01-compactify-cape") {
+    return {
+      ...current,
+      panel: PANELS.compactifier,
+      popup: POPUPS.none,
+      lastMessage: safeText(action.message),
+    };
+  }
+
   if (action.type === "worm01-hire-basic") {
     return {
       ...current,
@@ -617,6 +914,7 @@ export function reduceWorm01Runtime(runtime, action) {
   if (action.type === "worm01-close-pull-popup") {
     return {
       ...current,
+      lastPulledCardId: "",
       pullPopupCardId: "",
     };
   }
@@ -770,6 +1068,41 @@ export function buildWorm01ActionFromElement(element, runtime) {
     };
   }
 
+  if (actionName === "worm01-unlock-ten-pull") {
+    return { type: "worm01-unlock-ten-pull" };
+  }
+
+  if (actionName === "worm01-unlock-compactifier") {
+    return { type: "worm01-unlock-compactifier" };
+  }
+
+  if (actionName === "worm01-open-compact-picker") {
+    return { type: "worm01-open-compact-picker" };
+  }
+
+  if (actionName === "worm01-select-compact-cape") {
+    return {
+      type: "worm01-select-compact-cape",
+      cardId: element.getAttribute("data-card-id") || "",
+    };
+  }
+
+  if (actionName === "worm01-close-compact-popup") {
+    return { type: "worm01-close-compact-popup" };
+  }
+
+  if (actionName === "worm01-begin-compactify") {
+    return { type: "worm01-begin-compactify" };
+  }
+
+  if (actionName === "worm01-compactify-cape") {
+    return {
+      type: "worm01-compactify-cape",
+      cardId: element.getAttribute("data-card-id") || "",
+      statKey: element.getAttribute("data-stat-key") || "",
+    };
+  }
+
   if (actionName === "worm01-equip-shard") {
     return {
       type: "worm01-equip-shard",
@@ -794,11 +1127,10 @@ export function renderWorm01Experience(context) {
   const runtime = normalizeRuntime(context.runtime);
   const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now());
   const modifiers = prestigeModifiersFromState(context.state);
-  const jobWeightBase = Number((0.125 * Math.max(1, Number(modifiers.worm.jobWeightBaseMultiplier || 1))).toFixed(4));
+  const jobWeightBase = Number((0.125 * Math.max(1, Number(modifiers.worm.jobWeightBaseMultiplier || 1)) * Math.max(1, Number(getWormHiringWeightModifier(context.state, Date.now()) || 1))).toFixed(4));
   const maxSickbaySlots = getWormSickbaySlotCount(context.state, Date.now());
-  const hiringBonus = getWormHiringRarityBonus(context.state, Date.now());
   const maxShardSlotsPerCape = 3;
-  const maxRarity = Math.min(10, 5 + hiringBonus);
+  const maxRarity = 5;
   const lootState = lootInventoryFromState(context.state, Date.now());
   const ownedCards = wormOwnedCards(wormState, Date.now());
   const rewards =
@@ -806,7 +1138,9 @@ export function renderWorm01Experience(context) {
       ? context.state.inventory.rewards
       : {};
   const specialWindows = wormSpecialHiringWindows().filter((window) => Boolean(rewards[window.rewardArtifact]));
-  const hasTenPullAccess = Boolean(rewards["x10 Hiring Access"]);
+  const hasTenPullAccess = Boolean(wormState.tenPullUnlocked);
+  const canUnlockTenPull = Boolean(rewards["x10 Hiring Access"]) && !wormState.tenPullUnlocked;
+  const canUnlockCompactifier = Boolean(rewards["Cape Compactifier"]) && !wormState.compactifierUnlocked;
 
   if (!wormState.startersConfirmed) {
     return `<article class="worm01-node" data-node-id="${NODE_ID}">${renderStarterDraft(runtime, wormState)}</article>`;
@@ -815,13 +1149,19 @@ export function renderWorm01Experience(context) {
   const panel = runtime.panel;
   const panelMarkup = panel === PANELS.sickbay
     ? renderSickbayPanel(ownedCards, wormState, maxSickbaySlots)
+    : panel === PANELS.compactifier
+      ? renderCompactifierPanel(runtime, ownedCards, wormState)
     : panel === PANELS.jobs
       ? renderJobsPanel(runtime, wormState, jobWeightBase, maxRarity, specialWindows, hasTenPullAccess)
       : renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPerCape, lootState);
 
   const popupMarkup = runtime.popup === POPUPS.cape
     ? renderCapeShardPopup(runtime, ownedCards, maxShardSlotsPerCape, lootState)
-    : "";
+    : runtime.popup === POPUPS.compactPicker
+      ? compactifierPickerPopup(runtime, ownedCards)
+      : runtime.popup === POPUPS.compactStat
+        ? compactifierStatPopup(runtime, ownedCards)
+        : "";
   const pullPopup = pullPopupMarkup(runtime);
 
   return `
@@ -833,6 +1173,9 @@ export function renderWorm01Experience(context) {
           ${panelButton(PANELS.deck, panel === PANELS.deck)}
           ${panelButton(PANELS.sickbay, panel === PANELS.sickbay)}
           ${panelButton(PANELS.jobs, panel === PANELS.jobs)}
+          ${wormState.compactifierUnlocked ? panelButton(PANELS.compactifier, panel === PANELS.compactifier) : ""}
+          ${canUnlockCompactifier ? `<button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-unlock-compactifier">Install Compactifier</button>` : ""}
+          ${canUnlockTenPull ? `<button type="button" data-node-id="${NODE_ID}" data-node-action="worm01-unlock-ten-pull">Unlock x10 Hiring</button>` : ""}
         </div>
       </section>
       ${panelMarkup}

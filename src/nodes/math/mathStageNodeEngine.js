@@ -212,10 +212,15 @@ export function createMathStageNodeExperience(config) {
     const solved = Boolean(runtime.solvedStages[stage.id]);
     const value = runtime.inputs[stage.id] || "";
     const showFeedback = runtime.feedbackStageId === stage.id && runtime.feedback;
+    const stateLabel = solved ? "Solved" : unlocked ? "Open" : "Locked";
     return `
       <article class="card math-stage-card ${solved ? "is-solved" : ""} ${!unlocked ? "is-locked" : ""}">
         <header class="math-stage-card-head">
-          <h4>${escapeHtml(stage.label)}</h4>
+          <div>
+            <p class="math-stage-step">Stage ${escapeHtml(String(index + 1))}</p>
+            <h4>${escapeHtml(stage.label)}</h4>
+          </div>
+          <span class="math-stage-state-chip ${solved ? "is-solved" : unlocked ? "is-open" : "is-locked"}">${escapeHtml(stateLabel)}</span>
         </header>
         <p>${escapeHtml(stage.prompt)}</p>
         ${
@@ -268,9 +273,17 @@ export function createMathStageNodeExperience(config) {
     return `
       <article class="math-stage-node" data-node-id="${escapeHtml(nodeId)}">
         <section class="card math-stage-head">
-          <h3>${escapeHtml(title)}</h3>
-          <p>${escapeHtml(subtitle)}</p>
-          <p class="muted">${escapeHtml(String(solvedCount))}/${escapeHtml(String(stages.length))} stages solved</p>
+          <div class="math-stage-head-row">
+            <div class="math-stage-head-copy">
+              <p class="math-stage-kicker">Vault Sequence</p>
+              <h3>${escapeHtml(title)}</h3>
+              <p>${escapeHtml(subtitle)}</p>
+            </div>
+            <div class="math-stage-progress-chip">
+              <strong>${escapeHtml(String(solvedCount))}/${escapeHtml(String(stages.length))}</strong>
+              <span>Stages Solved</span>
+            </div>
+          </div>
           <div class="progress-bar"><span style="width:${progress}%;"></span></div>
         </section>
         <section class="math-stage-grid">

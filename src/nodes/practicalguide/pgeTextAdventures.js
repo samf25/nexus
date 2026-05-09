@@ -1989,15 +1989,54 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
     ${symbolStrip}
     <div class="pge-choice-grid">
       ${visibleChoices.map((choice) => {
+        const nextId = choiceNextId(choice);
+        const nextScene = sceneLookup[nextId] || null;
+        const artifactRequirements = mergeUnique([
+          ...listFrom(choice.requiresArtifacts),
+          ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresArtifacts) : []),
+        ]);
+        const roleRequirements = mergeUnique([
+          ...listFrom(choice.requiresRole),
+          ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresRole) : []),
+        ]);
+        const requirementBits = [];
+        if (artifactRequirements.length) {
+          requirementBits.push(
+            `Requires ${artifactRequirements.join(artifactRequirements.length > 1 ? ", " : "")}`,
+          );
+        }
+        if (roleRequirements.length) {
+          requirementBits.push(
+            `Requires ${roleRequirements.join(roleRequirements.length > 1 ? ", " : "")} role${roleRequirements.length > 1 ? "s" : ""}`,
+          );
+        }
+        const requirementText = requirementBits.join(" \u2022 ");
+        const hasArtifactRequirement = artifactRequirements.length > 0;
+        const hasRoleRequirement = roleRequirements.length > 0;
+        const badgeMarkup =
+          hasArtifactRequirement || hasRoleRequirement
+            ? `
+              <span class="pge-choice-badges" aria-hidden="true">
+                ${hasArtifactRequirement
+                  ? `<span class="pge-choice-badge is-artifact">Artifact</span>`
+                  : ""}
+                ${hasRoleRequirement
+                  ? `<span class="pge-choice-badge is-role">Role</span>`
+                  : ""}
+              </span>
+            `
+            : "";
         return `
           <button
             type="button"
-            class="pge-choice"
+            class="pge-choice${hasArtifactRequirement ? " has-artifact-gate" : ""}${hasRoleRequirement ? " has-role-gate" : ""}"
             data-node-id="${escapeHtml(nodeId)}"
             data-node-action="pge-choose"
             data-choice-id="${escapeHtml(choice.id)}"
+            ${requirementText ? `data-pge-requirement="${escapeHtml(requirementText)}" title="${escapeHtml(requirementText)}"` : ""}
           >
             <span>${escapeHtml(choice.text)}</span>
+            ${badgeMarkup}
           </button>
         `;
       }).join("")}

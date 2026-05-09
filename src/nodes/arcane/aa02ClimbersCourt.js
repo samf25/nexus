@@ -9,6 +9,7 @@ import {
   regionGlyphPool,
 } from "../../systems/arcaneAscension.js";
 import {
+  getArcaneLootModifiers,
   estimateLootShopPrice,
   formatLootItemEffectSummary,
   isLootItemEquipped,
@@ -127,6 +128,7 @@ function normalizeRuntime(runtime) {
     shopOffers: offers,
     selectedAuctionItemId: safeText(source.selectedAuctionItemId),
     activeTab,
+    marketRegion: safeText(source.marketRegion).toLowerCase() || "all",
     revealQueue,
     revealTick: Math.max(0, safeInt(source.revealTick, 0)),
     revealStartedAt: Math.max(0, safeInt(source.revealStartedAt, 0)),
@@ -140,9 +142,158 @@ function normalizeItemDetail(item) {
   return formatLootItemEffectSummary(item, { maxEffects: 3 });
 }
 
+function bonusPctLabel(value) {
+  return `${Math.round(Math.max(0, Number(value) || 0) * 100)}%`;
+}
+
 function displayItemLabel(item) {
   const label = safeText(item && item.label);
   return label.replace(/\s+\[[^\]]+\]$/u, "").trim();
+}
+
+function marketRegionKey(item) {
+  const region = safeText(item && item.region).toLowerCase();
+  if (region === "crd") {
+    return "crd";
+  }
+  if (region === "worm") {
+    return "worm";
+  }
+  if (region === "dcc") {
+    return "dcc";
+  }
+  if (region === "aa") {
+    return "aa";
+  }
+  return "other";
+}
+
+function marketRegionLabel(region) {
+  if (region === "crd") {
+    return "Cradle";
+  }
+  if (region === "worm") {
+    return "Worm";
+  }
+  if (region === "dcc") {
+    return "Dungeon";
+  }
+  if (region === "aa") {
+    return "Arcane";
+  }
+  return "Other";
+}
+
+function marketRegionIcon(region) {
+  if (region === "crd") {
+    return renderRegionSymbol({ section: "Cradle", className: "aa02-market-region-symbol" });
+  }
+  if (region === "worm") {
+    return renderRegionSymbol({ section: "Worm", className: "aa02-market-region-symbol" });
+  }
+  if (region === "dcc") {
+    return renderRegionSymbol({ section: "Dungeon Crawler Carl", className: "aa02-market-region-symbol" });
+  }
+  if (region === "aa") {
+    return renderRegionSymbol({ section: "Arcane Ascension", className: "aa02-market-region-symbol" });
+  }
+  return renderArtifactSymbol({ artifactName: "Archive of Ways", className: "aa02-market-region-symbol artifact-symbol" });
+}
+
+function itemStackSignature(item) {
+  return JSON.stringify({
+    region: marketRegionKey(item),
+    kind: safeText(item && item.kind).toLowerCase(),
+    rarity: safeText(item && item.rarity).toLowerCase(),
+    label: displayItemLabel(item),
+    detail: normalizeItemDetail(item),
+  });
+}
+
+function groupAuctionItems(items, arcane) {
+  const grouped = new Map();
+  for (const item of items) {
+    const base = estimateLootShopPrice(item, {
+      totalSpentAtCourt: arcane.totalSpentAtCourt,
+      buyDiscountPct: arcane.bonuses.buyDiscountPct,
+      shopRegion: "aa",
+    });
+    const payout = Math.max(
+      1,
+      Math.floor(base * 0.75 * (1 + Math.max(0, Number(arcane.bonuses.sellBonusPct) || 0))),
+    );
+    const signature = `${itemStackSignature(item)}::${payout}`;
+    if (!grouped.has(signature)) {
+      grouped.set(signature, {
+        representative: item,
+        quantity: 0,
+        payout,
+      });
+    }
+    const entry = grouped.get(signature);
+    entry.quantity += Math.max(1, Number(item && item.quantity ? item.quantity : 1) || 1);
+  }
+  return Array.from(grouped.values()).sort((left, right) =>
+    displayItemLabel(left.representative).localeCompare(displayItemLabel(right.representative)));
+}
+
+function groupShopOffers(offers) {
+  const grouped = new Map();
+  for (const offer of Array.isArray(offers) ? offers : []) {
+    if (!offer || !offer.lootDrop) {
+      continue;
+    }
+    const signature = `${itemStackSignature(offer.lootDrop)}::${Math.max(1, Number(offer.cost) || 1)}`;
+    if (!grouped.has(signature)) {
+      grouped.set(signature, {
+        representative: offer.lootDrop,
+        quantity: 0,
+        cost: Math.max(1, Number(offer.cost) || 1),
+        offerId: offer.id,
+      });
+    }
+    grouped.get(signature).quantity += 1;
+  }
+  return Array.from(grouped.values()).sort((left, right) =>
+    displayItemLabel(left.representative).localeCompare(displayItemLabel(right.representative)));
+}
+
+function resolveMarketRegionFilter(current, entries) {
+  const available = Array.from(new Set((Array.isArray(entries) ? entries : []).map((entry) => marketRegionKey(entry)))).sort();
+  const selected = available.includes(current) ? current : "all";
+  return {
+    available,
+    selected,
+  };
+}
+
+function marketRegionTabs(current, entries) {
+  const { available, selected } = resolveMarketRegionFilter(current, entries);
+  return `
+    <div class="toolbar aa02-region-tabs">
+      <button
+        type="button"
+        data-node-id="${NODE_ID}"
+        data-node-action="aa02-set-market-region"
+        data-region="all"
+        ${selected === "all" ? "disabled" : ""}
+      >
+        All Regions
+      </button>
+      ${available.map((region) => `
+        <button
+          type="button"
+          data-node-id="${NODE_ID}"
+          data-node-action="aa02-set-market-region"
+          data-region="${escapeHtml(region)}"
+          ${selected === region ? "disabled" : ""}
+        >
+          ${marketRegionIcon(region)}
+          <span>${escapeHtml(marketRegionLabel(region))}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function readableGlyphName(glyphId) {
@@ -174,6 +325,9 @@ function statusMarkup(runtime) {
     return "";
   }
   if (message.toLowerCase().startsWith("tome pull complete:")) {
+    return "";
+  }
+  if (message.toLowerCase() === "the tome inscribes five starter glyphs into your grimoire.") {
     return "";
   }
   return `<p class="aa02-status-note">${escapeHtml(message)}</p>`;
@@ -244,6 +398,13 @@ export function reduceAa02Runtime(runtime, action) {
     };
   }
 
+  if (action.type === "aa02-set-market-region") {
+    return {
+      ...current,
+      marketRegion: safeText(action.region).toLowerCase() || "all",
+    };
+  }
+
   if (action.type === "aa02-buy-offer") {
     return {
       ...current,
@@ -297,30 +458,60 @@ function tabButton(tabId, active, label) {
 
 function shopMarkup(runtime, arcane) {
   const nowLabel = new Date(runtime.shopHourKey * 3600000).toLocaleString();
+  const groupedOffers = groupShopOffers(runtime.shopOffers);
+  const selectedRegion = resolveMarketRegionFilter(
+    runtime.marketRegion,
+    groupedOffers.map((entry) => entry.representative),
+  ).selected;
+  const filteredOffers = groupedOffers.filter((entry) =>
+    selectedRegion === "all" || marketRegionKey(entry.representative) === selectedRegion);
   return `
-    <section class="card">
-      <h3>Shop</h3>
-      <p class="muted">Rotates hourly. Current rotation started: ${escapeHtml(nowLabel)}.</p>
-      <div class="worm01-card-grid">
-        ${runtime.shopOffers.map((offer) => `
-          <article class="card">
-            <h4>${escapeHtml(displayItemLabel(offer.lootDrop))}</h4>
-            <p><strong>Rarity:</strong> ${escapeHtml(safeText(offer.lootDrop.rarity))}</p>
-            <p><strong>Details:</strong> ${escapeHtml(normalizeItemDetail(offer.lootDrop))}</p>
-            <p><strong>Cost:</strong> ${escapeHtml(String(offer.cost))} mana crystals</p>
-            <button
-              type="button"
-              data-node-id="${NODE_ID}"
-              data-node-action="aa02-buy-offer"
-              data-offer-id="${escapeHtml(offer.id)}"
-              data-cost="${escapeHtml(String(offer.cost))}"
-              data-drop="${escapeHtml(serializeOfferDrop(offer.lootDrop))}"
-              ${arcane.manaCrystals >= offer.cost ? "" : "disabled"}
-            >
-              Buy
-            </button>
+    <section class="card aa02-market-panel">
+      <div class="aa02-market-head">
+        <div>
+          <h3>Climber's Court Shop</h3>
+          <p class="muted">Rotates hourly. Current rotation started: ${escapeHtml(nowLabel)}.</p>
+        </div>
+        <div class="aa02-market-summary">
+          <span class="aa02-market-pill">Mana Crystals ${escapeHtml(String(arcane.manaCrystals))}</span>
+          <span class="aa02-market-pill">Offers ${escapeHtml(String(filteredOffers.length))}</span>
+        </div>
+      </div>
+      ${marketRegionTabs(runtime.marketRegion, groupedOffers.map((entry) => entry.representative))}
+      <div class="aa02-market-list">
+        ${filteredOffers.map((offer) => `
+          <article class="aa02-market-row">
+            <div class="aa02-market-row-main">
+              <div class="aa02-market-row-title">
+                ${marketRegionIcon(marketRegionKey(offer.representative))}
+                <div>
+                  <h4>${escapeHtml(displayItemLabel(offer.representative))}</h4>
+                  <p>${escapeHtml(normalizeItemDetail(offer.representative))}</p>
+                </div>
+              </div>
+              <div class="aa02-market-row-meta">
+                <span class="aa02-market-pill">${escapeHtml(marketRegionLabel(marketRegionKey(offer.representative)))}</span>
+                <span class="aa02-market-pill">${escapeHtml(safeText(offer.representative.rarity) || "common")}</span>
+                ${offer.quantity > 1 ? `<span class="aa02-market-pill">x${escapeHtml(String(offer.quantity))}</span>` : ""}
+              </div>
+            </div>
+            <div class="aa02-market-row-action">
+              <strong>${escapeHtml(String(offer.cost))}</strong>
+              <span>mana crystals</span>
+              <button
+                type="button"
+                data-node-id="${NODE_ID}"
+                data-node-action="aa02-buy-offer"
+                data-offer-id="${escapeHtml(offer.offerId)}"
+                data-cost="${escapeHtml(String(offer.cost))}"
+                data-drop="${escapeHtml(serializeOfferDrop(offer.representative))}"
+                ${arcane.manaCrystals >= offer.cost ? "" : "disabled"}
+              >
+                Buy
+              </button>
+            </div>
           </article>
-        `).join("")}
+        `).join("") || `<p class="muted">No offers in this region tab right now.</p>`}
       </div>
     </section>
   `;
@@ -328,50 +519,82 @@ function shopMarkup(runtime, arcane) {
 
 function auctionMarkup(runtime, state, arcane) {
   const loot = lootInventoryFromState(state || {}, Date.now());
+  const aaModifiers = getArcaneLootModifiers(state || {}, Date.now());
   const itemEntries = Object.values(loot.items || {}).sort((left, right) => left.label.localeCompare(right.label));
+  const arcaneForPricing = {
+    ...arcane,
+    bonuses: {
+      ...(arcane.bonuses || {}),
+      sellBonusPct: Number(aaModifiers.sellBonusPct || 0),
+    },
+  };
+  const groupedItems = groupAuctionItems(itemEntries, arcaneForPricing);
   if (!itemEntries.length) {
     return `
-      <section class="card">
-        <h3>Auction</h3>
+      <section class="card aa02-market-panel">
+        <h3>Grand Auction</h3>
         <p class="muted">No loot available to auction.</p>
       </section>
     `;
   }
 
+  const selectedRegion = resolveMarketRegionFilter(
+    runtime.marketRegion,
+    groupedItems.map((entry) => entry.representative),
+  ).selected;
+  const filteredItems = groupedItems.filter((entry) =>
+    selectedRegion === "all" || marketRegionKey(entry.representative) === selectedRegion);
+
   return `
-    <section class="card">
-      <h3>Auction</h3>
-      <div class="worm01-card-grid">
-        ${itemEntries.map((item) => {
-          const base = estimateLootShopPrice(item, {
-            totalSpentAtCourt: arcane.totalSpentAtCourt,
-            buyDiscountPct: arcane.bonuses.buyDiscountPct,
-            shopRegion: "aa",
-          });
-          const payout = Math.max(
-            1,
-            Math.floor(base * 0.75 * (1 + Math.max(0, Number(arcane.bonuses.sellBonusPct) || 0))),
-          );
+    <section class="card aa02-market-panel">
+      <div class="aa02-market-head">
+        <div>
+          <h3>Grand Auction</h3>
+          <p class="muted">List spoils by region and move them quickly without hunting through every item.</p>
+        </div>
+        <div class="aa02-market-summary">
+          <span class="aa02-market-pill">Sell Bonus ${escapeHtml(bonusPctLabel(aaModifiers.sellBonusPct))}</span>
+          <span class="aa02-market-pill">Lots ${escapeHtml(String(filteredItems.length))}</span>
+        </div>
+      </div>
+      ${marketRegionTabs(runtime.marketRegion, groupedItems.map((entry) => entry.representative))}
+      <div class="aa02-market-list">
+        ${filteredItems.map((entry) => {
+          const item = entry.representative;
           const equipped = isLootItemEquipped(state || {}, item.id);
           return `
-            <article class="card">
-              <h4>${escapeHtml(displayItemLabel(item))}</h4>
-              <p><strong>Quantity:</strong> ${escapeHtml(String(item.quantity))}</p>
-              <p><strong>Details:</strong> ${escapeHtml(normalizeItemDetail(item))}</p>
-              <p><strong>Payout:</strong> ${escapeHtml(String(payout))} mana crystals</p>
-              <button
-                type="button"
-                data-node-id="${NODE_ID}"
-                data-node-action="aa02-sell-selected"
-                data-item-id="${escapeHtml(item.id)}"
-                data-payout="${escapeHtml(String(payout))}"
-                ${equipped ? "disabled" : ""}
-              >
-                ${equipped ? "Unequip first" : "Sell"}
-              </button>
+            <article class="aa02-market-row">
+              <div class="aa02-market-row-main">
+                <div class="aa02-market-row-title">
+                  ${marketRegionIcon(marketRegionKey(item))}
+                  <div>
+                    <h4>${escapeHtml(displayItemLabel(item))}</h4>
+                    <p>${escapeHtml(normalizeItemDetail(item))}</p>
+                  </div>
+                </div>
+                <div class="aa02-market-row-meta">
+                  <span class="aa02-market-pill">${escapeHtml(marketRegionLabel(marketRegionKey(item)))}</span>
+                  <span class="aa02-market-pill">${escapeHtml(safeText(item.rarity) || "common")}</span>
+                  <span class="aa02-market-pill">x${escapeHtml(String(entry.quantity))}</span>
+                </div>
+              </div>
+              <div class="aa02-market-row-action">
+                <strong>${escapeHtml(String(entry.payout))}</strong>
+                <span>mana crystals</span>
+                <button
+                  type="button"
+                  data-node-id="${NODE_ID}"
+                  data-node-action="aa02-sell-selected"
+                  data-item-id="${escapeHtml(item.id)}"
+                  data-payout="${escapeHtml(String(entry.payout))}"
+                  ${equipped ? "disabled" : ""}
+                >
+                  ${equipped ? "Unequip first" : "Sell"}
+                </button>
+              </div>
             </article>
           `;
-        }).join("")}
+        }).join("") || `<p class="muted">No auction lots in this region tab.</p>`}
       </div>
     </section>
   `;
@@ -463,6 +686,13 @@ export function buildAa02ActionFromElement(element) {
     return {
       type: action,
       tab: safeText(element.getAttribute("data-tab")).toLowerCase(),
+      at: Date.now(),
+    };
+  }
+  if (action === "aa02-set-market-region") {
+    return {
+      type: action,
+      region: safeText(element.getAttribute("data-region")).toLowerCase() || "all",
       at: Date.now(),
     };
   }

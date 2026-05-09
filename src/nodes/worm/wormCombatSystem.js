@@ -35,6 +35,15 @@ function safeText(value) {
   return String(value == null ? "" : value).trim();
 }
 
+function escapeMarkup(value) {
+  return safeText(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function toStat(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -950,26 +959,6 @@ function resolveOrder(state, actor, order) {
   }
 }
 
-function actionLabel(actionType) {
-  const type = normalizeActionType(actionType);
-  if (type === WORM_ACTION_TYPES.defense) {
-    return "Defense";
-  }
-  if (type === WORM_ACTION_TYPES.info) {
-    return "Info";
-  }
-  if (type === WORM_ACTION_TYPES.manipulation) {
-    return "Manipulation";
-  }
-  if (type === WORM_ACTION_TYPES.speed) {
-    return "Speed";
-  }
-  if (type === WORM_ACTION_TYPES.stealth) {
-    return "Stealth";
-  }
-  return "Attack";
-}
-
 function normalizeBattleState(state) {
   const source = state && typeof state === "object" ? state : {};
   const playerTeam = Array.isArray(source.playerTeam)
@@ -1028,6 +1017,60 @@ export function selectableWormActions() {
   return SELECTABLE_ACTIONS.slice();
 }
 
+export function parseWormCombatEventLine(line = "") {
+  const text = safeText(line);
+  const matchedStructured = text.match(/^(.+?)\s+\|\s+([^|:]+)\s+\|\s+(success|fail)(?:\s+\|\s+([^:]+))?:\s+(.+)$/u);
+  if (matchedStructured) {
+    return {
+      actor: safeText(matchedStructured[1]),
+      action: safeText(matchedStructured[2]),
+      success: safeText(matchedStructured[3]).toLowerCase() === "success",
+      target: safeText(matchedStructured[4]),
+      detail: safeText(matchedStructured[5]),
+      structured: true,
+    };
+  }
+  const matched = text.match(/^(.+?)\s+\|\s+([^:]+):\s+(.+)$/u);
+  if (matched) {
+    return {
+      actor: safeText(matched[1]),
+      action: safeText(matched[2]),
+      success: null,
+      target: "",
+      detail: safeText(matched[3]),
+      structured: true,
+    };
+  }
+  return {
+    actor: "",
+    action: "",
+    success: null,
+    target: "",
+    detail: text,
+    structured: false,
+  };
+}
+
+export function renderWormCombatEventCard(line, index) {
+  const parsed = parseWormCombatEventLine(line);
+  const success = parsed.success === true;
+  const failure = parsed.success === false;
+  const badgeLabel = success ? "Success" : failure ? "Failure" : "Event";
+  const badgeSymbol = success ? "✓" : failure ? "×" : "·";
+  return `
+    <article class="worm02-turn-event">
+      <span class="worm02-turn-index">${escapeMarkup(String(index + 1))}</span>
+      <div class="worm02-turn-head">
+        <span class="worm02-turn-actor">${escapeMarkup(parsed.actor || "Field")}</span>
+        ${parsed.target ? `<span class="worm02-turn-target">${escapeMarkup(parsed.target)}</span>` : ""}
+        <span class="worm02-turn-action">${escapeMarkup(parsed.action || "Shift")}</span>
+        <span class="worm02-turn-result ${success ? "is-success" : failure ? "is-failure" : ""}" aria-label="${escapeMarkup(badgeLabel)}">${badgeSymbol}</span>
+      </div>
+      <div class="worm02-turn-detail">${escapeMarkup(parsed.detail || "")}</div>
+    </article>
+  `;
+}
+
 export function infoDebuffStatKeys() {
   return INFO_DEBUFF_KEYS.slice();
 }
@@ -1068,9 +1111,6 @@ export function resolveWormRound(
       selectedOrder.type === WORM_ACTION_TYPES.attack
         ? 0
         : Math.max(0, Number(actor.nonAttackStreak || 0) + 1);
-    if (next.log.length === beforeLogLength) {
-      logLine(next, `${actor.heroName} uses ${actionLabel(selectedOrder.type)}.`);
-    }
     updateWinner(next);
   }
 

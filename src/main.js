@@ -50,6 +50,7 @@ import {
   consumeLootItem,
   estimateLootShopPrice,
   equipLootItem,
+  formatLootItemEffectSummary,
   getArcaneLootModifiers,
   getWormCapeLootBonuses,
   isLootItemEquipped,
@@ -78,7 +79,6 @@ import {
   tickArcaneMana,
 } from "./systems/arcaneAscension.js";
 import { wormCardById } from "./nodes/worm/wormData.js";
-import { TWI03_SPECIAL_REWARD_SEQUENCE } from "./nodes/wanderinginn/twi03Inn.js";
 import { memoryRevealBeatMs, memoryRevealDurationMs } from "./nodes/motheroflearning/memoryGameCore.js";
 
 const root = document.getElementById("app");
@@ -103,7 +103,22 @@ const DEPRECATED_REWARD_NAMES = new Set([
   "Route Thread",
   "Common Tongue Scrap",
   "Board Code",
+  "Witness Token",
+  "Proof Frame",
+  "Necessity Lens",
+  "Prime Teeth",
+  "Congruence Pair",
+  "Square Root Lantern",
+  "Operation Card",
+  "Orbit Ribbon",
+  "Mirror Pair",
+  "Lattice Hook",
+  "Path Thread",
+  "Chart Pair",
+  "Curvature Chip",
+  "Transport Arrow",
   "Story Beat A",
+  "Ashen Treaty Pins",
 ]);
 let appState = loadState();
 let deskFocusNodeId = null;
@@ -155,6 +170,26 @@ const MATH_VAULT_PGE_ARTIFACT_PLACEMENTS = Object.freeze({
   GEO03: "Veiled Signet",
   LOG04: "River-Map of Silt",
 });
+
+function artifactSourceGroup(source) {
+  const text = String(source || "").trim();
+  if (["Hall of Proofs", "Prime Vault", "Symmetry Forge", "Curved Atlas"].includes(text)) {
+    return "Math";
+  }
+  return text;
+}
+
+function preserveArtifactListScrollIfOpen() {
+  if (!widgetState.artifacts) {
+    return;
+  }
+  const artifactList = root.querySelector("[data-widget-artifact-list='true']");
+  if (artifactList && "scrollTop" in artifactList) {
+    artifactListScrollTop = Number(artifactList.scrollTop || 0);
+    pendingArtifactListScrollRestore = true;
+  }
+}
+
 const WORM_ARENA_FIRST_WIN_ARTIFACTS = Object.freeze({
   easy: "Ashen Treaty Pins",
   medium: "Red Petition Docket",
@@ -226,10 +261,31 @@ const NODE_ARTIFACT_CONSUME_RULES = Object.freeze([
   }),
   Object.freeze({
     nodeId: "DCC01",
-    actionType: "dcc-unlock-floor3",
+    actionType: "dcc-unlock-floor-gate",
+    artifact: "DCC Floor-2 Key",
+    usedBy: "DCC01",
+    when: (action) => action.ready === true && Number(action.floor) === 2,
+  }),
+  Object.freeze({
+    nodeId: "DCC01",
+    actionType: "dcc-unlock-floor-gate",
     artifact: "DCC Floor-3 Key",
     usedBy: "DCC01",
-    when: (action) => action.ready === true,
+    when: (action) => action.ready === true && Number(action.floor) === 3,
+  }),
+  Object.freeze({
+    nodeId: "DCC01",
+    actionType: "dcc-unlock-floor-gate",
+    artifact: "DCC Floor-4 Key",
+    usedBy: "DCC01",
+    when: (action) => action.ready === true && Number(action.floor) === 4,
+  }),
+  Object.freeze({
+    nodeId: "DCC01",
+    actionType: "dcc-unlock-floor-gate",
+    artifact: "DCC Floor-5 Key",
+    usedBy: "DCC01",
+    when: (action) => action.ready === true && Number(action.floor) === 5,
   }),
   Object.freeze({
     nodeId: "DCC01",
@@ -343,6 +399,70 @@ const NODE_REWARD_OVERRIDES = Object.freeze({
   WORM02: Object.freeze({
     suppressBlueprintReward: false,
     supplementalRewards: Object.freeze(["Ivory Truce Fork"]),
+  }),
+  LOG01: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  LOG02: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  LOG03: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  LOG04: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  NUM01: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  NUM02: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  NUM03: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  NUM04: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  ALG01: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  ALG02: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  ALG03: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  ALG04: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  GEO01: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  GEO02: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  GEO03: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
+  }),
+  GEO04: Object.freeze({
+    suppressBlueprintReward: true,
+    supplementalRewards: Object.freeze([]),
   }),
   PGE01: Object.freeze({
     suppressBlueprintReward: true,
@@ -747,6 +867,20 @@ function normalizeLootEvent(entry) {
   };
 }
 
+function isWormOutcomeClaimAction(nodeId, actionType) {
+  const node = String(nodeId || "");
+  const action = String(actionType || "");
+  return (
+    (node === "WORM02" && action === "worm02-claim-outcome") ||
+    (node === "WORM03" && action === "worm03-claim-outcome") ||
+    (node === "WORM04" && action === "worm04-claim-outcome") ||
+    (node === "WORM05" && action === "worm05-claim-outcome") ||
+    (node === "WORM06" && action === "worm06-claim-outcome") ||
+    (node === "WORM07" && action === "worm07-claim-outcome") ||
+    (node === "WORM08" && action === "worm08-claim-outcome")
+  );
+}
+
 function applyRuntimeLootEvents(state, nodeId, runtime) {
   const events = runtime && Array.isArray(runtime.lootEvents) ? runtime.lootEvents.map(normalizeLootEvent) : [];
   if (!events.length) {
@@ -879,7 +1013,7 @@ function ensureSelectedArtifactStillAvailable() {
   if (selectedArtifactSource !== "all") {
     const hasSource = Object.values(rewards).some((entry) => {
       const source = entry && typeof entry === "object" ? String(entry.section || "").trim() : "";
-      return source === selectedArtifactSource;
+      return artifactSourceGroup(source) === selectedArtifactSource;
     });
     if (!hasSource) {
       selectedArtifactSource = "all";
@@ -1208,6 +1342,7 @@ function readNodeRuntime(state, node, experience) {
 }
 
 function dispatchActiveNodeAction(action) {
+  preserveArtifactListScrollIfOpen();
   const context = currentActiveNodeContext();
   if (!context || !action) {
     return false;
@@ -1219,6 +1354,10 @@ function dispatchActiveNodeAction(action) {
   withState((current) => {
     let next = current;
     let runtimeAction = action;
+    const wormOutcomeClaim = isWormOutcomeClaimAction(node.node_id, action.type);
+    let wormOutcomeCloutAward = 0;
+    let wormOutcomeLootDrops = [];
+    let wormOutcomeArtifactRewards = [];
     if (node.node_id === "WORM02" && (action.type === "worm02-start-normal" || action.type === "worm02-start-boss")) {
       const payload = Array.isArray(action.playerCards) ? action.playerCards : [];
       const bonuses = {};
@@ -1257,23 +1396,36 @@ function dispatchActiveNodeAction(action) {
       }
 
       if (node.node_id === "WORM02" && action.type === "worm02-claim-outcome") {
+        wormOutcomeCloutAward += Math.max(0, Number(wormSystemResult.meta && wormSystemResult.meta.reward ? wormSystemResult.meta.reward : 0));
         const firstWinDifficulty = String(wormSystemResult.meta && wormSystemResult.meta.firstWinDifficulty ? wormSystemResult.meta.firstWinDifficulty : "");
-        if (firstWinDifficulty && WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]) {
+        if (firstWinDifficulty && firstWinDifficulty !== "easy" && WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]) {
           next = grantSupplementalReward(next, WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty], node);
+          wormOutcomeArtifactRewards.push(WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]);
           setBanner(`Recovered ${WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]}.`);
         }
       }
+
+      if (node.node_id === "WORM01" && action.type === "worm01-unlock-ten-pull" && wormSystemResult.changed) {
+        next = consumeReward(next, "x10 Hiring Access", "WORM01");
+      }
+
+      if (node.node_id === "WORM01" && action.type === "worm01-unlock-compactifier" && wormSystemResult.changed) {
+        next = consumeReward(next, "Cape Compactifier", "WORM01");
+      }
     }
 
-    if (node.node_id === "DCC01" && action.type === "dcc-unlock-floor3" && action.ready === true && action.atGate === true) {
+    if (node.node_id === "DCC01" && action.type === "dcc-unlock-floor-gate" && action.ready === true && action.atGate === true) {
       const currentDccSystem =
         next && next.systems && next.systems.dungeonCrawl && typeof next.systems.dungeonCrawl === "object"
           ? next.systems.dungeonCrawl
           : {};
+      const floor = Math.max(2, Math.floor(Number(action.floor) || 0));
+      const floorField = `floor${floor}Unlocked`;
       next = updateSystemState(next, "dungeonCrawl", {
         ...currentDccSystem,
-        floor3Unlocked: true,
+        [floorField]: true,
       });
+      next = consumeReward(next, `DCC Floor-${floor} Key`, "DCC01");
     }
 
     if (
@@ -1467,12 +1619,13 @@ function dispatchActiveNodeAction(action) {
         const currentRewardIndex = Math.max(0, Math.floor(Number(twiRuntime && twiRuntime.specialRewardIndex ? twiRuntime.specialRewardIndex : 0)));
         let specialReward = "";
         let nextRewardIndex = currentRewardIndex;
-        if (currentRewardIndex < TWI03_SPECIAL_REWARD_SEQUENCE.length) {
-          specialReward = TWI03_SPECIAL_REWARD_SEQUENCE[currentRewardIndex];
+        if (runtimeAction.specialReward) {
+          specialReward = String(runtimeAction.specialReward);
           working = grantSupplementalReward(working, specialReward, node);
           nextRewardIndex = currentRewardIndex + 1;
         }
         const lootState = lootInventoryFromState(working, Date.now());
+        const reputationAfter = Math.max(0, Math.floor(Number(lootState.progression && lootState.progression.twiReputation ? lootState.progression.twiReputation : 0)));
         message = `Quest fulfilled. +${finalRepReward} Inn Reputation.`;
         if (specialReward) {
           message = `${message} Milestone reward recovered: ${specialReward}.`;
@@ -1481,6 +1634,7 @@ function dispatchActiveNodeAction(action) {
           ...runtimeAction,
           applied: true,
           innTier: Number(lootState.progression && lootState.progression.innTier ? lootState.progression.innTier : 0),
+          reputationAfter,
           lootEligible: true,
           specialRewardIndex: nextRewardIndex,
           message,
@@ -1590,6 +1744,7 @@ function dispatchActiveNodeAction(action) {
           };
         } else {
           const arcane = arcaneSystemFromState(next, Date.now());
+          const aaModifiers = getArcaneLootModifiers(next, Date.now());
           const basePrice = estimateLootShopPrice(item, {
             totalSpentAtCourt: arcane.totalSpentAtCourt,
             buyDiscountPct: arcane.bonuses.buyDiscountPct,
@@ -1597,7 +1752,7 @@ function dispatchActiveNodeAction(action) {
           });
           const payout = Math.max(
             1,
-            Math.floor(basePrice * 0.75 * (1 + Math.max(0, Number(arcane.bonuses.sellBonusPct) || 0))),
+            Math.floor(basePrice * 0.75 * (1 + Math.max(0, Number(aaModifiers.sellBonusPct) || 0))),
           );
           const removed = removeLootItemInstance(next, itemId, 1);
           if (removed.changed) {
@@ -1876,6 +2031,7 @@ function dispatchActiveNodeAction(action) {
               junk: outcome.isJunk,
               region: craftedDrop.region,
               rarity: craftedDrop.rarity,
+              details: formatLootItemEffectSummary(craftedDrop, { maxEffects: 4 }),
             },
           });
           next = working;
@@ -1888,6 +2044,7 @@ function dispatchActiveNodeAction(action) {
               junk: outcome.isJunk,
               region: craftedDrop.region,
               rarity: craftedDrop.rarity,
+              details: formatLootItemEffectSummary(craftedDrop, { maxEffects: 4 }),
             },
             message: outcome.isJunk
               ? "Craft complete: unstable junk fragment produced."
@@ -2408,6 +2565,7 @@ function dispatchActiveNodeAction(action) {
       Number(runtime && runtime.pendingCloutAward) > 0
     ) {
       const award = Math.max(0, Number(runtime.pendingCloutAward) || 0);
+      wormOutcomeCloutAward += award;
       const wormState =
         next && next.systems && next.systems.worm && typeof next.systems.worm === "object"
           ? next.systems.worm
@@ -2432,6 +2590,7 @@ function dispatchActiveNodeAction(action) {
     const lootResolution = applyRuntimeLootEvents(next, node.node_id, runtime);
     if (lootResolution.consumed) {
       next = lootResolution.state;
+      wormOutcomeLootDrops = lootResolution.dropped.slice();
       next = updateNodeRuntime(
         next,
         node.node_id,
@@ -2475,6 +2634,7 @@ function dispatchActiveNodeAction(action) {
       for (const reward of rewardsToGrant) {
         next = grantSupplementalReward(next, reward, node);
       }
+      wormOutcomeArtifactRewards.push(...rewardsToGrant);
       next = updateNodeRuntime(
         next,
         node.node_id,
@@ -2488,6 +2648,29 @@ function dispatchActiveNodeAction(action) {
         setBanner(`Recovered ${rewardsToGrant.join(", ")}.`);
       }
       runtime = readNodeRuntime(next, node, experience);
+    }
+
+    if (wormOutcomeClaim) {
+      const outcomeRuntime = readNodeRuntime(next, node, experience);
+      if (outcomeRuntime && outcomeRuntime.outcomePopup && typeof outcomeRuntime.outcomePopup === "object") {
+        next = updateNodeRuntime(
+          next,
+          node.node_id,
+          (currentRuntime) => ({
+            ...(currentRuntime && typeof currentRuntime === "object" ? currentRuntime : {}),
+            outcomePopup: {
+              ...((currentRuntime && currentRuntime.outcomePopup && typeof currentRuntime.outcomePopup === "object")
+                ? currentRuntime.outcomePopup
+                : {}),
+              cloutAward: wormOutcomeCloutAward,
+              lootDrops: wormOutcomeLootDrops.slice(),
+              artifactRewards: Array.from(new Set(wormOutcomeArtifactRewards.filter(Boolean))),
+            },
+          }),
+          () => experience.initialState({ node, state: next }),
+        );
+        runtime = readNodeRuntime(next, node, experience);
+      }
     }
 
     const runtimeAfterRewards = readNodeRuntime(next, node, experience);
@@ -3427,6 +3610,14 @@ function renderApp(route = getCurrentRoute()) {
     resetAa03Canvas(element);
   });
 
+  const autofocusTarget = root.querySelector("[data-autofocus='true']");
+  if (autofocusTarget instanceof HTMLElement && document.activeElement !== autofocusTarget) {
+    autofocusTarget.focus();
+    if ("select" in autofocusTarget && typeof autofocusTarget.select === "function") {
+      autofocusTarget.select();
+    }
+  }
+
   bannerMessage = "";
   saveState(appState);
 }
@@ -3575,6 +3766,7 @@ function handleClick(event) {
         renderApp();
         return;
       }
+      let dccEquipApplied = false;
       withState((current) => {
         const runtime = getNodeRuntime(current, "DCC01", () => ({}));
         const run = runtime && runtime.run && typeof runtime.run === "object" ? runtime.run : null;
@@ -3607,6 +3799,7 @@ function handleClick(event) {
             itemId,
             label: item.label,
             rarity: item.rarity,
+            effectSummary: formatLootItemEffectSummary(item, { maxEffects: 6 }),
             enchantments,
             enchantLabel: enchantments.map((entry) => String(entry && entry.label ? entry.label : "")).filter(Boolean).join(", "),
             hpBonus: sumEffect("dcc_run_hp_bonus"),
@@ -3617,6 +3810,7 @@ function handleClick(event) {
             runLifespan,
             remainingRunLifespan: runLifespan,
           };
+          dccEquipApplied = true;
           setBanner(`Prepared ${item.label} in ${slot} slot.`);
         } else if (item.kind === "dcc_enchant") {
           setBanner("Standalone Dungeon Crawler Carl enchants are legacy sell items. New enchants come embedded on armor.");
@@ -3643,6 +3837,9 @@ function handleClick(event) {
           }),
         );
       });
+      if (dccEquipApplied) {
+        selectedLootItemId = "";
+      }
       renderApp();
       return;
     }
@@ -3653,6 +3850,34 @@ function handleClick(event) {
       targetId,
       slotId: Number.isFinite(numericSlot) ? numericSlot : undefined,
       itemInstanceId: itemId,
+    });
+    if (result.changed) {
+      withState(result.nextState);
+      const nextLoot = lootInventoryFromState(result.nextState, Date.now());
+      if (!nextLoot.items[itemId]) {
+        selectedLootItemId = "";
+      }
+    }
+    setBanner(result.message);
+    renderApp();
+    return;
+  }
+
+  if (action === "loot-unequip-target") {
+    const region = String(button.getAttribute("data-region") || "").toLowerCase();
+    const targetId = String(button.getAttribute("data-target-id") || "");
+    const rawSlot = String(button.getAttribute("data-slot-id") || "");
+    if (!region) {
+      setBanner("Select a loot slot first.");
+      renderApp();
+      return;
+    }
+
+    const slotId = rawSlot;
+    const result = unequipLootItem(appState, {
+      region,
+      targetId,
+      slotId,
     });
     if (result.changed) {
       withState(result.nextState);
@@ -3994,6 +4219,26 @@ function handleKeyDown(event) {
 
     if (closeTopDialogIfAny()) {
       event.preventDefault();
+      return;
+    }
+
+    if (handleNodeKeyDown(event)) {
+      return;
+    }
+
+    const openWidget = ["loot", "artifacts", "signals", "save"].find((key) => widgetState[key]);
+    if (openWidget) {
+      const closingArtifacts = openWidget === "artifacts" && widgetState.artifacts;
+      widgetState = {
+        ...widgetState,
+        [openWidget]: false,
+      };
+      if (closingArtifacts) {
+        selectedArtifactReward = "";
+        selectedArtifactSource = "all";
+      }
+      event.preventDefault();
+      renderApp();
       return;
     }
 

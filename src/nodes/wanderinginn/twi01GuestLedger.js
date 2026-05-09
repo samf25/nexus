@@ -56,7 +56,7 @@ const GUESTS = Object.freeze([
   },
   {
     id: "hethon",
-    name: "Hethon",
+    name: "Hethon Veltras",
     gender: "Male",
     species: "Human",
     status: "Alive",
@@ -100,7 +100,7 @@ const GUESTS = Object.freeze([
   },
   {
     id: "elia",
-    name: "Elia",
+    name: "Elia Arcsinger",
     gender: "Female",
     species: "Half-Elf",
     status: "Alive",
@@ -220,11 +220,13 @@ function normalizeRuntime(runtime) {
   const solvedSet = new Set(solvedCells);
   const flashCellId = Object.prototype.hasOwnProperty.call(CELL_LOOKUP, source.flashCellId) ? source.flashCellId : "";
   const flashUntil = Number.isFinite(source.flashUntil) ? Number(source.flashUntil) : 0;
+  const nextFocusCellId = Object.prototype.hasOwnProperty.call(CELL_LOOKUP, source.nextFocusCellId) ? source.nextFocusCellId : "";
 
   return {
     solvedCells: [...solvedSet],
     flashCellId,
     flashUntil,
+    nextFocusCellId: solvedSet.has(nextFocusCellId) ? "" : nextFocusCellId,
     lastMessage: String(source.lastMessage || ""),
     solved: Boolean(source.solved) || solvedSet.size >= ALL_MISSING_CELL_IDS.length,
   };
@@ -235,9 +237,27 @@ export function initialTwi01Runtime() {
     solvedCells: [],
     flashCellId: "",
     flashUntil: 0,
+    nextFocusCellId: "",
     lastMessage: "",
     solved: false,
   };
+}
+
+function nextMissingCellIdAfter(cellId, solvedSet) {
+  const startIndex = Math.max(0, ALL_MISSING_CELL_IDS.indexOf(cellId));
+  for (let index = startIndex + 1; index < ALL_MISSING_CELL_IDS.length; index += 1) {
+    const candidate = ALL_MISSING_CELL_IDS[index];
+    if (!solvedSet.has(candidate)) {
+      return candidate;
+    }
+  }
+  for (let index = 0; index <= startIndex; index += 1) {
+    const candidate = ALL_MISSING_CELL_IDS[index];
+    if (!solvedSet.has(candidate)) {
+      return candidate;
+    }
+  }
+  return "";
 }
 
 export function validateTwi01Runtime(runtime) {
@@ -269,6 +289,7 @@ export function reduceTwi01Runtime(runtime, action) {
   if (!guess || guess !== target) {
     return {
       ...current,
+      nextFocusCellId: cellId,
       lastMessage: "That entry does not match the ledger.",
     };
   }
@@ -282,6 +303,7 @@ export function reduceTwi01Runtime(runtime, action) {
     solvedCells: [...solvedSet],
     flashCellId: cellId,
     flashUntil: Number(action.at || Date.now()) + 420,
+    nextFocusCellId: solved ? "" : nextMissingCellIdAfter(cellId, solvedSet),
     lastMessage: solved ? "Guest ledger fully reconstructed." : "",
     solved,
   };
@@ -329,6 +351,7 @@ function cellMarkup(runtime, rowIndex, guest, field) {
       class="twi01-cell-input"
       data-twi01-input
       data-cell-id="${escapeHtml(cellId)}"
+      ${runtime.nextFocusCellId === cellId ? `data-autofocus="true"` : ""}
       placeholder="?"
       autocomplete="off"
       spellcheck="false"

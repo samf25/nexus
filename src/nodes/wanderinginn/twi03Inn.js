@@ -9,14 +9,84 @@ const QUEST_SLOTS = 3;
 export const TWI03_SPECIAL_REWARD_SEQUENCE = Object.freeze([
   "DCC Floor-2 Key",
   "Cape Compactifier",
-  "Wave-III Passkey",
   "x10 Hiring Access",
+  "Wave-III Passkey",
   "The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity",
 ]);
 
-const COMMON_CHARACTERS = Object.freeze(["Erin", "Lyonette", "Pisces", "Ceria"]);
-const UNCOMMON_CHARACTERS = Object.freeze(["Numbtongue", "Olesm", "Bird", "Rags"]);
-const RARE_CHARACTERS = Object.freeze(["Niers", "Relc", "Mrsha", "Ryoka"]);
+export const TWI03_SPECIAL_REWARD_THRESHOLDS = Object.freeze([
+  4,
+  10,
+  20,
+  36,
+  52,
+]);
+
+const CHARACTER_BANDS = Object.freeze([
+  Object.freeze({
+    minTier: 0,
+    characters: Object.freeze(["Erin Solstice", "Lyonette du Marquin", "Pisces Jealnet", "Ceria Springwalker", "Ishkr"]),
+  }),
+  Object.freeze({
+    minTier: 1,
+    characters: Object.freeze(["Klbkch", "Olesm Swifttail", "Bird", "Pawn", "Krshia Silverfang", "Selys Shivertail"]),
+  }),
+  Object.freeze({
+    minTier: 2,
+    characters: Object.freeze(["Numbtongue", "Rags", "Relc Grasstongue", "Yvlon Byres", "Montressa du Valeross"]),
+  }),
+  Object.freeze({
+    minTier: 3,
+    characters: Object.freeze(["Ryoka Griffin", "Mrsha du Marquin", "Ilvriss Gemscale", "Saliss of Lights", "Grimalkin"]),
+  }),
+  Object.freeze({
+    minTier: 4,
+    characters: Object.freeze(["Niers Astoragon", "Magnolia Reinhart", "Az'kerash", "Fetohep of Reim", "Teriarch"]),
+  }),
+]);
+
+const SPECIAL_REWARD_GUESTS = Object.freeze([
+  Object.freeze({
+    character: "Klbkch",
+    reward: "DCC Floor-2 Key",
+    requirementType: "gold",
+    amount: 120,
+    repReward: 18,
+    title: "Bring sanctioned supplies for a dangerous route.",
+  }),
+  Object.freeze({
+    character: "Saliss of Lights",
+    reward: "Cape Compactifier",
+    requirementType: "clout",
+    amount: 180,
+    repReward: 28,
+    title: "Acquire volatile favors for an inadvisable experiment.",
+  }),
+  Object.freeze({
+    character: "Magnolia Reinhart",
+    reward: "x10 Hiring Access",
+    requirementType: "gold",
+    amount: 420,
+    repReward: 42,
+    title: "Fund a broader network of retainers and responses.",
+  }),
+  Object.freeze({
+    character: "Niers Astoragon",
+    reward: "Wave-III Passkey",
+    requirementType: "madra",
+    amount: 480,
+    repReward: 60,
+    title: "Provision a campaign that spans more than one world.",
+  }),
+  Object.freeze({
+    character: "Teriarch",
+    reward: "The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity",
+    requirementType: "sacrifice_int",
+    amount: 1,
+    repReward: 90,
+    title: "Pay a rare price for something that should not remain.",
+  }),
+]);
 
 const QUEST_TYPES = Object.freeze([
   Object.freeze({ type: "madra", baseAmount: 30, growth: 25, label: "Madra" }),
@@ -45,23 +115,51 @@ function randomIndex(seed, size) {
 }
 
 function characterPoolForTier(tier) {
-  if (tier >= 4) {
-    return [...COMMON_CHARACTERS, ...UNCOMMON_CHARACTERS, ...RARE_CHARACTERS];
-  }
-  if (tier >= 2) {
-    return [...COMMON_CHARACTERS, ...UNCOMMON_CHARACTERS];
-  }
-  return [...COMMON_CHARACTERS];
+  return CHARACTER_BANDS
+    .filter((band) => tier >= band.minTier)
+    .flatMap((band) => band.characters);
 }
 
-function createQuest(seed, tier, completedCount) {
+function nextSpecialGuest(index) {
+  return SPECIAL_REWARD_GUESTS[index] || null;
+}
+
+function specialQuestForIndex(index) {
+  const guest = nextSpecialGuest(index);
+  if (!guest) {
+    return null;
+  }
+  return {
+    id: `special-${index}`,
+    character: guest.character,
+    requirementType: guest.requirementType,
+    requirementLabel:
+      guest.requirementType === "madra"
+        ? "Madra"
+        : guest.requirementType === "clout"
+          ? "Clout"
+          : guest.requirementType === "gold"
+            ? "Gold"
+            : "Cape Sacrifice",
+    amount: guest.amount,
+    repReward: guest.repReward,
+    lootChance: 0.35,
+    outRegionChance: 1,
+    specialReward: guest.reward,
+    isSpecial: true,
+    requestText: guest.title,
+  };
+}
+
+function createQuest(seed, tier, completedCount, reputation = 0) {
   const typeDef = QUEST_TYPES[randomIndex(seed + 17, QUEST_TYPES.length)] || QUEST_TYPES[0];
   const pool = characterPoolForTier(tier);
   const character = pool[randomIndex(seed + 31, pool.length)] || "Guest";
+  const depth = Math.max(0, tier - 1) + Math.floor(Math.max(0, reputation) / 20) + Math.floor(Math.max(0, completedCount) / 8);
   const amount = typeDef.type === "sacrifice_int"
     ? 1
-    : Math.max(1, typeDef.baseAmount + (typeDef.growth * Math.max(0, tier - 1)));
-  const repReward = Math.max(4, 6 + (tier * 3) + Math.floor(completedCount / 2));
+    : Math.max(1, typeDef.baseAmount + (typeDef.growth * depth));
+  const repReward = Math.max(4, 6 + (tier * 3) + Math.floor(completedCount / 2) + Math.floor(reputation / 12));
   const questId = `quest-${seed}-${tier}-${completedCount}`;
   return {
     id: questId,
@@ -72,6 +170,9 @@ function createQuest(seed, tier, completedCount) {
     repReward,
     lootChance: 0.2,
     outRegionChance: 1,
+    specialReward: "",
+    isSpecial: false,
+    requestText: "",
   };
 }
 
@@ -91,29 +192,40 @@ function normalizeRuntime(runtime) {
   };
 }
 
-function refillQuests(runtime, tier) {
+function refillQuests(runtime, tier, reputation = 0) {
   const quests = Array.isArray(runtime.quests) ? runtime.quests.slice(0, QUEST_SLOTS) : [];
   let nonce = Math.max(0, safeInt(runtime.generationNonce, 0));
-  while (quests.length < QUEST_SLOTS) {
+  const nextRewardIndex = Math.max(0, safeInt(runtime.specialRewardIndex, 0));
+  const nextThreshold = TWI03_SPECIAL_REWARD_THRESHOLDS[nextRewardIndex] || null;
+  const specialNeeded = nextThreshold != null && runtime.totalCompleted >= nextThreshold;
+  const hasSpecial = quests.some((quest) => Boolean(quest && quest.isSpecial));
+
+  if (specialNeeded && !hasSpecial) {
+    quests.unshift(specialQuestForIndex(nextRewardIndex));
+  }
+
+  const trimmed = quests.filter(Boolean).slice(0, QUEST_SLOTS);
+  while (trimmed.length < QUEST_SLOTS) {
     const seed = Date.now() + (nonce * 97) + (tier * 311);
-    quests.push(createQuest(seed, tier, runtime.totalCompleted));
+    trimmed.push(createQuest(seed, tier, runtime.totalCompleted, reputation));
     nonce += 1;
   }
   return {
     ...runtime,
-    quests,
+    quests: trimmed,
     generationNonce: nonce,
   };
 }
 
 export function initialTwi03Runtime() {
-  return refillQuests(normalizeRuntime({}), 0);
+  return refillQuests(normalizeRuntime({}), 0, 0);
 }
 
 export function synchronizeTwi03Runtime(runtime, context = {}) {
   const loot = lootInventoryFromState(context.state || {}, Date.now());
   const tier = Math.max(0, safeInt(loot.progression && loot.progression.innTier, 0));
-  return refillQuests(normalizeRuntime(runtime), tier);
+  const reputation = Math.max(0, safeInt(loot.progression && loot.progression.twiReputation, 0));
+  return refillQuests(normalizeRuntime(runtime), tier, reputation);
 }
 
 export function validateTwi03Runtime(runtime) {
@@ -159,7 +271,7 @@ export function reduceTwi03Runtime(runtime, action, context = {}) {
       totalCompleted: current.totalCompleted + 1,
       solved: true,
       lastMessage: safeText(action.message) || "Quest completed.",
-    }, Math.max(0, safeInt(action.innTier, 0)));
+    }, Math.max(0, safeInt(action.innTier, 0)), Math.max(0, safeInt(action.reputationAfter, 0)));
     return {
       ...next,
       lootEvents: action.lootEligible
@@ -186,7 +298,7 @@ export function reduceTwi03Runtime(runtime, action, context = {}) {
       quests: nextQuests,
       totalCanceled: current.totalCanceled + 1,
       lastMessage: safeText(action.message) || "Quest canceled.",
-    }, Math.max(0, safeInt(action.innTier, 0)));
+    }, Math.max(0, safeInt(action.innTier, 0)), Math.max(0, safeInt(action.reputationAfter, 0)));
     return {
       ...next,
       lootEvents: [],
@@ -200,6 +312,9 @@ export function reduceTwi03Runtime(runtime, action, context = {}) {
 }
 
 function requirementText(quest) {
+  if (safeText(quest.requestText)) {
+    return safeText(quest.requestText);
+  }
   if (quest.requirementType === "madra") {
     return `Deliver ${quest.amount} Madra`;
   }
@@ -264,6 +379,7 @@ function questPopupMarkup(quest, context, innTier) {
         <p>${escapeHtml(requirementText(quest))}</p>
         <p><strong>You have:</strong> ${escapeHtml(String(Math.floor(owned)))} ${escapeHtml(quest.requirementLabel)}</p>
         <p><strong>Reward:</strong> ${quest.repReward} Inn Reputation</p>
+        ${quest.isSpecial ? `<p class="muted"><strong>Special Patron:</strong> ${escapeHtml(quest.specialReward)}</p>` : ""}
         <p class="muted">Inn Tier ${innTier}</p>
         ${
           needsCape
@@ -288,6 +404,7 @@ function questPopupMarkup(quest, context, innTier) {
             data-rep-reward="${escapeHtml(String(quest.repReward))}"
             data-loot-chance="${escapeHtml(String(quest.lootChance))}"
             data-out-region-chance="${escapeHtml(String(quest.outRegionChance))}"
+            data-special-reward="${escapeHtml(String(quest.specialReward || ""))}"
             ${canFulfill ? "" : "disabled"}
           >
             Fulfill
@@ -333,13 +450,34 @@ function innVisualTierClass(innTier) {
   return "twi03-inn-visual-tier-0";
 }
 
+function innUpgradeVisuals(upgrades) {
+  const purchased = upgrades && typeof upgrades === "object" ? upgrades : {};
+  return {
+    benches: Boolean(purchased["common-room-benches"]),
+    firepit: Boolean(purchased["kitchen-firepit"]),
+    rooms: Boolean(purchased["guest-rooms"]),
+    courtyard: Boolean(purchased["courtyard-fence"]),
+    board: Boolean(purchased["messenger-board"]),
+  };
+}
+
+function nextRewardThreshold(index) {
+  return TWI03_SPECIAL_REWARD_THRESHOLDS[index] || null;
+}
+
 export function renderTwi03Experience(context) {
   const runtime = synchronizeTwi03Runtime(context.runtime, context);
   const loot = lootInventoryFromState(context.state || {}, Date.now());
   const innTier = clamp(safeInt(loot.progression && loot.progression.innTier, 0), 0, 99);
   const rep = Math.max(0, safeInt(loot.progression && loot.progression.twiReputation, 0));
+  const upgrades = loot.progression && loot.progression.twiUpgrades && typeof loot.progression.twiUpgrades === "object"
+    ? loot.progression.twiUpgrades
+    : {};
+  const visuals = innUpgradeVisuals(upgrades);
   const selectedQuest = runtime.quests.find((quest) => quest.id === runtime.selectedQuestId) || null;
   const rewardProgress = Math.min(runtime.specialRewardIndex, TWI03_SPECIAL_REWARD_SEQUENCE.length);
+  const nextThreshold = nextRewardThreshold(rewardProgress);
+  const milestoneProgress = nextThreshold ? `${Math.min(runtime.totalCompleted, nextThreshold)}/${nextThreshold}` : "Complete";
 
   return `
     <article class="twi03-node" data-node-id="${NODE_ID}">
@@ -348,14 +486,13 @@ export function renderTwi03Experience(context) {
         <p><strong>Inn Reputation:</strong> ${rep}</p>
         <p><strong>Inn Tier:</strong> ${innTier}</p>
         <p class="muted"><strong>Milestones:</strong> ${rewardProgress}/${TWI03_SPECIAL_REWARD_SEQUENCE.length}</p>
+        <p class="muted"><strong>Next Reward:</strong> ${escapeHtml(milestoneProgress)}</p>
         <div class="twi03-inn-visual ${innVisualTierClass(innTier)}" aria-hidden="true">
-          <span class="twi03-beam twi03-beam-a"></span>
-          <span class="twi03-beam twi03-beam-b"></span>
-          <span class="twi03-hearth"></span>
-          <span class="twi03-table"></span>
-          <span class="twi03-lantern twi03-lantern-a"></span>
-          <span class="twi03-lantern twi03-lantern-b"></span>
-          <span class="twi03-stair"></span>
+          ${visuals.rooms ? `<span class="twi03-beam twi03-beam-a"></span><span class="twi03-beam twi03-beam-b"></span>` : ""}
+          ${visuals.firepit ? `<span class="twi03-hearth"></span>` : ""}
+          ${visuals.benches ? `<span class="twi03-table"></span>` : ""}
+          ${visuals.courtyard ? `<span class="twi03-lantern twi03-lantern-a"></span><span class="twi03-lantern twi03-lantern-b"></span>` : ""}
+          ${visuals.board ? `<span class="twi03-stair"></span>` : ""}
         </div>
         <div class="toolbar">
           ${runtime.quests.map((quest) => `
@@ -367,6 +504,7 @@ export function renderTwi03Experience(context) {
               data-quest-id="${escapeHtml(quest.id)}"
             >
               ${escapeHtml(quest.character)}
+              ${quest.isSpecial ? " *" : ""}
             </button>
           `).join("")}
         </div>
@@ -397,6 +535,7 @@ export function buildTwi03ActionFromElement(element) {
     const repReward = safeInt(element.getAttribute("data-rep-reward"), 0);
     const lootChance = Number(element.getAttribute("data-loot-chance") || 0.2);
     const outRegionChance = Number(element.getAttribute("data-out-region-chance") || 1);
+    const specialReward = safeText(element.getAttribute("data-special-reward"));
     const root = element.closest(".twi03-node");
     const capeSelect = root ? root.querySelector(`[data-twi03-sacrifice=\"${questId}\"]`) : null;
     const sacrificeCardId = capeSelect && "value" in capeSelect ? safeText(capeSelect.value) : "";
@@ -408,6 +547,7 @@ export function buildTwi03ActionFromElement(element) {
       repReward,
       lootChance,
       outRegionChance,
+      specialReward,
       sacrificeCardId,
       at: Date.now(),
     };

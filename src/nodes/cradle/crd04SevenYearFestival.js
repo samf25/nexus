@@ -9,10 +9,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -596,11 +598,12 @@ export function buildCrd04ActionFromElement(element) {
 function barMarkup(label, current, max, className = "") {
   const safeMax = Math.max(1, Number(max) || 1);
   const value = Math.max(0, Math.min(safeMax, Number(current) || 0));
-  const pct = Math.round((value / safeMax) * 100);
+  const percent = Math.min(100, Math.max(0, (value / safeMax) * 100));
   return `
     <div class="crd04-bar ${escapeHtml(className)}">
-      <div class="crd04-bar-label">${escapeHtml(label)} ${escapeHtml(String(Math.round(value)))}/${escapeHtml(String(Math.round(safeMax)))}</div>
-      <div class="progress-bar"><span style="width:${pct}%"></span></div>
+      <div class="crd04-bar-label">${escapeHtml(label)}</div>
+      <div class="crd04-bar-track"><span style="width:${percent.toFixed(2)}%"></span></div>
+      <div class="crd04-bar-value">${escapeHtml(String(Math.round(value)))}/${escapeHtml(String(Math.round(safeMax)))}</div>
     </div>
   `;
 }
@@ -705,11 +708,17 @@ export function renderCrd04Experience(context) {
   }
 
   const enemy = runtime.enemy;
+  const logLines = recentCombatLogLines(runtime.log, 6);
   return `
     <article class="crd04-node" data-node-id="${NODE_ID}">
       <section class="crd04-combat-head">
         <h3>Tournament Battle ${runtime.battleIndex + 1} / ${OPPONENTS.length}</h3>
-        <p class="muted">Your stage: ${escapeHtml(runtime.playerStage)} | Opponent: ${escapeHtml(enemy.name)} (${escapeHtml(enemy.clan)} clan, ${escapeHtml(enemy.stage)})</p>
+        <div class="crd04-combat-meta">
+          <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(runtime.playerStage))}</span>
+          <span class="crd04-meta-chip"><strong>Opponent</strong> ${escapeHtml(enemy.name)}</span>
+          <span class="crd04-meta-chip"><strong>Clan</strong> ${escapeHtml(enemy.clan)}</span>
+          <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(combatStageLabel(enemy.stage))}</span>
+        </div>
       </section>
 
       <section class="crd04-bars">
@@ -738,7 +747,7 @@ export function renderCrd04Experience(context) {
       <section class="crd04-log">
         <h4>Combat Log</h4>
         <ul>
-          ${runtime.log.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          ${logLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
         </ul>
       </section>
     </article>

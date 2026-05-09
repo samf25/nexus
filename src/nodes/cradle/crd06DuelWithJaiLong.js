@@ -8,10 +8,12 @@ import {
   cradleTechniqueAdjustedMadraCost,
   cradleTechniqueEffectsFromState,
   cradleCombatAttackMultiplierFromState,
+  combatStageLabel,
   emptyPalmSuccessRoll,
   madraPoolMultiplierForStage,
   normalizeCombatStage,
   randomUnit,
+  recentCombatLogLines,
   rollDamage,
   rollHollowDomainSuppression,
 } from "./combatSystem.js";
@@ -455,7 +457,9 @@ export function buildCrd06ActionFromElement(element) {
 export function renderCrd06Experience(context) {
   const runtime = normalizeRuntime(context.runtime);
   const profile = combatProfileFromState(context.state);
-  const logLines = runtime.log.length ? runtime.log : ["A cold wind cuts across the dueling ground."];
+  const logLines = runtime.log.length
+    ? recentCombatLogLines(runtime.log, 6)
+    : ["A cold wind cuts across the dueling ground."];
 
   if (runtime.phase === "intro") {
     return `
@@ -517,7 +521,11 @@ export function renderCrd06Experience(context) {
     <article class="crd04-node" data-node-id="${NODE_ID}">
       <section class="crd04-combat-head">
         <h3>Duel with Jai Long</h3>
-        <p class="muted">Your stage: ${escapeHtml(runtime.playerStage)} | Opponent: Jai Long (Gold)</p>
+        <div class="crd04-combat-meta">
+          <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(runtime.playerStage))}</span>
+          <span class="crd04-meta-chip"><strong>Opponent</strong> Jai Long</span>
+          <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(combatStageLabel("gold"))}</span>
+        </div>
       </section>
 
       <section class="crd04-bars">

@@ -684,9 +684,10 @@ export function resolveWorkshopCraftOutcome({
   const invested = clamp(safeFinite(manaInvested, 0), 0, maxMana);
   const manaRatio = clamp(invested / maxMana, 0, 1);
   const craftCount = Math.max(0, Math.floor(safeFinite(totalCrafts, 0)));
-  const junkChance = clamp(0.86 - (trueAccuracy * 0.5) - (manaRatio * 0.42), 0.18, 0.95);
-  const rarityBias = clamp((trueAccuracy * 1.15) + (manaRatio * 0.85) - 0.5, 0, 2.2);
-  const qualityScore = clamp((trueAccuracy * 0.75) + (manaRatio * 0.25), 0, 1);
+  const qualityScore = clamp((trueAccuracy * 0.68) + (manaRatio * 0.32), 0, 1);
+  const earlyCraftPenalty = craftCount < 10 ? (10 - craftCount) * 0.012 : 0;
+  const junkChance = clamp(0.93 - (trueAccuracy * 0.44) - (manaRatio * 0.31) + earlyCraftPenalty, 0.32, 0.97);
+  const rarityBias = clamp((trueAccuracy * 0.78) + (manaRatio * 0.52) - 0.66, 0, 1.45);
   const rng = createRng((hashText(`${region}:${enhancement}:${trueAccuracy}:${invested}:${craftCount}`) + (Number(seed) || 0)) >>> 0);
   const isJunk = rng() < junkChance;
   return {

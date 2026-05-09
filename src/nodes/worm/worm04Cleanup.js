@@ -2,6 +2,7 @@ import { escapeHtml } from "../../templates/shared.js";
 import {
   createWormBattleState,
   infoDebuffStatKeys,
+  renderWormCombatEventCard,
   resolveWormRound,
   selectableWormActions,
 } from "./wormCombatSystem.js";
@@ -184,6 +185,10 @@ function playerOrderMarkup(combatant, enemyTeam, preference) {
   `;
 }
 
+function turnEventMarkup(line, index) {
+  return renderWormCombatEventCard(line, index);
+}
+
 function normalizeOrderPrefs(orders, battle) {
   const next = {};
   const source = orders && typeof orders === "object" ? orders : {};
@@ -270,10 +275,6 @@ function battleMarkup(runtime) {
 
   return `
     <section class="worm02-battle">
-      <header class="worm02-battle-header">
-        <p><strong>Combat Turn:</strong> ${escapeHtml(String(turnNumber))}</p>
-        <p><strong>Status:</strong> ${escapeHtml(winnerLabel)}</p>
-      </header>
       <section class="worm02-board worm02-board-lanes">
         <section class="worm02-team-column">
           <h3>Your Team</h3>
@@ -310,12 +311,7 @@ function battleMarkup(runtime) {
       <section class="card worm02-turn-panel">
         <h3>Combat Turn ${escapeHtml(String(turnNumber))}</h3>
         <div class="worm02-turn-grid">
-          ${turnEvents.map((line, index) => `
-            <article class="worm02-turn-event">
-              <span>${escapeHtml(String(index + 1))}</span>
-              <p>${escapeHtml(line)}</p>
-            </article>
-          `).join("")}
+          ${turnEvents.map((line, index) => turnEventMarkup(line, index)).join("")}
         </div>
       </section>
     </section>
@@ -330,14 +326,44 @@ function outcomePopupMarkup(runtime) {
     return "";
   }
   const lines = Array.isArray(popup.lines) ? popup.lines : [];
+  const lootDrops = Array.isArray(popup.lootDrops) ? popup.lootDrops : [];
+  const artifactRewards = Array.isArray(popup.artifactRewards) ? popup.artifactRewards : [];
+  const cloutAward = Math.max(0, Number(popup.cloutAward || 0));
   return `
     <section class="worm02-picker-overlay" aria-modal="true" role="dialog">
-      <section class="card worm02-picker-panel">
+      <section class="card worm02-picker-panel worm02-outcome-panel">
         <header class="worm02-picker-header">
           <h4>${escapeHtml(String(popup.title || "Outcome"))}</h4>
         </header>
-        <div class="worm02-help">
-          ${lines.map((line) => `<p>${escapeHtml(String(line || ""))}</p>`).join("")}
+        <div class="worm02-outcome-grid">
+          <section class="worm02-outcome-section">
+            <span class="worm02-outcome-label">Clout</span>
+            <strong class="worm02-outcome-value">${cloutAward > 0 ? `+${escapeHtml(String(cloutAward))}` : "None"}</strong>
+          </section>
+          <section class="worm02-outcome-section">
+            <span class="worm02-outcome-label">Artifacts</span>
+            <div class="worm02-outcome-list">
+              ${artifactRewards.length
+                ? artifactRewards.map((reward) => `<span class="worm02-outcome-chip">${escapeHtml(String(reward || ""))}</span>`).join("")
+                : `<span class="worm02-outcome-empty">None</span>`}
+            </div>
+          </section>
+          <section class="worm02-outcome-section is-wide">
+            <span class="worm02-outcome-label">Loot Recovered</span>
+            <div class="worm02-outcome-list is-blocks">
+              ${lootDrops.length
+                ? lootDrops.map((drop) => `<span class="worm02-outcome-drop">${escapeHtml(String(drop || ""))}</span>`).join("")
+                : `<span class="worm02-outcome-empty">No loot recovered.</span>`}
+            </div>
+          </section>
+          ${lines.length ? `
+            <section class="worm02-outcome-section is-wide">
+              <span class="worm02-outcome-label">Notes</span>
+              <div class="worm02-outcome-notes">
+                ${lines.map((line) => `<p>${escapeHtml(String(line || ""))}</p>`).join("")}
+              </div>
+            </section>
+          ` : ""}
         </div>
         <div class="toolbar">
           <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-close-outcome-popup">Close</button>
@@ -589,13 +615,12 @@ export function reduceWorm04Runtime(runtime, action, context = {}) {
         title: won ? "Cleanup Complete" : "Cleanup Failed",
         lines: won
           ? [
-            `Clout awarded: ${Math.max(0, Number(current.pendingCloutReward || 0))}`,
             current.activeEncounterMember
               ? `S9 neutralized: ${current.activeEncounterMember}`
               : "No S9 member encountered this run.",
             fullClear
-              ? "Full-clear rewards queued: Cradle + Worm + Dungeon Crawler Carl + Mercy Bell Chime"
-              : "Cleanup loot queued: Worm",
+              ? "Full clear secured across Brockton Bay."
+              : "Territory stabilized for now.",
           ]
           : ["No clout awarded.", "No artifact rewards.", "Regroup and redeploy."],
       },
