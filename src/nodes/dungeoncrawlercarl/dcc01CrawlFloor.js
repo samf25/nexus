@@ -128,6 +128,36 @@ const ABILITIES = Object.freeze({
     restoreStamina: 2,
     detail: "A steady strike that restores rhythm, health, and stamina.",
   }),
+  sponsor_sweep: Object.freeze({
+    id: "sponsor_sweep",
+    label: "Sponsor Sweep",
+    staminaCost: 4,
+    range: 3,
+    multiplier: 1.35,
+    bonusDamage: 8,
+    gainBlock: 3,
+    detail: "A premium sponsor burst that rakes every target in sight and leaves you braced.",
+  }),
+  killbox_geometry: Object.freeze({
+    id: "killbox_geometry",
+    label: "Killbox Geometry",
+    staminaCost: 3,
+    range: 2,
+    multiplier: 1.15,
+    bonusDamage: 6,
+    gainBlock: 7,
+    detail: "Turns the room into a murder diagram, striking every nearby foe while raising a wall of block.",
+  }),
+  crowdbreaker: Object.freeze({
+    id: "crowdbreaker",
+    label: "Crowdbreaker",
+    staminaCost: 5,
+    range: 2,
+    multiplier: 1.45,
+    bonusDamage: 9,
+    inflictStun: true,
+    detail: "A savage shockwave that crushes clustered enemies and can stun whoever survives.",
+  }),
 });
 
 const ABILITY_BOOKS = Object.freeze([
@@ -136,24 +166,36 @@ const ABILITY_BOOKS = Object.freeze([
     label: "Book of Unreasonable Footwork",
     abilityId: "footwork",
     rarity: "rare",
+    weight: 4.5,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_pocket_sand",
     label: "Manual of Pocket Sand",
     abilityId: "pocket_sand",
     rarity: "common",
+    weight: 8,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_door_kick",
     label: "Treatise on Door Kicking",
     abilityId: "door_kick",
     rarity: "rare",
+    weight: 4.2,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_threat",
     label: "Pocket Guide to Threat Management",
     abilityId: "threat_call",
     rarity: "common",
+    weight: 7.5,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_grenade",
@@ -161,6 +203,9 @@ const ABILITY_BOOKS = Object.freeze([
     abilityId: "improvised_bomb",
     rarity: "rare",
     minFloor: 3,
+    weight: 3.1,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_heel_hook",
@@ -168,6 +213,9 @@ const ABILITY_BOOKS = Object.freeze([
     abilityId: "heel_hook",
     rarity: "rare",
     minFloor: 3,
+    weight: 3.1,
+    mode: "learn",
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_second_wind",
@@ -175,8 +223,274 @@ const ABILITY_BOOKS = Object.freeze([
     abilityId: "second_wind",
     rarity: "epic",
     minFloor: 4,
+    weight: 1.35,
+    mode: "learn",
+    boosts: Object.freeze([]),
+  }),
+  Object.freeze({
+    itemId: "book_sponsor_sweep",
+    label: "Sponsor Sweep Broadcast Reel",
+    abilityId: "sponsor_sweep",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.34,
+    mode: "learn",
+    boosts: Object.freeze([]),
+  }),
+  Object.freeze({
+    itemId: "book_killbox_geometry",
+    label: "Killbox Geometry Field Binder",
+    abilityId: "killbox_geometry",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.3,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 3, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_crowdbreaker",
+    label: "Crowdbreaker Choreography",
+    abilityId: "crowdbreaker",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.26,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 4, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_pocket_sand_ii",
+    label: "Pocket Sand Revisions",
+    abilityId: "pocket_sand",
+    rarity: "rare",
+    minFloor: 3,
+    weight: 2.6,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 3, rarity: "rare" }),
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "rare" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_footwork_ii",
+    label: "Unreasonable Footwork Field Notes",
+    abilityId: "footwork",
+    rarity: "rare",
+    minFloor: 4,
+    weight: 2.15,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 2, rarity: "rare" }),
+      Object.freeze({ stat: "block", amount: 2, rarity: "rare" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_door_kick_ii",
+    label: "Door Kicker Incident Report",
+    abilityId: "door_kick",
+    rarity: "epic",
+    minFloor: 4,
+    weight: 1.55,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 4, rarity: "epic" }),
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "rare" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_threat_ii",
+    label: "Threat Management Escalation Guide",
+    abilityId: "threat_call",
+    rarity: "rare",
+    minFloor: 3,
+    weight: 2.35,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 3, rarity: "rare" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "book_second_wind_iii",
+    label: "Second Wind Master Cadence",
+    abilityId: "second_wind",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.5,
+    mode: "learn",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 4, rarity: "legendary" }),
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "epic" }),
+      Object.freeze({ stat: "block", amount: 2, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_basic",
+    label: "Basic Attack Reinforcement Tome",
+    abilityId: "basic",
+    rarity: "epic",
+    minFloor: 3,
+    weight: 1.6,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 4, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_basic_flow",
+    label: "Basic Attack Flow Primer",
+    abilityId: "basic",
+    rarity: "epic",
+    minFloor: 4,
+    weight: 1.1,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_basic_reach",
+    label: "Basic Attack Reach Blueprint",
+    abilityId: "basic",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.38,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "range", amount: 1, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_guard",
+    label: "Threat Lattice Enhancement Tome",
+    abilityId: "threat_call",
+    rarity: "epic",
+    minFloor: 4,
+    weight: 1.05,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 3, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_strike",
+    label: "Violent Cadence Enhancement Tome",
+    abilityId: "door_kick",
+    rarity: "epic",
+    minFloor: 4,
+    weight: 0.95,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 5, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_footwork_guard",
+    label: "Footwork Counterbalance Notes",
+    abilityId: "footwork",
+    rarity: "epic",
+    minFloor: 4,
+    weight: 0.95,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 3, rarity: "epic" }),
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "rare" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_bombardment",
+    label: "Bombardment Overpressure Notes",
+    abilityId: "improvised_bomb",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.4,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 5, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_hook",
+    label: "Heel Hook Breakpoint Manual",
+    abilityId: "heel_hook",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.4,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 5, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_precision",
+    label: "Pocket Sand Refinement Manual",
+    abilityId: "pocket_sand",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.36,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "range", amount: 1, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_endurance",
+    label: "Second Wind Expansion Codex",
+    abilityId: "second_wind",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.32,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "legendary" }),
+      Object.freeze({ stat: "block", amount: 2, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_sponsor_sweep",
+    label: "Sponsor Sweep Harmonics Sheet",
+    abilityId: "sponsor_sweep",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.24,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 5, rarity: "legendary" }),
+      Object.freeze({ stat: "range", amount: 1, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_killbox_geometry",
+    label: "Killbox Geometry Revision Plate",
+    abilityId: "killbox_geometry",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.2,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 4, rarity: "legendary" }),
+      Object.freeze({ stat: "stamina", amount: -1, rarity: "epic" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_crowdbreaker",
+    label: "Crowdbreaker Stress Map",
+    abilityId: "crowdbreaker",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.18,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 6, rarity: "legendary" }),
+    ]),
   }),
 ]);
+
+const ABILITY_BOOK_BY_ITEM_ID = Object.freeze(
+  Object.fromEntries(ABILITY_BOOKS.map((entry) => [entry.itemId, entry])),
+);
 
 const KEY_DEFINITIONS = Object.freeze([
   Object.freeze({ itemId: "bronze_key", label: "Bronze Key" }),
@@ -203,9 +517,12 @@ const LOOT_TABLE = Object.freeze([
     type: "book",
     itemId: book.itemId,
     label: book.label,
-    weight: book.rarity === "epic" ? 2 : book.rarity === "rare" ? 5 : 10,
+    weight: Number(book.weight) || (book.rarity === "epic" ? 2 : book.rarity === "rare" ? 5 : 10),
     rarity: book.rarity,
     abilityId: book.abilityId,
+    bookMode: book.mode,
+    minFloor: book.minFloor,
+    boosts: book.boosts,
   })),
 ]);
 
@@ -249,6 +566,7 @@ const EXTERNAL_FLOOR_GATE_ARTIFACTS = Object.freeze({
 const ENCOUNTERS = Object.freeze([
   Object.freeze({
     id: "mimic_crate",
+    weight: 1.45,
     title: "Mimic Crate",
     text: "A crate rattles in a quiet corner and smells like a trap.",
     options: Object.freeze([
@@ -259,6 +577,7 @@ const ENCOUNTERS = Object.freeze([
   }),
   Object.freeze({
     id: "sponsor_kiosk",
+    weight: 1.15,
     title: "Sponsor Kiosk",
     text: "A cracked kiosk offers supplies for cash and insults for free.",
     options: Object.freeze([
@@ -269,12 +588,129 @@ const ENCOUNTERS = Object.freeze([
   }),
   Object.freeze({
     id: "warden_post",
+    weight: 1.1,
     title: "Warden Post",
     text: "A stair warden patrols a locked rack of keys.",
     options: Object.freeze([
       Object.freeze({ id: "sneak", label: "Sneak a key", effect: "steal_key" }),
       Object.freeze({ id: "duel", label: "Challenge the warden", effect: "fight_warden" }),
       Object.freeze({ id: "retreat", label: "Retreat quietly", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "graffiti_cache",
+    weight: 1.4,
+    title: "Crawler Graffiti Cache",
+    text: "Under a peeling wall ad, somebody left a stash meant for the next desperate crawler.",
+    options: Object.freeze([
+      Object.freeze({ id: "search-cache", label: "Search the stash", effect: "loot_plus" }),
+      Object.freeze({ id: "grab-map", label: "Take the map scraps", effect: "gain_map" }),
+      Object.freeze({ id: "move", label: "Move on", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "arena_shrine",
+    weight: 0.95,
+    title: "Arena Shrine",
+    text: "A bronze idol hums with sponsor attention, offering strength for spectacle.",
+    options: Object.freeze([
+      Object.freeze({ id: "pray", label: "Offer a showman's vow", effect: "gain_stamina_potion" }),
+      Object.freeze({ id: "drain", label: "Rip out the charge", effect: "fight_elite" }),
+      Object.freeze({ id: "leave", label: "Leave it alone", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "salvage_cart",
+    weight: 1.35,
+    title: "Salvage Cart",
+    text: "A half-burned maintenance cart squeals in place, full of loose junk and maybe something useful.",
+    options: Object.freeze([
+      Object.freeze({ id: "dig", label: "Dig for valuables", effect: "gain_gold_cache" }),
+      Object.freeze({ id: "wrench", label: "Strip out tools", effect: "gain_block_tonic" }),
+      Object.freeze({ id: "skip", label: "Skip it", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "fan_club_mail",
+    weight: 0.75,
+    minFloor: 3,
+    title: "Fan Club Mail Drop",
+    text: "A drone chute clanks open and spits out a sponsor package addressed to whoever is still alive.",
+    options: Object.freeze([
+      Object.freeze({ id: "open-box", label: "Open the package", effect: "gain_random_book" }),
+      Object.freeze({ id: "auction", label: "Pawn it immediately", effect: "gain_gold_big" }),
+      Object.freeze({ id: "ignore", label: "Ignore the bait", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "blood_fountain",
+    weight: 0.7,
+    minFloor: 3,
+    title: "Blood Fountain",
+    text: "A decorative fountain circulates crimson fluid that smells faintly medicinal and strongly cursed.",
+    options: Object.freeze([
+      Object.freeze({ id: "sip", label: "Take the risk", effect: "heal_or_ambush" }),
+      Object.freeze({ id: "fill-flask", label: "Bottle what you can", effect: "gain_health_potion" }),
+      Object.freeze({ id: "back-off", label: "Back away", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "vault_auction",
+    weight: 0.45,
+    minFloor: 4,
+    title: "Shadow Auction",
+    text: "Behind a false wall, crawlers whisper over a private exchange where everything costs too much and might be worth it.",
+    options: Object.freeze([
+      Object.freeze({ id: "buy-rare", label: "Spend 28 gold on premium salvage", effect: "buy_rare_supply" }),
+      Object.freeze({ id: "pickpocket", label: "Try to skim the table", effect: "steal_loot_or_fight" }),
+      Object.freeze({ id: "walk", label: "Walk away", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "maintenance_hatch",
+    weight: 1.2,
+    title: "Maintenance Hatch",
+    text: "A bent panel has been pried open. The crawl's backstage smells like copper, ozone, and bad choices.",
+    options: Object.freeze([
+      Object.freeze({ id: "crawl-through", label: "Crawl through", effect: "gain_key_cache" }),
+      Object.freeze({ id: "strip-wires", label: "Strip the wiring", effect: "gain_stamina_potion" }),
+      Object.freeze({ id: "leave", label: "Seal it back up", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "corpse_lottery",
+    weight: 0.9,
+    minFloor: 2,
+    title: "Corpse Lottery",
+    text: "A dead crawler still clutches a numbered chit. Somewhere nearby, a sponsor drone waits to see if you'll play along.",
+    options: Object.freeze([
+      Object.freeze({ id: "draw", label: "Draw the prize", effect: "gain_loot_or_gold" }),
+      Object.freeze({ id: "rob", label: "Take everything and run", effect: "steal_loot_or_fight" }),
+      Object.freeze({ id: "respect", label: "Leave the body", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "sealed_apothecary",
+    weight: 0.7,
+    minFloor: 3,
+    title: "Sealed Apothecary",
+    text: "A supply locker has been welded shut, but the labels promise much better medicine than the usual floor junk.",
+    options: Object.freeze([
+      Object.freeze({ id: "force-it", label: "Force it open", effect: "gain_premium_potions" }),
+      Object.freeze({ id: "tap-lock", label: "Work the mechanism", effect: "gain_health_potion" }),
+      Object.freeze({ id: "retreat", label: "Don't risk the noise", effect: "leave" }),
+    ]),
+  }),
+  Object.freeze({
+    id: "floor_announcer",
+    weight: 0.55,
+    minFloor: 4,
+    title: "Floor Announcer Booth",
+    text: "An abandoned commentary booth still has one live mic, one reward chute, and one deeply petty AI in it.",
+    options: Object.freeze([
+      Object.freeze({ id: "perform", label: "Give it a show", effect: "gain_random_book" }),
+      Object.freeze({ id: "hack", label: "Raid the chute", effect: "gain_loot_plus" }),
+      Object.freeze({ id: "mute", label: "Cut the feed", effect: "fight_elite" }),
     ]),
   }),
 ]);
@@ -320,15 +756,31 @@ function randomPick(rand, values) {
   return list[randomInt(rand, 0, list.length - 1)];
 }
 
+function weightedPick(rand, values) {
+  const list = Array.isArray(values) ? values : [];
+  const total = list.reduce((sum, entry) => sum + Math.max(0, Number(entry.weight) || 0), 0);
+  if (!total) {
+    return list[0] || null;
+  }
+  let cursor = rand() * total;
+  for (const entry of list) {
+    cursor -= Math.max(0, Number(entry.weight) || 0);
+    if (cursor <= 0) {
+      return entry;
+    }
+  }
+  return list[list.length - 1] || null;
+}
+
 function mapSizeForFloor(floor) {
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
-  return BASE_MAP_SIZE + Math.min(4, depth);
+  return BASE_MAP_SIZE + Math.min(10, Math.floor(depth * 1.6));
 }
 
 function roomCountForFloor(floor, size) {
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
   const cap = Math.max(BASE_FLOOR_ROOMS, (size * size) - 4);
-  return Math.min(cap, BASE_FLOOR_ROOMS + depth * 4);
+  return Math.min(cap, BASE_FLOOR_ROOMS + depth * 7);
 }
 
 function withDefaultMeta(meta) {
@@ -454,6 +906,7 @@ function equippedBonuses(run) {
     stamina: 0,
     abilitySlots: 0,
     abilityIds: [],
+    abilityBoosts: [],
   };
   for (const item of Object.values(equipment)) {
     if (!item) {
@@ -469,6 +922,16 @@ function equippedBonuses(run) {
       if (cleanAbilityId && ABILITIES[cleanAbilityId] && !result.abilityIds.includes(cleanAbilityId)) {
         result.abilityIds.push(cleanAbilityId);
       }
+    }
+    const boosts = Array.isArray(item.abilityBoosts) ? item.abilityBoosts : [];
+    for (const boost of boosts) {
+      const abilityId = safeText(boost && boost.abilityId);
+      const stat = safeText(boost && boost.stat).toLowerCase();
+      const amount = Number(boost && boost.amount) || 0;
+      if (!abilityId || !stat || !amount || !ABILITIES[abilityId]) {
+        continue;
+      }
+      result.abilityBoosts.push({ abilityId, stat, amount });
     }
   }
   return result;
@@ -510,6 +973,9 @@ function applyEquipmentToRun(run) {
   run.hp = Math.min(run.maxHp, Math.max(0, Number(run.hp || 0)));
   run.stamina = Math.min(run.maxStamina, Math.max(0, Number(run.stamina || 0)));
   applyGearAbilityUnlocks(run, bonuses);
+  for (const boost of Array.isArray(bonuses && bonuses.abilityBoosts) ? bonuses.abilityBoosts : []) {
+    applyAbilityBoosts(run, boost.abilityId, [boost]);
+  }
 }
 
 function consumePreparedEquipmentForRun(preparedEquipment) {
@@ -614,6 +1080,8 @@ function chooseLootDrop(rand, rareBonus, floor = 1) {
         itemId: entry.itemId,
         label: entry.label,
         abilityId: entry.abilityId || "",
+        bookMode: safeText(entry.bookMode),
+        boosts: Array.isArray(entry.boosts) ? entry.boosts.map((boost) => ({ ...boost })) : [],
       };
     }
   }
@@ -624,7 +1092,20 @@ function chooseLootDrop(rand, rareBonus, floor = 1) {
     itemId: fallback.itemId,
     label: fallback.label,
     abilityId: fallback.abilityId || "",
+    bookMode: safeText(fallback.bookMode),
+    boosts: Array.isArray(fallback.boosts) ? fallback.boosts.map((boost) => ({ ...boost })) : [],
   };
+}
+
+function chooseEncounterEntry(rand, floor = 1) {
+  const currentFloor = Math.max(1, Math.floor(Number(floor) || 1));
+  const pool = ENCOUNTERS
+    .filter((entry) => currentFloor >= Math.max(1, Math.floor(Number(entry.minFloor) || 1)))
+    .map((entry) => ({
+      ...entry,
+      weight: Math.max(0.05, Number(entry.weight) || 1),
+    }));
+  return weightedPick(rand, pool) || ENCOUNTERS[0];
 }
 
 function currentFloorRareBonus(run, extra = 0) {
@@ -670,20 +1151,148 @@ function dccAbilityDamageLabel(ability, attackValue = 0) {
   const bonus = Number(ability.bonusDamage || 0);
   const low = Math.max(1, Math.round((attack * mult) + bonus));
   const high = Math.max(low, Math.round((attack * mult) + bonus + 3));
-  return low === high ? `Damage: ${low}` : `Damage: ${low}-${high}`;
+  const baseBonus = Number(ABILITIES[safeText(ability.id)] && ABILITIES[safeText(ability.id)].bonusDamage || 0);
+  const bonusDelta = Math.max(0, bonus - baseBonus);
+  const suffix = bonusDelta > 0 ? ` (+${bonusDelta})` : "";
+  return low === high ? `Damage: ${low}${suffix}` : `Damage: ${low}-${high}${suffix}`;
+}
+
+function dccAbilityStatLines(ability) {
+  if (!ability || typeof ability !== "object") {
+    return [];
+  }
+  const base = ABILITIES[safeText(ability.id)] || ability;
+  const lines = [];
+  const rangeDelta = Math.max(0, Number(ability.range || 1) - Number(base.range || 1));
+  lines.push(`Range: ${Math.max(1, Number(ability.range) || 1)}${rangeDelta > 0 ? ` (+${rangeDelta})` : ""}`);
+  const staminaDelta = Number(ability.staminaCost || 0) - Number(base.staminaCost || 0);
+  lines.push(`Stamina: ${Math.max(0, Number(ability.staminaCost) || 0)}${staminaDelta < 0 ? ` (${staminaDelta})` : ""}`);
+  if (Number(base.gainBlock || 0) > 0 || Number(ability.gainBlock || 0) > 0) {
+    const blockDelta = Math.max(0, Number(ability.gainBlock || 0) - Number(base.gainBlock || 0));
+    lines.push(`Block: ${Math.max(0, Number(ability.gainBlock) || 0)}${blockDelta > 0 ? ` (+${blockDelta})` : ""}`);
+  }
+  return lines;
+}
+
+function emptyAbilityRefinement() {
+  return {
+    damage: 0,
+    stamina: 0,
+    block: 0,
+    range: 0,
+  };
+}
+
+function cloneBoosts(boosts) {
+  return Array.isArray(boosts) ? boosts.map((boost) => ({ ...boost })) : [];
+}
+
+function ensureAbilityRefinements(run) {
+  if (!run || typeof run !== "object") {
+    return {};
+  }
+  if (!run.abilityRefinements || typeof run.abilityRefinements !== "object") {
+    run.abilityRefinements = {};
+  }
+  return run.abilityRefinements;
+}
+
+function applyAbilityBoosts(run, abilityId, boosts) {
+  const key = safeText(abilityId);
+  if (!run || !key || !ABILITIES[key]) {
+    return;
+  }
+  const refinements = ensureAbilityRefinements(run);
+  const current = {
+    ...emptyAbilityRefinement(),
+    ...(refinements[key] && typeof refinements[key] === "object" ? refinements[key] : {}),
+  };
+  for (const boost of cloneBoosts(boosts)) {
+    const stat = safeText(boost && boost.stat).toLowerCase();
+    const amount = Number(boost && boost.amount) || 0;
+    if (!stat || !amount || !Object.prototype.hasOwnProperty.call(current, stat)) {
+      continue;
+    }
+    current[stat] += amount;
+  }
+  refinements[key] = current;
+}
+
+function randomCheckpointBasicBoosts(rand) {
+  const pool = [
+    Object.freeze({ stat: "damage", amount: 4, rarity: "epic" }),
+    Object.freeze({ stat: "damage", amount: 3, rarity: "rare" }),
+    Object.freeze({ stat: "block", amount: 3, rarity: "epic" }),
+    Object.freeze({ stat: "range", amount: 1, rarity: "legendary" }),
+    Object.freeze({ stat: "stamina", amount: -1, rarity: "legendary" }),
+  ];
+  const available = pool.slice();
+  const chosen = [];
+  while (available.length && chosen.length < 2) {
+    const index = randomInt(rand, 0, available.length - 1);
+    chosen.push(available[index]);
+    available.splice(index, 1);
+  }
+  return chosen;
+}
+
+function scaledAbility(run, abilityId) {
+  const base = ABILITIES[safeText(abilityId)];
+  if (!base) {
+    return null;
+  }
+  const refinements =
+    run && run.abilityRefinements && typeof run.abilityRefinements === "object" && run.abilityRefinements[safeText(abilityId)]
+      ? {
+          ...emptyAbilityRefinement(),
+          ...run.abilityRefinements[safeText(abilityId)],
+        }
+      : emptyAbilityRefinement();
+  return {
+    ...base,
+    bonusDamage: Math.max(0, Number(base.bonusDamage || 0)) + Math.max(0, Number(refinements.damage || 0)),
+    staminaCost: Math.max(0, Number(base.staminaCost || 0) + Math.min(0, Number(refinements.stamina || 0))),
+    gainBlock: Math.max(0, Number(base.gainBlock || 0)) + Math.max(0, Number(refinements.block || 0)),
+    range: Math.max(1, Number(base.range || 1) + Math.max(0, Number(refinements.range || 0))),
+    refinementSummary: refinements,
+  };
 }
 
 function dccAbilityTooltip(ability, attackValue = 0) {
   if (!ability || typeof ability !== "object") {
     return "Empty slot\nLearn a book to fill this slot.";
   }
+  const base = ABILITIES[safeText(ability.id)] || ability;
+  const rangeDelta = Math.max(0, Number(ability.range || 1) - Number(base.range || 1));
+  const staminaDelta = Number(ability.staminaCost || 0) - Number(base.staminaCost || 0);
+  const blockDelta = Math.max(0, Number(ability.gainBlock || 0) - Number(base.gainBlock || 0));
   return [
     ability.label,
     dccAbilityDamageLabel(ability, attackValue),
-    `Range: ${Math.max(1, Number(ability.range) || 1)}`,
-    `Stamina: ${Math.max(0, Number(ability.staminaCost) || 0)}`,
+    `Range: ${Math.max(1, Number(ability.range) || 1)}${rangeDelta > 0 ? ` (+${rangeDelta})` : ""}`,
+    `Stamina: ${Math.max(0, Number(ability.staminaCost) || 0)}${staminaDelta < 0 ? ` (${staminaDelta})` : ""}`,
+    ...(Number(base.gainBlock || 0) > 0 || Number(ability.gainBlock || 0) > 0
+      ? [`Block: ${Math.max(0, Number(ability.gainBlock) || 0)}${blockDelta > 0 ? ` (+${blockDelta})` : ""}`]
+      : []),
     safeText(ability.detail),
   ].join("\n");
+}
+
+function dccAbilityCardBodyMarkup(ability, attackValue = 0) {
+  const statLines = [
+    dccAbilityDamageLabel(ability, attackValue),
+    ...dccAbilityStatLines(ability),
+  ];
+  return `
+    <div class="dcc-ability-tooltip-body">
+      <div class="dcc-ability-tooltip-left">
+        ${statLines.map((line) => `<p class="dcc-ability-stat-row">${escapeHtml(line)}</p>`).join("")}
+      </div>
+      <div class="dcc-ability-tooltip-right">
+        <p class="dcc-ability-detail-text">${escapeHtml(safeText(ability.detail))}</p>
+      </div>
+    </div>
+  `;
 }
 
 function dccAbilityTooltipMarkup(ability, attackValue = 0) {
@@ -691,11 +1300,13 @@ function dccAbilityTooltipMarkup(ability, attackValue = 0) {
     return `
       <div class="dcc-ability-tooltip-card" aria-hidden="true">
         <div class="dcc-ability-tooltip-title">Empty Slot</div>
-        <div class="dcc-ability-tooltip-left">
-          <p>Damage: none</p>
-        </div>
-        <div class="dcc-ability-tooltip-right">
-          <p>Learn a book to fill this slot.</p>
+        <div class="dcc-ability-tooltip-body">
+          <div class="dcc-ability-tooltip-left">
+            <p class="dcc-ability-stat-row">Damage: none</p>
+          </div>
+          <div class="dcc-ability-tooltip-right">
+            <p class="dcc-ability-detail-text">Learn a book to fill this slot.</p>
+          </div>
         </div>
       </div>
     `;
@@ -703,14 +1314,7 @@ function dccAbilityTooltipMarkup(ability, attackValue = 0) {
   return `
     <div class="dcc-ability-tooltip-card" aria-hidden="true">
       <div class="dcc-ability-tooltip-title">${escapeHtml(ability.label)}</div>
-      <div class="dcc-ability-tooltip-left">
-        <p>${escapeHtml(dccAbilityDamageLabel(ability, attackValue))}</p>
-        <p>Range: ${escapeHtml(String(Math.max(1, Number(ability.range) || 1)))}</p>
-        <p>Stamina: ${escapeHtml(String(Math.max(0, Number(ability.staminaCost) || 0)))}</p>
-      </div>
-      <div class="dcc-ability-tooltip-right">
-        <p>${escapeHtml(safeText(ability.detail))}</p>
-      </div>
+      ${dccAbilityCardBodyMarkup(ability, attackValue)}
     </div>
   `;
 }
@@ -822,36 +1426,45 @@ function dccEquipmentEffectSummary(item) {
 }
 
 function enemySheetMarkup(run) {
-  const enemy = run && run.combat && run.combat.enemy ? run.combat.enemy : null;
+  const enemies = run && run.combat ? activeCombatEnemies(run.combat) : [];
   const roomState = roomStateFromRun(run);
-  if (!enemy || !roomState) {
+  if (!enemies.length || !roomState) {
     return "";
   }
-  const distance = manhattanDistance(roomState.player.x, roomState.player.y, enemy.x, enemy.y);
   const roomType = currentRoom(run) && currentRoom(run).type ? currentRoom(run).type : "";
   return `
     <section class="card dcc-enemy-sheet${roomType === "boss" ? " is-boss" : roomType === "miniBoss" ? " is-mini-boss" : ""}">
-      <h4>${escapeHtml(enemy.name)}</h4>
-      <div class="dcc-enemy-grid">
-        <article class="dcc-enemy-chip">
-          <span>HP</span>
-          <strong>${escapeHtml(String(enemy.hp))}/${escapeHtml(String(enemy.maxHp))}</strong>
-        </article>
-        <article class="dcc-enemy-chip">
-          <span>Range</span>
-          <strong>${escapeHtml(String(Math.max(1, Number(enemy.range) || 1)))}</strong>
-        </article>
-        <article class="dcc-enemy-chip">
-          <span>Distance</span>
-          <strong>${escapeHtml(String(distance))}</strong>
-        </article>
-        <article class="dcc-enemy-chip">
-          <span>Trait</span>
-          <strong class="dcc-tooltip-anchor">
-            ${escapeHtml(dccEnemyTraitLabel(enemy.trait))}
-            ${dccEnemyTraitTooltipMarkup(enemy)}
-          </strong>
-        </article>
+      <h4>${escapeHtml(enemies.length > 1 ? `Enemy Pack (${enemies.length})` : enemies[0].name)}</h4>
+      <div class="dcc-enemy-pack">
+        ${enemies.map((enemy) => {
+          const distance = manhattanDistance(roomState.player.x, roomState.player.y, enemy.x, enemy.y);
+          return `
+            <article class="dcc-enemy-pack-card">
+              <h5>${escapeHtml(enemy.name)}</h5>
+              <div class="dcc-enemy-grid">
+                <article class="dcc-enemy-chip">
+                  <span>HP</span>
+                  <strong>${escapeHtml(String(enemy.hp))}/${escapeHtml(String(enemy.maxHp))}</strong>
+                </article>
+                <article class="dcc-enemy-chip">
+                  <span>Range</span>
+                  <strong>${escapeHtml(String(Math.max(1, Number(enemy.range) || 1)))}</strong>
+                </article>
+                <article class="dcc-enemy-chip">
+                  <span>Distance</span>
+                  <strong>${escapeHtml(String(distance))}</strong>
+                </article>
+                <article class="dcc-enemy-chip">
+                  <span>Trait</span>
+                  <strong class="dcc-tooltip-anchor">
+                    ${escapeHtml(dccEnemyTraitLabel(enemy.trait))}
+                    ${dccEnemyTraitTooltipMarkup(enemy)}
+                  </strong>
+                </article>
+              </div>
+            </article>
+          `;
+        }).join("")}
       </div>
     </section>
   `;
@@ -921,7 +1534,7 @@ function generateFloorMap(seed, floor) {
       visited: key === center,
       cleared: key === center,
       rested: false,
-      encounterId: type === "encounter" ? (randomPick(rand, ENCOUNTERS) || ENCOUNTERS[0]).id : "",
+      encounterId: type === "encounter" ? (chooseEncounterEntry(rand, floor) || ENCOUNTERS[0]).id : "",
       doors: Object.fromEntries(
         neighbors.map((entry) => [
           entry.direction,
@@ -1251,16 +1864,71 @@ function makeEnemy(rand, roomType, floor = 1) {
   };
 }
 
+function combatEnemyCountForRoom(roomType, floor, rand) {
+  const depth = Math.max(1, Math.floor(Number(floor) || 1));
+  if (roomType === "boss") {
+    return 1;
+  }
+  if (depth < 3) {
+    return 1;
+  }
+  if (roomType === "miniBoss") {
+    if (depth >= 5 && rand() < 0.45) {
+      return 2;
+    }
+    return rand() < 0.3 ? 2 : 1;
+  }
+  if (depth >= 5 && rand() < 0.38) {
+    return 3;
+  }
+  return rand() < 0.62 ? 2 : 1;
+}
+
+function activeCombatEnemies(combat) {
+  const source = combat && Array.isArray(combat.enemies)
+    ? combat.enemies
+    : combat && combat.enemy
+      ? [combat.enemy]
+      : [];
+  return source.filter((enemy) => enemy && Number(enemy.hp || 0) > 0);
+}
+
+function syncCombatEnemies(combat) {
+  if (!combat || typeof combat !== "object") {
+    return [];
+  }
+  const living = activeCombatEnemies(combat);
+  combat.enemies = living;
+  combat.enemy = living[0] || null;
+  if (!Number.isInteger(combat.turnCursor) || combat.turnCursor < 0) {
+    combat.turnCursor = 0;
+  }
+  if (living.length) {
+    combat.turnCursor %= living.length;
+  } else {
+    combat.turnCursor = 0;
+  }
+  return living;
+}
+
 function startCombat(run, roomType, seedOffset = 0) {
   const roomState = run.roomState || buildRoomState(run, currentRoom(run));
   const blocked = new Set([roomKey(roomState.player.x, roomState.player.y)]);
   const rand = createRng(Date.now() + seedOffset + run.floor * 31 + hashText(run.currentRoomId));
-  const enemy = makeEnemy(rand, roomType, run.floor);
-  const spawn = randomRoomPoint(rand, blocked);
-  enemy.x = spawn.x;
-  enemy.y = spawn.y;
+  const enemyCount = combatEnemyCountForRoom(roomType, run.floor, rand);
+  const enemies = [];
+  for (let index = 0; index < enemyCount; index += 1) {
+    const enemy = makeEnemy(rand, roomType, run.floor);
+    const spawn = randomRoomPoint(rand, blocked);
+    enemy.x = spawn.x;
+    enemy.y = spawn.y;
+    blocked.add(roomKey(enemy.x, enemy.y));
+    enemies.push(enemy);
+  }
   run.combat = {
-    enemy,
+    enemies,
+    enemy: enemies[0] || null,
+    turnCursor: 0,
     round: 1,
     block: 0,
     silenced: false,
@@ -1280,6 +1948,7 @@ function startFloor(runtime, state, floor = 1) {
   const stats = deriveBaseStats(runtime.meta, modifiers);
   const seed = Date.now() + floor * 7919;
   const map = generateFloorMap(seed, floor);
+  const progress = dccProgressFromState(state);
   const slots = Array.from({ length: stats.slotCount }, () => "");
   if (modifiers.startWithSponsorSkill) {
     slots[0] = "sponsor_blast";
@@ -1327,6 +1996,7 @@ function startFloor(runtime, state, floor = 1) {
     bag: [],
     hasFloorMap: false,
     abilitySlots: slots,
+    abilityRefinements: {},
     combat: null,
     event: null,
     equipment: gearUse.runEquipment,
@@ -1335,6 +2005,15 @@ function startFloor(runtime, state, floor = 1) {
     bossDefeated: false,
     log: [`Floor ${floor} opens. Keep moving.`],
   };
+  if (progress.checkpointFloor >= 3 && floor >= 3) {
+    const rand = createRng(seed + 4111);
+    const checkpointBoosts = randomCheckpointBasicBoosts(rand);
+    applyAbilityBoosts(run, "basic", checkpointBoosts);
+    run.log = [
+      `Checkpoint momentum sharpens Basic Attack: ${checkpointBoosts.map((boost) => `${titleCaseWords(boost.stat)} ${boost.amount >= 0 ? "+" : ""}${boost.amount}`).join(", ")}.`,
+      ...run.log,
+    ].slice(0, 20);
+  }
   applyEquipmentToRun(run);
   run.hp = run.maxHp;
   run.stamina = run.maxStamina;
@@ -1555,7 +2234,17 @@ function enterRoom(run, roomId, entryDoorDirection = "") {
   if (room.type === "monster" || room.type === "miniBoss" || room.type === "boss") {
     if (!room.cleared) {
       startCombat(run, room.type, room.x + room.y);
-      addLog(run, `Encountered ${room.type === "boss" ? "a boss" : room.type === "miniBoss" ? "a mini-boss" : "a monster"} in room ${room.id}.`);
+      const enemyCount = run.combat ? activeCombatEnemies(run.combat).length : 0;
+      addLog(
+        run,
+        `Encountered ${
+          room.type === "boss"
+            ? "a boss"
+            : room.type === "miniBoss"
+              ? enemyCount > 1 ? `a mini-boss pack (${enemyCount})` : "a mini-boss"
+              : enemyCount > 1 ? `a monster pack (${enemyCount})` : "a monster"
+        } in room ${room.id}.`,
+      );
     }
     return;
   }
@@ -1600,7 +2289,12 @@ function resolveRoomVictory(runtime, run) {
   if (!room) {
     return;
   }
-  const enemy = run.combat && run.combat.enemy ? { ...run.combat.enemy } : null;
+  const defeatedEnemies = run && run.combat && Array.isArray(run.combat.enemies)
+    ? run.combat.enemies.map((enemy) => ({ ...enemy }))
+    : run.combat && run.combat.enemy
+      ? [{ ...run.combat.enemy }]
+      : [];
+  const rewardEnemy = defeatedEnemies.find((enemy) => enemy) || null;
   room.cleared = true;
   if (room.type === "boss") {
     run.bossDefeated = true;
@@ -1631,8 +2325,18 @@ function resolveRoomVictory(runtime, run) {
   run.nextEnemyActAt = 0;
   const rand = createRng(Date.now() + run.floor * 313);
   const floorDepth = Math.max(0, Math.floor(Number(run.floor) || 1) - 1);
-  const goldLow = Math.max(8, Number(enemy && enemy.goldMin ? enemy.goldMin : 10));
-  const goldHigh = Math.max(goldLow, Number(enemy && enemy.goldMax ? enemy.goldMax : 18));
+  const goldLow = Math.max(
+    8,
+    defeatedEnemies.length
+      ? defeatedEnemies.reduce((sum, enemy) => sum + Math.max(1, Number(enemy && enemy.goldMin ? enemy.goldMin : 10)), 0)
+      : Number(rewardEnemy && rewardEnemy.goldMin ? rewardEnemy.goldMin : 10),
+  );
+  const goldHigh = Math.max(
+    goldLow,
+    defeatedEnemies.length
+      ? defeatedEnemies.reduce((sum, enemy) => sum + Math.max(1, Number(enemy && enemy.goldMax ? enemy.goldMax : 18)), 0)
+      : Number(rewardEnemy && rewardEnemy.goldMax ? rewardEnemy.goldMax : 18),
+  );
   const floorGoldBoost = 1 + floorDepth * 0.12;
   const tierBoost = room.type === "boss"
     ? 1.35 + floorDepth * 0.05
@@ -1651,6 +2355,7 @@ function resolveRoomVictory(runtime, run) {
     : room.type === "miniBoss"
       ? 2 + Math.floor(floorDepth / 3)
       : 1 + (floorDepth >= 4 ? 1 : 0);
+  const packBonus = Math.max(0, defeatedEnemies.length - 1);
   const tierRareBonus = room.type === "boss"
     ? 0.25 + floorDepth * 0.03
     : room.type === "miniBoss"
@@ -1661,7 +2366,7 @@ function resolveRoomVictory(runtime, run) {
     : room.type === "miniBoss"
       ? Math.min(0.94, 0.78 + floorDepth * 0.03)
       : Math.min(0.82, 0.62 + floorDepth * 0.04);
-  for (let index = 0; index < dropCount; index += 1) {
+  for (let index = 0; index < dropCount + packBonus; index += 1) {
     if (rand() < dropChance) {
       const item = chooseLootDrop(rand, currentFloorRareBonus(run, tierRareBonus), run.floor);
       run.bag.push(item);
@@ -1670,27 +2375,40 @@ function resolveRoomVictory(runtime, run) {
   }
 }
 
-function enemyMoveTowardPlayer(run, rand) {
+function enemyMoveTowardPlayer(run, rand, actingEnemy = null) {
   if (!run || !run.combat || !run.combat.enemy) {
     return;
   }
-  const enemy = run.combat.enemy;
+  const enemy = actingEnemy || run.combat.enemy;
   const roomState = roomStateFromRun(run);
   if (!roomState) {
     return;
   }
   const player = roomState.player;
+  const occupied = new Set(
+    activeCombatEnemies(run.combat)
+      .filter((other) => other !== enemy)
+      .map((other) => roomKey(other.x, other.y)),
+  );
   const dx = player.x - enemy.x;
   const dy = player.y - enemy.y;
   const moveXFirst = Math.abs(dx) >= Math.abs(dy) ? true : rand() < 0.5;
   const stepAxis = (axis) => {
     if (axis === "x" && dx !== 0) {
-      enemy.x = clamp(enemy.x + (dx > 0 ? 1 : -1), 1, ROOM_WIDTH - 2);
-      return true;
+      const nextX = clamp(enemy.x + (dx > 0 ? 1 : -1), 1, ROOM_WIDTH - 2);
+      const targetKey = roomKey(nextX, enemy.y);
+      if (!occupied.has(targetKey)) {
+        enemy.x = nextX;
+        return true;
+      }
     }
     if (axis === "y" && dy !== 0) {
-      enemy.y = clamp(enemy.y + (dy > 0 ? 1 : -1), 1, ROOM_HEIGHT - 2);
-      return true;
+      const nextY = clamp(enemy.y + (dy > 0 ? 1 : -1), 1, ROOM_HEIGHT - 2);
+      const targetKey = roomKey(enemy.x, nextY);
+      if (!occupied.has(targetKey)) {
+        enemy.y = nextY;
+        return true;
+      }
     }
     return false;
   };
@@ -1703,24 +2421,33 @@ function enemyMoveTowardPlayer(run, rand) {
   }
 }
 
-function enemyAct(runtime, now) {
+function enemyAct(runtime, now, enemyIndex = null) {
   const run = runtime.run;
-  if (!run || !run.combat || !run.combat.enemy) {
+  if (!run || !run.combat) {
     return "";
   }
 
   const combat = run.combat;
-  const enemy = combat.enemy;
+  const livingEnemies = syncCombatEnemies(combat);
+  if (!livingEnemies.length) {
+    return "";
+  }
+  const resolvedIndex = Number.isInteger(enemyIndex)
+    ? Math.max(0, Math.min(livingEnemies.length - 1, enemyIndex))
+    : Math.max(0, Math.min(livingEnemies.length - 1, Number(combat.turnCursor || 0)));
+  const enemy = livingEnemies[resolvedIndex];
   const roomState = roomStateFromRun(run);
   if (!roomState) {
     return "";
   }
   const player = roomState.player;
-  const rand = createRng((Number(now) || Date.now()) + run.floor * 137 + enemy.acted * 31);
+  combat.enemy = enemy;
+  const rand = createRng((Number(now) || Date.now()) + run.floor * 137 + enemy.acted * 31 + resolvedIndex * 83);
 
   if (enemy.stunned) {
     enemy.stunned = false;
     enemy.acted += 1;
+    combat.turnCursor = livingEnemies.length ? (resolvedIndex + 1) % livingEnemies.length : 0;
     return "";
   }
 
@@ -1755,11 +2482,12 @@ function enemyAct(runtime, now) {
   const distance = manhattanDistance(player.x, player.y, enemy.x, enemy.y);
   const effectiveRange = Math.max(1, Number(enemy.range) || 1);
   if (distance > effectiveRange) {
-    enemyMoveTowardPlayer(run, rand);
+    enemyMoveTowardPlayer(run, rand, enemy);
     if (enemy.trait === "thief_lunge" && distance > 2 && rand() < 0.4) {
-      enemyMoveTowardPlayer(run, rand);
+      enemyMoveTowardPlayer(run, rand, enemy);
     }
     enemy.acted += 1;
+    combat.turnCursor = livingEnemies.length ? (resolvedIndex + 1) % livingEnemies.length : 0;
     return "";
   }
 
@@ -1767,6 +2495,7 @@ function enemyAct(runtime, now) {
     enemy.blinded = false;
     if (rand() < 0.75) {
       enemy.acted += 1;
+      combat.turnCursor = livingEnemies.length ? (resolvedIndex + 1) % livingEnemies.length : 0;
       return "";
     }
   }
@@ -1807,6 +2536,7 @@ function enemyAct(runtime, now) {
   if (run.hp <= 0) {
     return resolveDeath(runtime);
   }
+  combat.turnCursor = livingEnemies.length ? (resolvedIndex + 1) % livingEnemies.length : 0;
   return "";
 }
 
@@ -1820,7 +2550,8 @@ function runEnemyTimeline(runtime, now, forceSingle = false) {
     run.nextEnemyActAt = now + ENEMY_ACTION_INTERVAL_MS;
   }
 
-  const actionLimit = forceSingle ? 1 : 5;
+  const enemyCount = Math.max(1, activeCombatEnemies(run.combat).length);
+  const actionLimit = forceSingle ? enemyCount : enemyCount * 3;
   let message = "";
   let count = 0;
   while (runtime.run && runtime.run.combat && count < actionLimit) {
@@ -1833,9 +2564,6 @@ function runEnemyTimeline(runtime, now, forceSingle = false) {
     }
     run.nextEnemyActAt = (forceSingle ? now : run.nextEnemyActAt) + ENEMY_ACTION_INTERVAL_MS;
     count += 1;
-    if (forceSingle) {
-      break;
-    }
   }
   return message;
 }
@@ -1899,6 +2627,21 @@ function useItemInRun(run, itemIndex) {
   return "Item has no usable effect.";
 }
 
+function pushSimpleBagItem(run, item) {
+  if (!run || !Array.isArray(run.bag) || !item || typeof item !== "object") {
+    return;
+  }
+  run.bag.push({
+    id: `${safeText(item.itemId || item.label || "item")}-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    type: safeText(item.type),
+    itemId: safeText(item.itemId),
+    label: safeText(item.label),
+    abilityId: safeText(item.abilityId),
+    bookMode: safeText(item.bookMode),
+    boosts: cloneBoosts(item.boosts),
+  });
+}
+
 function consumeMatchingKeyFromBag(run, keyType) {
   const desired = String(keyType || "");
   if (!desired) {
@@ -1929,9 +2672,22 @@ function learnBook(run, itemIndex, slotIndex) {
     return "Selected item is not a valid ability book.";
   }
 
+  const abilityId = safeText(item.abilityId);
+  const mode = safeText(item.bookMode || "learn").toLowerCase();
+  const boosts = cloneBoosts(item.boosts);
   const slots = Array.isArray(run.abilitySlots) ? run.abilitySlots : [];
-  if (slots.includes(item.abilityId)) {
-    return "You already know that ability.";
+
+  if (mode === "enhance") {
+    if (!slots.includes(abilityId) && abilityId !== "basic") {
+      return "Learn that technique before enhancing it.";
+    }
+    applyAbilityBoosts(run, abilityId, boosts);
+    bag.splice(index, 1);
+    return `${ABILITIES[abilityId].label} gains a new refinement.`;
+  }
+
+  if (slots.includes(abilityId) || abilityId === "basic") {
+    return "You already know that technique.";
   }
   let resolvedSlot = Math.floor(Number(slotIndex));
   if (!Number.isInteger(resolvedSlot) || resolvedSlot < 0 || resolvedSlot >= slots.length) {
@@ -1941,9 +2697,10 @@ function learnBook(run, itemIndex, slotIndex) {
     return "No empty ability slots.";
   }
 
-  slots[resolvedSlot] = item.abilityId;
+  slots[resolvedSlot] = abilityId;
+  applyAbilityBoosts(run, abilityId, boosts);
   bag.splice(index, 1);
-  return `${ABILITIES[item.abilityId].label} learned in slot ${resolvedSlot + 1}.`;
+  return `${ABILITIES[abilityId].label} learned in slot ${resolvedSlot + 1}.`;
 }
 
 function resolveCombatAction(runtime, abilityIndex) {
@@ -1952,8 +2709,8 @@ function resolveCombatAction(runtime, abilityIndex) {
     return "No active combat.";
   }
   const combat = run.combat;
-  const enemy = combat.enemy;
-  if (!enemy) {
+  const enemies = syncCombatEnemies(combat);
+  if (!enemies.length) {
     return "No enemy target.";
   }
 
@@ -1971,7 +2728,7 @@ function resolveCombatAction(runtime, abilityIndex) {
     return "Your technique fizzles under silence.";
   }
 
-  const ability = ABILITIES[abilityId];
+  const ability = scaledAbility(run, abilityId);
   if (run.stamina < ability.staminaCost) {
     return "Not enough stamina.";
   }
@@ -1979,19 +2736,24 @@ function resolveCombatAction(runtime, abilityIndex) {
   if (!roomState) {
     return "Room state unavailable.";
   }
-  const distance = manhattanDistance(
+  const inRangeEnemies = enemies.filter((enemy) => manhattanDistance(
     roomState.player.x,
     roomState.player.y,
     enemy.x,
     enemy.y,
-  );
-  if (distance > (Number(ability.range) || 1)) {
-    return `${enemy.name} is out of range.`;
+  ) <= (Number(ability.range) || 1));
+  if (!inRangeEnemies.length) {
+    return `${enemies[0].name} is out of range.`;
   }
   run.stamina -= ability.staminaCost;
 
   const rand = createRng(Date.now() + run.floor * 147 + index * 17);
-  if (!(enemy.trait === "dodge_after_move" && enemy.acted === 0 && rand() < 0.22)) {
+  const hitSummaries = [];
+  for (const enemy of inRangeEnemies) {
+    if (enemy.trait === "dodge_after_move" && enemy.acted === 0 && rand() < 0.22) {
+      hitSummaries.push(`${enemy.name} slips clear`);
+      continue;
+    }
     const damage = Math.max(1, Math.round((run.attack * ability.multiplier) + ability.bonusDamage + randomInt(rand, 0, 3)));
     enemy.hp = Math.max(0, enemy.hp - damage);
     if (ability.inflictBlind) {
@@ -2000,23 +2762,29 @@ function resolveCombatAction(runtime, abilityIndex) {
     if (ability.inflictStun) {
       enemy.stunned = true;
     }
-    if (ability.gainBlock) {
-      combat.block = Math.max(0, Number(combat.block) || 0) + ability.gainBlock;
-    }
-    if (ability.healSelf) {
-      run.hp = Math.min(run.maxHp, run.hp + Math.max(0, Number(ability.healSelf) || 0));
-    }
-    if (ability.restoreStamina) {
-      run.stamina = Math.min(run.maxStamina, run.stamina + Math.max(0, Number(ability.restoreStamina) || 0));
-    }
+    hitSummaries.push(`${enemy.name} -${damage}`);
+  }
+  if (ability.gainBlock) {
+    combat.block = Math.max(0, Number(combat.block) || 0) + ability.gainBlock;
+  }
+  if (ability.healSelf) {
+    run.hp = Math.min(run.maxHp, run.hp + Math.max(0, Number(ability.healSelf) || 0));
+  }
+  if (ability.restoreStamina) {
+    run.stamina = Math.min(run.maxStamina, run.stamina + Math.max(0, Number(ability.restoreStamina) || 0));
   }
 
-  if (enemy.hp <= 0) {
+  const remainingEnemies = enemies.filter((enemy) => Number(enemy.hp || 0) > 0);
+  if (!remainingEnemies.length) {
+    combat.enemies = enemies;
+    combat.enemy = enemies[0] || null;
     resolveRoomVictory(runtime, run);
-    return "Enemy defeated.";
+    return hitSummaries.length ? `${hitSummaries.join(", ")}. Room cleared.` : "Room cleared.";
   }
+  combat.enemies = remainingEnemies;
+  syncCombatEnemies(combat);
 
-  return runEnemyTimeline(runtime, Date.now(), true);
+  return runEnemyTimeline(runtime, Date.now(), true) || (hitSummaries.length ? hitSummaries.join(", ") : "Technique resolved.");
 }
 
 function resolveEncounter(runtime, optionId) {
@@ -2099,6 +2867,248 @@ function resolveEncounter(runtime, optionId) {
     addLog(run, "Encounter resolved: you bought supplies.");
     return "Supply purchased.";
   }
+  if (option.effect === "loot_plus") {
+    const first = chooseLootDrop(rand, currentFloorRareBonus(run, 0.08), run.floor);
+    const second = chooseLootDrop(rand, currentFloorRareBonus(run, 0.14), run.floor);
+    run.bag.push(first);
+    run.bag.push(second);
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: ${first.label}.`);
+    addLog(run, `Encounter reward: ${second.label}.`);
+    return "You recover a richer cache.";
+  }
+  if (option.effect === "gain_map") {
+    pushSimpleBagItem(run, {
+      type: "utility",
+      itemId: "floor_map",
+      label: "Floor Map",
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, "Encounter reward: Floor Map.");
+    return "You piece together the floor layout.";
+  }
+  if (option.effect === "gain_key_cache") {
+    const firstKey = randomPick(rand, KEY_DEFINITIONS) || KEY_DEFINITIONS[0];
+    const secondKey = randomPick(rand, KEY_DEFINITIONS) || KEY_DEFINITIONS[1] || KEY_DEFINITIONS[0];
+    pushSimpleBagItem(run, {
+      type: "key",
+      itemId: firstKey.itemId,
+      label: firstKey.label,
+    });
+    pushSimpleBagItem(run, {
+      type: "key",
+      itemId: secondKey.itemId,
+      label: secondKey.label,
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: ${firstKey.label} and ${secondKey.label}.`);
+    return "You slip out with a pocket full of keys.";
+  }
+  if (option.effect === "gain_stamina_potion") {
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "greater_stamina_potion",
+      label: "Greater Stamina Potion",
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, "Encounter reward: Greater Stamina Potion.");
+    return "You leave with sponsor-baited momentum.";
+  }
+  if (option.effect === "gain_gold_cache") {
+    const gold = randomInt(rand, 14, 28) + Math.max(0, run.floor - 1) * 3;
+    runtime.meta.gold += gold;
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: +${gold} gold.`);
+    return "You strip the cart for sellable salvage.";
+  }
+  if (option.effect === "gain_loot_or_gold") {
+    if (rand() < 0.5) {
+      const item = chooseLootDrop(rand, currentFloorRareBonus(run, 0.1), run.floor);
+      run.bag.push(item);
+      room.cleared = true;
+      run.event = null;
+      if (run.roomState) {
+        run.roomState.encounterMarker = null;
+      }
+      addLog(run, `Encounter reward: ${item.label}.`);
+      return "The sponsor drone drops real loot.";
+    }
+    const gold = randomInt(rand, 18, 34) + Math.max(0, run.floor - 1) * 3;
+    runtime.meta.gold += gold;
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: +${gold} gold.`);
+    return "The drone pays out in gold instead.";
+  }
+  if (option.effect === "gain_block_tonic") {
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "stamina_potion",
+      label: "Stamina Potion",
+    });
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "health_potion",
+      label: "Health Potion",
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, "Encounter reward: field tonics.");
+    return "You cobble together a small emergency kit.";
+  }
+  if (option.effect === "gain_random_book") {
+    const currentFloor = Math.max(1, Math.floor(Number(run.floor) || 1));
+    const pool = ABILITY_BOOKS.filter((book) => currentFloor >= Math.max(1, Math.floor(Number(book.minFloor) || 1)));
+    const book = randomPick(rand, pool) || ABILITY_BOOKS[0];
+    pushSimpleBagItem(run, {
+      type: "book",
+      itemId: book.itemId,
+      label: book.label,
+      abilityId: book.abilityId,
+      bookMode: book.mode,
+      boosts: book.boosts,
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: ${book.label}.`);
+    return "The package contains a usable technique manual.";
+  }
+  if (option.effect === "gain_gold_big") {
+    const gold = randomInt(rand, 26, 44) + Math.max(0, run.floor - 1) * 4;
+    runtime.meta.gold += gold;
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: +${gold} gold.`);
+    return "You sell the drop before anyone can argue about provenance.";
+  }
+  if (option.effect === "gain_health_potion") {
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "greater_health_potion",
+      label: "Greater Health Potion",
+    });
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, "Encounter reward: Greater Health Potion.");
+    return "You bottle something useful and leave quickly.";
+  }
+  if (option.effect === "gain_premium_potions") {
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "greater_health_potion",
+      label: "Greater Health Potion",
+    });
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "greater_stamina_potion",
+      label: "Greater Stamina Potion",
+    });
+    if (Math.max(1, run.floor) >= 5) {
+      pushSimpleBagItem(run, {
+        type: "consumable",
+        itemId: "legend_health_potion",
+        label: "Legend Health Potion",
+      });
+    }
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, "Encounter reward: premium apothecary stock.");
+    return "You crack the locker and take the best medicine.";
+  }
+  if (option.effect === "heal_or_ambush") {
+    if (rand() < 0.62) {
+      run.hp = Math.min(run.maxHp, run.hp + 30);
+      room.cleared = true;
+      run.event = null;
+      if (run.roomState) {
+        run.roomState.encounterMarker = null;
+      }
+      addLog(run, "The fountain mends more than it maims.");
+      return "You recover a surprising amount of health.";
+    }
+    room.cleared = true;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    startCombat(run, "miniBoss", 177);
+    run.event = null;
+    addLog(run, "Something wakes in the blood-slick chamber.");
+    return "The fountain was bait. Combat begins.";
+  }
+  if (option.effect === "buy_rare_supply") {
+    if (runtime.meta.gold < 28) {
+      return "Need 28 gold.";
+    }
+    runtime.meta.gold -= 28;
+    const premium = chooseLootDrop(rand, currentFloorRareBonus(run, 0.2), Math.max(4, run.floor));
+    run.bag.push(premium);
+    room.cleared = true;
+    run.event = null;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    addLog(run, `Encounter reward: ${premium.label}.`);
+    return "You overpay for something that might be worth it.";
+  }
+  if (option.effect === "steal_loot_or_fight") {
+    if (rand() < 0.55) {
+      const stolen = chooseLootDrop(rand, currentFloorRareBonus(run, 0.18), Math.max(4, run.floor));
+      run.bag.push(stolen);
+      room.cleared = true;
+      run.event = null;
+      if (run.roomState) {
+        run.roomState.encounterMarker = null;
+      }
+      addLog(run, `Encounter reward: ${stolen.label}.`);
+      return "You slip away with premium salvage.";
+    }
+    room.cleared = true;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    startCombat(run, "miniBoss", 233);
+    run.event = null;
+    addLog(run, "The private auction turns ugly.");
+    return "The room catches you. Combat begins.";
+  }
   if (option.effect === "steal_key") {
     if (rand() < 0.6) {
       const key = randomPick(rand, KEY_DEFINITIONS) || KEY_DEFINITIONS[0];
@@ -2134,6 +3144,16 @@ function resolveEncounter(runtime, optionId) {
     startCombat(run, "monster", 101);
     run.event = null;
     addLog(run, "Encounter turned into combat.");
+    return "Combat begins.";
+  }
+  if (option.effect === "fight_elite") {
+    room.cleared = true;
+    if (run.roomState) {
+      run.roomState.encounterMarker = null;
+    }
+    startCombat(run, "miniBoss", 149);
+    run.event = null;
+    addLog(run, "You tear the shrine open and something elite answers.");
     return "Combat begins.";
   }
   room.cleared = true;
@@ -2578,7 +3598,7 @@ function reduceDccRuntime(runtime, action, context = {}) {
     const bookEntry = bag.find((entry) => entry && String(entry.id || "") === String(action.itemId || ""));
     const learnedAbilityId = bookEntry && bookEntry.type === "book" ? safeText(bookEntry.abilityId) : "";
     const message = learnBook(next.run, action.itemId || action.itemIndex, action.slotIndex);
-    const learnedSuccessfully = /^.+ learned in slot \d+\.$/u.test(String(message || "")) && learnedAbilityId && ABILITIES[learnedAbilityId];
+    const learnedSuccessfully = /(learned in slot|gains a new refinement)/u.test(String(message || "")) && learnedAbilityId && ABILITIES[learnedAbilityId];
     const nextMeta = learnedSuccessfully
       ? withDefaultMeta({
           ...next.meta,
@@ -2690,7 +3710,7 @@ function roomViewMarkup(run) {
   const doorAt = Object.fromEntries(
     (roomState.doors || []).map((door) => [roomKey(door.x, door.y), door]),
   );
-  const enemy = run.combat && run.combat.enemy ? run.combat.enemy : null;
+  const enemies = run.combat ? activeCombatEnemies(run.combat) : [];
   const cells = [];
 
   for (let y = 0; y < ROOM_HEIGHT; y += 1) {
@@ -2726,9 +3746,10 @@ function roomViewMarkup(run) {
         glyph = "C";
         kind = "chest";
       }
-      if (enemy && x === enemy.x && y === enemy.y) {
-        glyph = room.type === "boss" ? "B" : room.type === "miniBoss" ? "V" : "M";
-        kind = room.type === "boss" ? "boss" : room.type === "miniBoss" ? "mini-boss" : "enemy";
+      const enemyAtTile = enemies.find((enemy) => x === enemy.x && y === enemy.y);
+      if (enemyAtTile) {
+        glyph = room.type === "boss" ? "B" : room.type === "miniBoss" ? "V" : enemies.length > 1 ? "W" : "M";
+        kind = room.type === "boss" ? "boss" : room.type === "miniBoss" ? "mini-boss" : enemies.length > 1 ? "enemy-pack" : "enemy";
       }
       if (x === roomState.player.x && y === roomState.player.y) {
         glyph = "@";
@@ -2748,17 +3769,18 @@ function roomViewMarkup(run) {
 }
 
 function combatMarkup(run) {
-  const enemy = run && run.combat && run.combat.enemy ? run.combat.enemy : null;
+  const enemies = run && run.combat ? activeCombatEnemies(run.combat) : [];
+  const basicAbility = scaledAbility(run, "basic");
   const abilityButtons = [
     {
       index: 0,
-      label: `1: ${ABILITIES.basic.label}`,
-      detail: dccAbilityTooltip(ABILITIES.basic, run && run.attack),
+      label: `1: ${basicAbility.label}`,
+      detail: dccAbilityTooltip(basicAbility, run && run.attack),
       empty: false,
-      ability: ABILITIES.basic,
+      ability: basicAbility,
     },
     ...(Array.isArray(run && run.abilitySlots) ? run.abilitySlots : []).map((abilityId, slotIndex) => {
-      const ability = ABILITIES[abilityId];
+      const ability = scaledAbility(run, abilityId);
       return {
         index: slotIndex + 1,
         label: `${slotIndex + 2}: ${ability ? ability.label : "Empty Slot"}`,
@@ -2772,7 +3794,7 @@ function combatMarkup(run) {
   return `
     <section class="card dcc-combat">
       <h4>Abilities</h4>
-      ${enemy ? "" : `<p class="muted">No active enemy in this room.</p>`}
+      ${enemies.length ? "" : `<p class="muted">No active enemy in this room.</p>`}
       <div class="dcc-ability-grid">
         ${abilityButtons.map((entry) => `
           <button
@@ -2781,7 +3803,7 @@ function combatMarkup(run) {
             data-node-id="${NODE_ID}"
             data-node-action="dcc-combat-use"
             data-ability-index="${entry.index}"
-            ${entry.empty || !enemy ? "disabled" : ""}
+            ${entry.empty || !enemies.length ? "disabled" : ""}
           >
             ${escapeHtml(entry.label)}
             ${dccAbilityTooltipMarkup(entry.ability, run && run.attack)}
@@ -2973,10 +3995,7 @@ function inventoryCategory(item) {
   return "misc";
 }
 
-function bagMarkup(run, open, activeTab = "potions") {
-  if (!open) {
-    return "";
-  }
+function groupedInventoryRows(run) {
   const bag = Array.isArray(run.bag) ? run.bag : [];
   const grouped = {
     potions: [],
@@ -3006,11 +4025,30 @@ function bagMarkup(run, open, activeTab = "potions") {
       grouped[category].push(value);
     }
   }
+  return grouped;
+}
+
+function bookBoostSummary(item) {
+  const boosts = cloneBoosts(item && item.boosts);
+  if (!boosts.length) {
+    return "";
+  }
+  return boosts
+    .map((boost) => `${titleCaseWords(boost.stat)} ${Number(boost.amount) >= 0 ? "+" : ""}${Number(boost.amount)}`)
+    .join(", ");
+}
+
+function inventoryModalMarkup(run, open, activeTab = "potions") {
+  if (!open) {
+    return "";
+  }
+  const grouped = groupedInventoryRows(run);
   const tab = ["potions", "keys", "tomes", "misc"].includes(String(activeTab || "").toLowerCase())
     ? String(activeTab).toLowerCase()
     : "potions";
   const rows = grouped[tab];
   const canLearnAbilityIds = new Set((Array.isArray(run.abilitySlots) ? run.abilitySlots : []).filter(Boolean));
+  const hasEmptyAbilitySlot = (Array.isArray(run.abilitySlots) ? run.abilitySlots : []).some((entry) => !entry);
 
   const tabButton = (value, label) => `
     <button
@@ -3025,58 +4063,120 @@ function bagMarkup(run, open, activeTab = "potions") {
   `;
 
   return `
-    <section class="card dcc-inventory">
-      <h4>Run Inventory</h4>
-      <div class="toolbar">
-        ${tabButton("potions", "Potions")}
-        ${tabButton("keys", "Keys")}
-        ${tabButton("tomes", "Tomes")}
-        ${tabButton("misc", "Misc")}
+    <div class="dcc-modal-backdrop" role="dialog" aria-label="Run Inventory">
+      <section class="card dcc-modal dcc-encounter-modal dcc-inventory-modal">
+        <header class="dcc-modal-header">
+          <div>
+            <h3>Run Inventory</h3>
+          </div>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-toggle-inventory">Close</button>
+        </header>
+        <div class="dcc-shop-panel">
+          <div class="dcc-shop-summary">
+            <span>Items In Pack</span>
+            <strong>${escapeHtml(String(Object.values(grouped).reduce((sum, list) => sum + list.length, 0)))}</strong>
+          </div>
+          <div class="dcc-shop-tabs" role="tablist" aria-label="Inventory categories">
+            ${tabButton("potions", "Potions")}
+            ${tabButton("keys", "Keys")}
+            ${tabButton("tomes", "Tomes")}
+            ${tabButton("misc", "Misc")}
+          </div>
+          <div class="dcc-shop-list">
+            ${
+              rows.length
+                ? rows.map(({ item, quantity }) => `
+                  <article class="dcc-shop-row dcc-inventory-row">
+                    <div class="dcc-shop-item-copy">
+                      <h4>${escapeHtml(item.label)}${quantity > 1 ? ` x${quantity}` : ""}</h4>
+                      <p>${escapeHtml(inventoryCategory(item))}</p>
+                    </div>
+                    <div class="dcc-shop-item-value">
+                      <span>${escapeHtml(item.type === "book"
+                        ? `${safeText(item.bookMode || "learn").toLowerCase() === "enhance" ? "Enhancement Tome" : "Technique Tome"}${bookBoostSummary(item) ? ` • ${bookBoostSummary(item)}` : ""}`
+                        : item.type === "key" ? "Auto-use" : item.type === "utility" ? "Field tool" : "Consumable")}</span>
+                      <div class="toolbar dcc-shop-actions">
+                        ${
+                          item.type === "consumable" || (item.type === "utility" && item.itemId === "floor_map")
+                            ? `
+                              <button
+                                type="button"
+                                data-node-id="${NODE_ID}"
+                                data-node-action="dcc-use-item"
+                                data-item-id="${escapeHtml(String(item.id || ""))}"
+                              >
+                                Use
+                              </button>
+                            `
+                            : ""
+                        }
+                        ${
+                          item.type === "book"
+                            ? (() => {
+                              const isEnhance = safeText(item.bookMode || "learn").toLowerCase() === "enhance";
+                              const disableLearn = !isEnhance
+                                && (canLearnAbilityIds.has(item.abilityId) || !hasEmptyAbilitySlot);
+                              const disableEnhance = isEnhance
+                                && (!canLearnAbilityIds.has(item.abilityId) && item.abilityId !== "basic");
+                              return `
+                                <button
+                                  type="button"
+                                  data-node-id="${NODE_ID}"
+                                  data-node-action="dcc-learn-book"
+                                  data-item-id="${escapeHtml(String(item.id || ""))}"
+                                  ${disableLearn || disableEnhance ? "disabled" : ""}
+                                >
+                                  ${isEnhance ? "Enhance" : "Learn"}
+                                </button>
+                              `;
+                            })()
+                            : ""
+                        }
+                      </div>
+                    </div>
+                  </article>
+                `).join("")
+                : `<p class="muted">Nothing in this tab right now.</p>`
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function quickPotionMarkup(run) {
+  const grouped = groupedInventoryRows(run);
+  const potions = grouped.potions || [];
+  if (!potions.length) {
+    return `
+      <section class="card dcc-quick-potions">
+        <h4>Quick Potions</h4>
+        <p class="muted">No potions ready.</p>
+      </section>
+    `;
+  }
+  return `
+    <section class="card dcc-quick-potions">
+      <h4>Quick Potions</h4>
+      <div class="dcc-quick-potion-list">
+        ${potions.map(({ item, quantity }) => `
+          <article class="dcc-quick-potion-row">
+            <div class="dcc-quick-potion-copy">
+              <strong>${escapeHtml(item.label)}</strong>
+              <span>${escapeHtml(quantity > 1 ? `x${quantity}` : "1 ready")}</span>
+            </div>
+            <button
+              type="button"
+              data-node-id="${NODE_ID}"
+              data-node-action="dcc-use-item"
+              data-item-id="${escapeHtml(String(item.id || ""))}"
+            >
+              Use
+            </button>
+          </article>
+        `).join("")}
       </div>
-      ${
-        rows.length
-          ? `
-            <ul class="dcc-item-list">
-              ${rows.map(({ item, quantity }) => `
-                <li>
-                  <span>${escapeHtml(item.label)}${quantity > 1 ? ` x${quantity}` : ""}</span>
-                  <div class="toolbar">
-                    ${
-                      item.type === "consumable" || (item.type === "utility" && item.itemId === "floor_map")
-                        ? `
-                          <button
-                            type="button"
-                            data-node-id="${NODE_ID}"
-                            data-node-action="dcc-use-item"
-                            data-item-id="${escapeHtml(String(item.id || ""))}"
-                          >
-                            Use
-                          </button>
-                        `
-                        : ""
-                    }
-                    ${
-                      item.type === "book"
-                        ? `
-                          <button
-                            type="button"
-                            data-node-id="${NODE_ID}"
-                            data-node-action="dcc-learn-book"
-                            data-item-id="${escapeHtml(String(item.id || ""))}"
-                            ${canLearnAbilityIds.has(item.abilityId) ? "disabled" : ""}
-                          >
-                            Learn
-                          </button>
-                        `
-                        : ""
-                    }
-                  </div>
-                </li>
-              `).join("")}
-            </ul>
-          `
-          : `<p class="muted">Inventory empty.</p>`
-      }
     </section>
   `;
 }
@@ -3205,18 +4305,9 @@ function abilityTomeModalMarkup(runtime, attackValue = 0) {
               <div class="dcc-tome-list">
                 ${entries.map((ability) => `
                   <article class="dcc-tome-entry">
-                    <div class="dcc-tome-entry-head">
-                      <h4>${escapeHtml(ability.label)}</h4>
-                    </div>
-                    <div class="dcc-tome-entry-body">
-                      <div class="dcc-tome-entry-stats">
-                        <p class="dcc-tome-stat">${escapeHtml(dccAbilityDamageLabel(ability, attackValue))}</p>
-                        <p class="dcc-tome-stat">Range: ${escapeHtml(String(Math.max(1, Number(ability.range) || 1)))}</p>
-                        <p class="dcc-tome-stat">Stamina: ${escapeHtml(String(Math.max(0, Number(ability.staminaCost) || 0)))}</p>
-                      </div>
-                      <div class="dcc-tome-entry-detail">
-                        <p class="dcc-tome-detail">${escapeHtml(safeText(ability.detail))}</p>
-                      </div>
+                    <div class="dcc-ability-tooltip-card dcc-tome-entry-card">
+                      <div class="dcc-ability-tooltip-title">${escapeHtml(ability.label)}</div>
+                      ${dccAbilityCardBodyMarkup(ability, attackValue)}
                     </div>
                   </article>
                 `).join("")}
@@ -3474,9 +4565,10 @@ function runMarkup(runtime, state, selectedArtifact = "") {
             ${feedEntries.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
           </ul>
         </div>
-        ${bagMarkup(run, runtime.inventoryOpen, runtime.inventoryTab)}
+        ${quickPotionMarkup(run)}
       </aside>
     </section>
+    ${inventoryModalMarkup(run, runtime.inventoryOpen, runtime.inventoryTab)}
   `;
 }
 
@@ -3627,6 +4719,12 @@ function keyAction(event, runtime) {
   }
   if (lowerKey === "e") {
     return { type: "dcc-descend", ...common };
+  }
+  if (event.key === "Escape" && current.inventoryOpen) {
+    return { type: "dcc-toggle-inventory", ...common };
+  }
+  if (event.key === "Escape" && current.abilityTomeOpen) {
+    return { type: "dcc-close-ability-tome", ...common };
   }
   if (event.key === "Escape" && current.run.event) {
     return { type: "dcc-exit-encounter", ...common };

@@ -3794,6 +3794,14 @@ function handleClick(event) {
           const abilityUnlocks = enchantments
             .map((entry) => String(entry && entry.abilityId ? entry.abilityId : ""))
             .filter((abilityId, index, list) => abilityId && list.indexOf(abilityId) === index);
+          const abilityBoosts = effects
+            .filter((effect) => effect && effect.key === "dcc_ability_refine" && effect.abilityId && effect.stat)
+            .map((effect) => ({
+              abilityId: String(effect.abilityId),
+              stat: String(effect.stat),
+              amount: Number(effect.value) || 0,
+            }))
+            .filter((effect) => effect.abilityId && effect.stat && effect.amount);
           const runLifespan = Math.max(1, Math.floor(Number(item.runLifespan || 1)));
           prepared[slot] = {
             itemId,
@@ -3807,6 +3815,7 @@ function handleClick(event) {
             staminaBonus: sumEffect("dcc_run_stamina_bonus"),
             abilitySlotBonus: sumEffect("dcc_ability_slot_plus"),
             abilityUnlocks,
+            abilityBoosts,
             runLifespan,
             remainingRunLifespan: runLifespan,
           };

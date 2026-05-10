@@ -5359,6 +5359,13 @@ a:hover {
   border-color: #cc8099;
 }
 
+.dcc-room-cell.is-enemy-pack {
+  background: radial-gradient(circle at 35% 35%, #7a3d25, #2c1510 72%);
+  color: #ffe8d4;
+  border-color: #efb27d;
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 168, 0.2);
+}
+
 .dcc-room-cell.is-boss {
   background: radial-gradient(circle at 35% 35%, #6b2434, #2d0f18 72%);
   color: #fff1c9;
@@ -5443,14 +5450,12 @@ a:hover {
   left: 50%;
   bottom: calc(100% + 8px);
   transform: translateX(-50%);
-  width: 236px;
+  width: 292px;
   border: 1px solid #6f8db8;
-  border-radius: 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, #122544 0%, #0b1630 100%);
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.42);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto 1fr;
   overflow: hidden;
   visibility: hidden;
   pointer-events: none;
@@ -5465,21 +5470,28 @@ a:hover {
 }
 
 .dcc-ability-tooltip-title {
-  grid-column: 1 / span 2;
-  padding: 6px 10px;
+  padding: 8px 12px 9px;
   border-bottom: 1px solid rgba(111, 141, 184, 0.35);
   background: linear-gradient(180deg, rgba(25, 48, 85, 0.98), rgba(14, 29, 55, 0.98));
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.83rem;
+  font-weight: 700;
   color: #f4f8ff;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+}
+
+.dcc-ability-tooltip-body {
+  display: grid;
+  grid-template-columns: minmax(160px, 3fr) minmax(110px, 2fr);
+  align-items: stretch;
 }
 
 .dcc-ability-tooltip-left {
-  padding: 8px 10px;
+  padding: 10px;
   display: grid;
   align-content: start;
-  gap: 5px;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(10, 20, 39, 0.94), rgba(8, 14, 27, 0.98));
 }
 
 .dcc-ability-tooltip-left p,
@@ -5487,24 +5499,29 @@ a:hover {
   margin: 0;
 }
 
-.dcc-ability-tooltip-left p {
-  font-size: 0.72rem;
+.dcc-ability-stat-row {
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(112, 147, 201, 0.26);
+  background: rgba(18, 32, 58, 0.76);
+  font-size: 0.74rem;
   color: #d7e6fb;
+  line-height: 1.25;
 }
 
 .dcc-ability-tooltip-right {
   min-height: 100%;
   border-left: 1px solid rgba(111, 141, 184, 0.35);
-  background: rgba(8, 14, 26, 0.72);
-  padding: 8px 9px;
+  background: linear-gradient(180deg, rgba(11, 18, 31, 0.92), rgba(8, 12, 22, 0.98));
+  padding: 10px 10px 10px 11px;
   display: grid;
   align-content: start;
 }
 
-.dcc-ability-tooltip-right p {
-  font-size: 0.72rem;
+.dcc-ability-detail-text {
+  font-size: 0.74rem;
   color: #f2e4c6;
-  line-height: 1.35;
+  line-height: 1.42;
 }
 
 .dcc-gate-button {
@@ -5668,6 +5685,60 @@ a:hover {
   gap: 6px;
 }
 
+.dcc-inventory-modal {
+  width: min(92vw, 880px);
+}
+
+.dcc-inventory-row .dcc-shop-item-value span {
+  color: #c9d9ef;
+}
+
+.dcc-quick-potions {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+  border-color: rgba(110, 149, 203, 0.44);
+  background:
+    radial-gradient(circle at top right, rgba(111, 151, 207, 0.11), transparent 40%),
+    linear-gradient(180deg, rgba(12, 20, 33, 0.96), rgba(10, 15, 27, 0.98));
+}
+
+.dcc-quick-potions h4,
+.dcc-quick-potions p {
+  margin: 0;
+}
+
+.dcc-quick-potion-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dcc-quick-potion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(84, 118, 170, 0.34);
+  background: rgba(14, 25, 42, 0.84);
+}
+
+.dcc-quick-potion-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.dcc-quick-potion-copy strong {
+  color: #ecf4ff;
+  font-size: 0.85rem;
+}
+
+.dcc-quick-potion-copy span {
+  color: #a9bdd8;
+  font-size: 0.76rem;
+}
+
 .dcc-tome-modal {
   background: linear-gradient(180deg, #16120b, #0f1628);
   border-color: #6f5a31;
@@ -5685,55 +5756,46 @@ a:hover {
 }
 
 .dcc-tome-entry {
-  border: 1px solid #8a7440;
-  border-radius: 14px;
+  overflow: visible;
+}
+
+.dcc-tome-entry-card {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: 100%;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 1;
+  border-color: rgba(138, 116, 64, 0.88);
   background:
     radial-gradient(circle at top right, rgba(111, 151, 207, 0.12), transparent 42%),
     linear-gradient(180deg, #19130c 0%, #120d08 100%);
   box-shadow: inset 0 0 0 1px rgba(238, 216, 170, 0.06);
-  overflow: hidden;
 }
 
-.dcc-tome-entry h4,
-.dcc-tome-entry p {
-  margin: 0;
-}
-
-.dcc-tome-entry-head {
-  padding: 6px 10px;
-  border-bottom: 1px solid rgba(168, 141, 81, 0.32);
+.dcc-tome-entry-card .dcc-ability-tooltip-title {
   background: linear-gradient(180deg, rgba(60, 41, 19, 0.96), rgba(33, 23, 12, 0.98));
-  text-align: center;
+  border-bottom-color: rgba(168, 141, 81, 0.32);
 }
 
-.dcc-tome-entry-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  align-items: start;
+.dcc-tome-entry-card .dcc-ability-tooltip-left {
+  background: linear-gradient(180deg, rgba(22, 18, 12, 0.94), rgba(13, 12, 10, 0.98));
 }
 
-.dcc-tome-entry-stats {
-  display: grid;
-  gap: 6px;
-  padding: 8px 10px;
+.dcc-tome-entry-card .dcc-ability-stat-row {
+  border-color: rgba(168, 141, 81, 0.22);
+  background: rgba(44, 31, 18, 0.74);
 }
 
-.dcc-tome-entry-detail {
-  border-left: 1px solid rgba(168, 141, 81, 0.42);
-  background: rgba(12, 18, 30, 0.55);
-  padding: 8px 9px;
-  min-height: 100%;
+.dcc-tome-entry-card .dcc-ability-tooltip-right {
+  border-left-color: rgba(168, 141, 81, 0.34);
+  background: linear-gradient(180deg, rgba(17, 20, 27, 0.92), rgba(11, 14, 21, 0.98));
 }
 
-.dcc-tome-stat {
-  color: #d7e6fb;
-  font-size: 0.77rem;
-}
-
-.dcc-tome-detail {
+.dcc-tome-entry-card .dcc-ability-detail-text {
   color: #f3dfbf;
-  font-size: 0.77rem;
 }
 
 .dcc-tome-button {
@@ -6050,6 +6112,27 @@ a:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
+}
+
+.dcc-enemy-pack {
+  display: grid;
+  gap: 10px;
+}
+
+.dcc-enemy-pack-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(111, 151, 207, 0.22);
+  background: rgba(10, 17, 31, 0.52);
+}
+
+.dcc-enemy-pack-card h5 {
+  margin: 0;
+  color: #f3e4c2;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
 }
 
 .dcc-enemy-chip {

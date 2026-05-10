@@ -227,6 +227,25 @@ function titleCaseFromSnake(value) {
     .join(" ");
 }
 
+function dccAbilityDisplayName(abilityId) {
+  const key = safeText(abilityId).toLowerCase();
+  const known = {
+    basic: "Basic Attack",
+    pocket_sand: "Pocket Sand",
+    door_kick: "Door Kicking",
+    footwork: "Unreasonable Footwork",
+    threat_call: "Threat Management",
+    sponsor_blast: "Sponsor Blast",
+    improvised_bomb: "Improvised Bombardment",
+    heel_hook: "Heel Hook Hell",
+    second_wind: "Second Wind",
+    sponsor_sweep: "Sponsor Sweep",
+    killbox_geometry: "Killbox Geometry",
+    crowdbreaker: "Crowdbreaker",
+  };
+  return known[key] || titleCaseFromSnake(key);
+}
+
 function signedNumber(value, digits = 2) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -274,7 +293,27 @@ function effectSummaryLabelAndValue(effect) {
     stealth: { label: "Stealth", value: signedNumber(value, 2) },
   };
   if (known[key]) {
+    if (key === "dcc_ability_unlock" && safeText(effect && effect.abilityId)) {
+      return {
+        label: "Ability unlock",
+        value: dccAbilityDisplayName(effect && effect.abilityId),
+      };
+    }
     return known[key];
+  }
+  if (key === "dcc_ability_refine") {
+    const abilityLabel = dccAbilityDisplayName(effect && effect.abilityId);
+    const statKey = safeText(effect && effect.stat).toLowerCase();
+    const statLabel = {
+      damage: "damage",
+      stamina: "stamina",
+      block: "block",
+      range: "range",
+    }[statKey] || titleCaseFromSnake(statKey).toLowerCase();
+    return {
+      label: `${abilityLabel} ${statLabel}`,
+      value: signedNumber(value, 0),
+    };
   }
   if (key === "aa_craft_mark") {
     return null;
@@ -421,36 +460,45 @@ const DCC_ENCHANT_TEMPLATES = Object.freeze([
   Object.freeze({
     id: "reinforced",
     label: "Reinforced",
+    weight: 1.7,
     effectKey: "dcc_run_hp_bonus",
     valueForRarity: (rarity) => 4 + rarityIndex(rarity) * 4,
   }),
   Object.freeze({
     id: "razored",
     label: "Razored",
+    weight: 1.35,
     effectKey: "dcc_run_attack_bonus",
     valueForRarity: (rarity) => 1 + rarityIndex(rarity),
   }),
   Object.freeze({
     id: "springloaded",
     label: "Springloaded",
+    weight: 1.25,
     effectKey: "dcc_run_stamina_bonus",
     valueForRarity: (rarity) => 1 + Math.floor((rarityIndex(rarity) + 1) / 2),
   }),
   Object.freeze({
     id: "deep_pockets",
     label: "Deep Pockets",
+    minRarity: "rare",
+    weight: 0.75,
     effectKey: "dcc_ability_slot_plus",
     valueForRarity: () => 1,
   }),
   Object.freeze({
     id: "reinforced_straps",
     label: "Reinforced Straps",
+    minRarity: "uncommon",
+    weight: 1,
     effectKey: "dcc_run_lifespan_plus",
     valueForRarity: (rarity) => (rarity === "legendary" ? 2 : 1),
   }),
   Object.freeze({
     id: "manual_pocket_sand",
     label: "Pocket Sand Lining",
+    minRarity: "uncommon",
+    weight: 0.85,
     effectKey: "dcc_ability_unlock",
     abilityId: "pocket_sand",
     valueForRarity: () => 1,
@@ -458,6 +506,8 @@ const DCC_ENCHANT_TEMPLATES = Object.freeze([
   Object.freeze({
     id: "manual_door_kick",
     label: "Door-Kicker Greaves",
+    minRarity: "rare",
+    weight: 0.75,
     effectKey: "dcc_ability_unlock",
     abilityId: "door_kick",
     valueForRarity: () => 1,
@@ -465,6 +515,8 @@ const DCC_ENCHANT_TEMPLATES = Object.freeze([
   Object.freeze({
     id: "manual_footwork",
     label: "Footwork Threading",
+    minRarity: "rare",
+    weight: 0.7,
     effectKey: "dcc_ability_unlock",
     abilityId: "footwork",
     valueForRarity: () => 1,
@@ -472,33 +524,173 @@ const DCC_ENCHANT_TEMPLATES = Object.freeze([
   Object.freeze({
     id: "manual_threat",
     label: "Threat-Call Stitching",
+    minRarity: "uncommon",
+    weight: 0.85,
     effectKey: "dcc_ability_unlock",
     abilityId: "threat_call",
     valueForRarity: () => 1,
   }),
+  Object.freeze({
+    id: "manual_bombardment",
+    label: "Bombardier Harness",
+    minRarity: "rare",
+    weight: 0.48,
+    effectKey: "dcc_ability_unlock",
+    abilityId: "improvised_bomb",
+    valueForRarity: () => 1,
+  }),
+  Object.freeze({
+    id: "manual_heel_hook",
+    label: "Takedown Weave",
+    minRarity: "rare",
+    weight: 0.48,
+    effectKey: "dcc_ability_unlock",
+    abilityId: "heel_hook",
+    valueForRarity: () => 1,
+  }),
+  Object.freeze({
+    id: "manual_second_wind",
+    label: "Breathkeeper Mesh",
+    minRarity: "epic",
+    weight: 0.22,
+    effectKey: "dcc_ability_unlock",
+    abilityId: "second_wind",
+    valueForRarity: () => 1,
+  }),
+  Object.freeze({
+    id: "crusher_plates",
+    label: "Crusher Plates",
+    minRarity: "rare",
+    weight: 0.5,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "basic", stat: "damage", value: 2 + rarityIndex(rarity) },
+    ],
+  }),
+  Object.freeze({
+    id: "quickdraw_mesh",
+    label: "Quickdraw Mesh",
+    minRarity: "epic",
+    weight: 0.3,
+    effectsForRarity: () => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "basic", stat: "stamina", value: -1 },
+    ],
+  }),
+  Object.freeze({
+    id: "sand_glove",
+    label: "Sand Glove",
+    minRarity: "epic",
+    weight: 0.24,
+    effectsForRarity: () => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "pocket_sand", stat: "range", value: 1 },
+    ],
+  }),
+  Object.freeze({
+    id: "sand_charge",
+    label: "Sand Charge Coil",
+    minRarity: "rare",
+    weight: 0.35,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "pocket_sand", stat: "damage", value: 2 + Math.floor(rarityIndex(rarity) / 2) },
+    ],
+  }),
+  Object.freeze({
+    id: "threat_baffles",
+    label: "Threat Baffles",
+    minRarity: "rare",
+    weight: 0.42,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "threat_call", stat: "block", value: 2 + Math.min(2, rarityIndex(rarity)) },
+    ],
+  }),
+  Object.freeze({
+    id: "footwork_balancers",
+    label: "Footwork Balancers",
+    minRarity: "rare",
+    weight: 0.34,
+    effectsForRarity: () => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "footwork", stat: "block", value: 2 },
+      { key: "dcc_ability_refine", type: "flat", abilityId: "footwork", stat: "stamina", value: -1 },
+    ],
+  }),
+  Object.freeze({
+    id: "doorshock_rig",
+    label: "Doorshock Rig",
+    minRarity: "epic",
+    weight: 0.28,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "door_kick", stat: "damage", value: 4 + Math.max(0, rarityIndex(rarity) - 3) },
+    ],
+  }),
+  Object.freeze({
+    id: "bomb_satchel",
+    label: "Bomb Satchel",
+    minRarity: "epic",
+    weight: 0.22,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "improvised_bomb", stat: "damage", value: 3 + Math.max(0, rarityIndex(rarity) - 2) },
+    ],
+  }),
+  Object.freeze({
+    id: "hook_pivot",
+    label: "Hook Pivot",
+    minRarity: "epic",
+    weight: 0.22,
+    effectsForRarity: (rarity) => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "heel_hook", stat: "damage", value: 3 + Math.max(0, rarityIndex(rarity) - 2) },
+    ],
+  }),
+  Object.freeze({
+    id: "breathkeeper_frame",
+    label: "Breathkeeper Frame",
+    minRarity: "legendary",
+    weight: 0.12,
+    effectsForRarity: () => [
+      { key: "dcc_ability_refine", type: "flat", abilityId: "second_wind", stat: "stamina", value: -1 },
+      { key: "dcc_ability_refine", type: "flat", abilityId: "second_wind", stat: "block", value: 3 },
+    ],
+  }),
 ]);
 
 function buildDccEnchantment(template, rarity) {
-  const value = Math.max(1, Math.floor(safeFinite(template.valueForRarity(rarity), 1)));
+  const generatedEffects = typeof template.effectsForRarity === "function"
+    ? template.effectsForRarity(rarity)
+    : [{
+        key: template.effectKey,
+        type: "flat",
+        abilityId: safeText(template.abilityId),
+        value: Math.max(1, Math.floor(safeFinite(template.valueForRarity(rarity), 1))),
+      }];
+  const effects = Array.isArray(generatedEffects)
+    ? generatedEffects.map((effect) => ({
+        key: safeText(effect && effect.key),
+        type: safeText(effect && effect.type) || "flat",
+        abilityId: safeText(effect && effect.abilityId),
+        stat: safeText(effect && effect.stat).toLowerCase(),
+        value: safeFinite(effect && effect.value, 0),
+      })).filter((effect) => effect.key)
+    : [];
   return {
     id: template.id,
     label: template.label,
     abilityId: safeText(template.abilityId),
-    effects: [{
-      key: template.effectKey,
-      type: "flat",
-      value,
-    }],
+    effects,
   };
 }
 
 function rollDccArmorEnchantments(rng, rarity) {
   const enchantments = [];
   let chance = DCC_ENCHANT_CHANCE_BY_RARITY[rarity] || DCC_ENCHANT_CHANCE_BY_RARITY.common;
+  const rarityTier = rarityIndex(rarity);
   while (enchantments.length < 4 && rng() < chance) {
     const usedIds = new Set(enchantments.map((entry) => entry.id));
-    const pool = DCC_ENCHANT_TEMPLATES.filter((entry) => !usedIds.has(entry.id));
-    const template = randomPick(rng, pool);
+    const pool = DCC_ENCHANT_TEMPLATES
+      .filter((entry) => !usedIds.has(entry.id))
+      .filter((entry) => rarityTier >= rarityIndex(entry.minRarity || "common"))
+      .map((entry) => ({
+        ...entry,
+        weight: Math.max(0.05, safeFinite(entry.weight, 1)),
+      }));
+    const template = weightedPick(rng, pool);
     if (!template) {
       break;
     }
@@ -546,6 +738,8 @@ function normalizeEffect(candidate) {
   return {
     key: safeText(source.key),
     type: safeText(source.type) || "flat",
+    abilityId: safeText(source.abilityId),
+    stat: safeText(source.stat).toLowerCase(),
     value: safeFinite(source.value, 0),
   };
 }
