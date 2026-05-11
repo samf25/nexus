@@ -4,24 +4,24 @@ const PRESTIGE_REGIONS = Object.freeze([
     label: "Cradle",
     currencyLabel: "Madra",
     pointLabel: "Condensed Madra",
-    baseResetCost: 200,
-    growth: 2.35,
+    baseResetCost: 180,
+    growth: 2.1,
   }),
   Object.freeze({
     id: "worm",
     label: "Worm",
     currencyLabel: "Clout",
     pointLabel: "Shard",
-    baseResetCost: 120,
-    growth: 2.2,
+    baseResetCost: 100,
+    growth: 2.02,
   }),
   Object.freeze({
     id: "dcc",
     label: "Dungeon Crawler Carl",
     currencyLabel: "Gold",
     pointLabel: "Sponsor",
-    baseResetCost: 500,
-    growth: 2.3,
+    baseResetCost: 420,
+    growth: 2.08,
   }),
 ]);
 
@@ -35,31 +35,31 @@ const PRESTIGE_UPGRADES = Object.freeze({
       id: "madra-surge",
       label: "Madra Surge",
       cost: 1,
-      effect: "x10 madra gain",
+      effect: "A strong boost to madra gain across every loop.",
     }),
     Object.freeze({
       id: "cycle-economy",
       label: "Cycle Economy",
       cost: 1,
-      effect: "/10 cycling technique cost",
+      effect: "Meaningfully lowers Madra Well cycling costs.",
     }),
     Object.freeze({
       id: "combat-edge",
       label: "Combat Edge",
       cost: 1,
-      effect: "x2 strength of attacks",
+      effect: "Sharpens combat techniques and strike output.",
     }),
     Object.freeze({
       id: "soulfire-surge",
       label: "Soulfire Surge",
       cost: 1,
-      effect: "x3 soulfire gain",
+      effect: "Strengthens soulfire generation in lord-level loops.",
     }),
     Object.freeze({
       id: "soulfire-forge",
       label: "Soulfire Forge",
       cost: 1,
-      effect: "Soulfire upgrades cost less in Madra Well",
+      effect: "Makes soulfire growth upgrades cheaper in the Well.",
     }),
   ]),
   worm: Object.freeze([
@@ -67,13 +67,13 @@ const PRESTIGE_UPGRADES = Object.freeze({
       id: "clout-surge",
       label: "Clout Surge",
       cost: 1,
-      effect: "x2 clout gain",
+      effect: "Raises clout gain from fights and contracts.",
     }),
     Object.freeze({
       id: "job-window",
       label: "Improved Job Window",
       cost: 1,
-      effect: "higher odds for rarer cape pulls",
+      effect: "Improves the odds of pulling stronger capes.",
     }),
   ]),
   dcc: Object.freeze([
@@ -277,6 +277,72 @@ export function prestigeRegionSnapshot(state, regionId) {
 function zeroUpgradeLevels(upgrades) {
   const source = upgrades && typeof upgrades === "object" ? upgrades : {};
   return Object.fromEntries(Object.keys(source).map((upgradeId) => [upgradeId, 0]));
+}
+
+function cappedLinear(value, step, cap) {
+  return Math.min(cap, Math.max(0, value) * step);
+}
+
+function passiveBonusesForRegion(regionId, resets = 0) {
+  const count = Math.max(0, Math.floor(safeFinite(resets, 0)));
+  const key = safeText(regionId);
+  if (key === "cradle") {
+    return {
+      madraGainMultiplier: 1 + cappedLinear(count, 0.22, 1.8),
+      cyclingCostDivider: 1 + cappedLinear(count, 0.12, 1.1),
+      combatAttackMultiplier: 1 + cappedLinear(count, 0.08, 0.6),
+      soulfireGainMultiplier: 1 + cappedLinear(count, 0.12, 0.9),
+      soulfireCostDivider: 1 + cappedLinear(count, 0.08, 0.6),
+    };
+  }
+  if (key === "worm") {
+    return {
+      cloutGainMultiplier: 1 + cappedLinear(count, 0.12, 1.2),
+      jobWeightBaseMultiplier: 1 + cappedLinear(count, 0.09, 0.9),
+    };
+  }
+  if (key === "dcc") {
+    return {
+      maxHpBonus: Math.round(cappedLinear(count, 10, 80)),
+      attackBonus: Math.round(cappedLinear(count, 0.8, 6)),
+      goldGainBonus: cappedLinear(count, 0.08, 0.8),
+      rareDropBonus: cappedLinear(count, 0.02, 0.16),
+    };
+  }
+  return {};
+}
+
+export function prestigePassiveBonuses(prestigeState, regionId) {
+  const normalized = normalizePrestigeSystemState(prestigeState);
+  const key = safeText(regionId);
+  const region = normalized.regions[key];
+  return passiveBonusesForRegion(key, region ? region.resets : 0);
+}
+
+export function prestigePassiveBonusSummary(prestigeState, regionId) {
+  const key = safeText(regionId);
+  const passive = prestigePassiveBonuses(prestigeState, key);
+  if (key === "cradle") {
+    return [
+      `Madra gain x${Number(passive.madraGainMultiplier || 1).toFixed(2)}`,
+      `Cycling costs /${Number(passive.cyclingCostDivider || 1).toFixed(2)}`,
+      `Combat attack x${Number(passive.combatAttackMultiplier || 1).toFixed(2)}`,
+    ];
+  }
+  if (key === "worm") {
+    return [
+      `Clout gain x${Number(passive.cloutGainMultiplier || 1).toFixed(2)}`,
+      `Hiring odds x${Number(passive.jobWeightBaseMultiplier || 1).toFixed(2)}`,
+    ];
+  }
+  if (key === "dcc") {
+    return [
+      `+${Math.round(Number(passive.maxHpBonus || 0))} Max HP`,
+      `+${Math.round(Number(passive.attackBonus || 0))} Attack`,
+      `Gold gain x${(1 + Number(passive.goldGainBonus || 0)).toFixed(2)}`,
+    ];
+  }
+  return [];
 }
 
 function applyCradleReset(state, cost, now) {
@@ -574,24 +640,27 @@ export function prestigeModifiersFromState(state) {
   const hasCradle = (upgradeId) => Number(cradle.upgrades[upgradeId] || 0) > 0;
   const hasWorm = (upgradeId) => Number(worm.upgrades[upgradeId] || 0) > 0;
   const hasDcc = (upgradeId) => Number(dcc.upgrades[upgradeId] || 0) > 0;
+  const cradlePassive = passiveBonusesForRegion("cradle", cradle.resets);
+  const wormPassive = passiveBonusesForRegion("worm", worm.resets);
+  const dccPassive = passiveBonusesForRegion("dcc", dcc.resets);
 
   return {
     cradle: {
-      madraGainMultiplier: hasCradle("madra-surge") ? 10 : 1,
-      cyclingCostDivider: hasCradle("cycle-economy") ? 10 : 1,
-      combatAttackMultiplier: hasCradle("combat-edge") ? 2 : 1,
-      soulfireGainMultiplier: hasCradle("soulfire-surge") ? 3 : 1,
-      soulfireCostDivider: hasCradle("soulfire-forge") ? 2 : 1,
+      madraGainMultiplier: Number((cradlePassive.madraGainMultiplier * (hasCradle("madra-surge") ? 2.25 : 1)).toFixed(3)),
+      cyclingCostDivider: Number((cradlePassive.cyclingCostDivider * (hasCradle("cycle-economy") ? 2.35 : 1)).toFixed(3)),
+      combatAttackMultiplier: Number((cradlePassive.combatAttackMultiplier * (hasCradle("combat-edge") ? 1.3 : 1)).toFixed(3)),
+      soulfireGainMultiplier: Number((cradlePassive.soulfireGainMultiplier * (hasCradle("soulfire-surge") ? 1.8 : 1)).toFixed(3)),
+      soulfireCostDivider: Number((cradlePassive.soulfireCostDivider * (hasCradle("soulfire-forge") ? 1.5 : 1)).toFixed(3)),
     },
     worm: {
-      cloutGainMultiplier: hasWorm("clout-surge") ? 2 : 1,
-      jobWeightBaseMultiplier: hasWorm("job-window") ? 2 : 1,
+      cloutGainMultiplier: Number((wormPassive.cloutGainMultiplier * (hasWorm("clout-surge") ? 1.45 : 1)).toFixed(3)),
+      jobWeightBaseMultiplier: Number((wormPassive.jobWeightBaseMultiplier * (hasWorm("job-window") ? 1.6 : 1)).toFixed(3)),
     },
     dcc: {
-      maxHpBonus: hasDcc("sponsor-might") ? 30 : 0,
-      attackBonus: hasDcc("sponsor-might") ? 5 : 0,
-      goldGainBonus: hasDcc("sponsor-bounty") ? 1 : 0,
-      rareDropBonus: hasDcc("sponsor-bounty") ? 0.2 : 0,
+      maxHpBonus: Math.round(Number(dccPassive.maxHpBonus || 0) + (hasDcc("sponsor-might") ? 24 : 0)),
+      attackBonus: Math.round(Number(dccPassive.attackBonus || 0) + (hasDcc("sponsor-might") ? 3 : 0)),
+      goldGainBonus: Number(((Number(dccPassive.goldGainBonus || 0)) + (hasDcc("sponsor-bounty") ? 0.5 : 0)).toFixed(3)),
+      rareDropBonus: Number(((Number(dccPassive.rareDropBonus || 0)) + (hasDcc("sponsor-bounty") ? 0.08 : 0)).toFixed(3)),
       startWithSponsorSkill: hasDcc("sponsor-arsenal"),
       extraAbilitySlots: hasDcc("sponsor-arsenal") ? 1 : 0,
     },

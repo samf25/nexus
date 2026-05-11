@@ -1,7 +1,7 @@
 import { loadWormCardCatalog, wormCardById } from "../nodes/worm/wormData.js";
 
 const STARTER_CAPE_NAMES = Object.freeze(["Chubster", "Chuckles", "Cinderhands", "Glace"]);
-const BASIC_HIRE_COST = 10;
+const BASIC_HIRE_COST = 12;
 const BASIC_WINDOW_MAX_RARITY = 5;
 const BASIC_WINDOW_WEIGHT_BASE = 0.125;
 const SICKBAY_HEAL_FRACTION_PER_MINUTE = 0.25;
@@ -10,7 +10,7 @@ const SPECIAL_HIRING_WINDOWS = Object.freeze([
     id: "dcc-floor3-window",
     rewardArtifact: "Dockside Broker Contract",
     label: "Dockside Contract Window",
-    cost: 40,
+    cost: 55,
     minRarity: 3.5,
     maxRarity: 6.5,
     weightBase: 1,
@@ -19,7 +19,7 @@ const SPECIAL_HIRING_WINDOWS = Object.freeze([
     id: "dcc-floor4-window",
     rewardArtifact: "National Broker Mandate",
     label: "National Mandate Window",
-    cost: 120,
+    cost: 170,
     minRarity: 5,
     maxRarity: 10,
     weightBase: 1.35,
@@ -490,17 +490,17 @@ function computeArenaReward(enemyRarities) {
   if (values.length < 2) {
     return 0;
   }
-  const raw = (Math.pow(2, values[0]) + Math.pow(2, values[1])) / 3;
+  const raw = (Math.pow(2, values[0]) + Math.pow(2, values[1])) / 3.8;
   return Number(raw.toFixed(2));
 }
 
 function battleDifficultyMultiplier(difficulty) {
   const key = String(difficulty || "").trim().toLowerCase();
   if (key === "medium") {
-    return 3;
+    return 2.4;
   }
   if (key === "hard") {
-    return 10;
+    return 7;
   }
   return 1;
 }

@@ -1823,15 +1823,15 @@ function makeEnemy(rand, roomType, floor = 1) {
       : (randomPick(rand, MINOR_ENEMIES) || MINOR_ENEMIES[0]);
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
   const hpScale = roomType === "boss"
-    ? 1 + (depth * 0.32)
+    ? 1 + (depth * 0.38)
     : roomType === "miniBoss"
-      ? 1 + (depth * 0.24)
-      : 1 + (depth * 0.18);
+      ? 1 + (depth * 0.28)
+      : 1 + (depth * 0.22);
   const attackScale = roomType === "boss"
-    ? 1 + (depth * 0.2)
+    ? 1 + (depth * 0.24)
     : roomType === "miniBoss"
-      ? 1 + (depth * 0.16)
-      : 1 + (depth * 0.12);
+      ? 1 + (depth * 0.18)
+      : 1 + (depth * 0.15);
   const scaledHp = Math.max(1, Math.round(template.hp * hpScale));
   const scaledAttack = Math.max(1, Math.round(template.attack * attackScale));
   const scaledRange = Math.max(
@@ -3337,19 +3337,19 @@ function moveDirection(runtime, direction, contextState) {
 function upgradeCost(meta, upgradeId) {
   const level = meta && meta.upgrades ? Number(meta.upgrades[upgradeId] || 0) : 0;
   if (upgradeId === "hp") {
-    return 28 * (level + 1);
+    return 40 * (level + 1);
   }
   if (upgradeId === "attack") {
-    return 36 * (level + 1);
+    return 50 * (level + 1);
   }
   if (upgradeId === "stamina") {
-    return 24 * (level + 1);
+    return 34 * (level + 1);
   }
   if (upgradeId === "slots") {
-    return 120 * (level + 1);
+    return 160 * (level + 1);
   }
   if (upgradeId === "rare") {
-    return 88 * (level + 1);
+    return 120 * (level + 1);
   }
   return 999999;
 }

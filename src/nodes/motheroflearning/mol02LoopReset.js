@@ -1,6 +1,7 @@
 import { escapeHtml } from "../../templates/shared.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import {
+  prestigePassiveBonusSummary,
   prestigeRegionDefinitions,
   prestigeRegionSnapshot,
 } from "../../systems/prestige.js";
@@ -414,13 +415,42 @@ function regionPanelMarkup(snapshot) {
       </section>
     `;
   }
+  const loopEchoes = prestigePassiveBonusSummary(
+    snapshot && snapshot.regionDef ? { regions: { [snapshot.regionId]: { resets: snapshot.resets } } } : {},
+    snapshot.regionId,
+  );
   return `
     <section class="card mol-reset-region">
-      <h4>Reset Target</h4>
-      <p><strong>${escapeHtml(region.currencyLabel)}:</strong> ${escapeHtml(String(Math.floor(snapshot.currency)))}</p>
-      <p><strong>Next Reset Cost:</strong> ${escapeHtml(String(snapshot.nextCost))}</p>
-      <p><strong>${escapeHtml(region.pointLabel)}:</strong> ${escapeHtml(String(snapshot.points))}</p>
-      <p class="muted">Completed resets: ${escapeHtml(String(snapshot.resets))}</p>
+      <div class="mol-reset-region-head">
+        <div>
+          <h4>${escapeHtml(region.label)}</h4>
+          <p class="muted">Rewind the region, bank one ${escapeHtml(region.pointLabel)}, and strengthen future loops.</p>
+        </div>
+        <div class="mol-reset-stat-grid">
+          <div class="mol-reset-stat">
+            <span>${escapeHtml(region.currencyLabel)}</span>
+            <strong>${escapeHtml(String(Math.floor(snapshot.currency)))}</strong>
+          </div>
+          <div class="mol-reset-stat">
+            <span>Next Reset</span>
+            <strong>${escapeHtml(String(snapshot.nextCost))}</strong>
+          </div>
+          <div class="mol-reset-stat">
+            <span>${escapeHtml(region.pointLabel)}</span>
+            <strong>${escapeHtml(String(snapshot.points))}</strong>
+          </div>
+          <div class="mol-reset-stat">
+            <span>Resets</span>
+            <strong>${escapeHtml(String(snapshot.resets))}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="mol-reset-echo-panel">
+        <h5>Loop Echoes</h5>
+        <div class="mol-reset-echo-list">
+          ${loopEchoes.map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`).join("")}
+        </div>
+      </div>
     </section>
   `;
 }
@@ -439,7 +469,7 @@ export function renderMol02Experience(context) {
     <article class="mol02-node ${resetPulse ? "is-reset-pulse" : ""}" data-node-id="${NODE_ID}">
       <section class="card mol-reset-head">
         <h3>Loop Reset</h3>
-        <p>Select a region to rewind, then survive the memory gate.</p>
+        <p>Collapse a region, preserve its loop echoes, then survive the memory gate to seal the reset.</p>
       </section>
       ${wheelMarkup(runtime)}
       ${regionPanelMarkup(selectedSnapshot)}
@@ -503,6 +533,26 @@ export function renderMol02Experience(context) {
                         ? "No currency cost."
                         : `${escapeHtml(String(confirmSnapshot.nextCost))} ${escapeHtml(confirmSnapshot.regionDef.currencyLabel)}`
                     }</p>
+                    ${
+                      !isPracticalGuideRegionId(confirmSnapshot.regionId)
+                        ? `
+                          <div class="mol-reset-echo-panel">
+                            <h5>After the reset</h5>
+                            <div class="mol-reset-echo-list">
+                              ${prestigePassiveBonusSummary({
+                                regions: {
+                                  [confirmSnapshot.regionId]: {
+                                    resets: Math.max(0, Number(confirmSnapshot.resets || 0)) + 1,
+                                  },
+                                },
+                              }, confirmSnapshot.regionId)
+                                .map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`)
+                                .join("")}
+                            </div>
+                          </div>
+                        `
+                        : ""
+                    }
                     ${
                       confirmSnapshot.affordable
                         ? `

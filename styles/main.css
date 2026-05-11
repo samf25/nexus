@@ -4645,12 +4645,31 @@ a:hover {
 .mol02-node,
 .mol03-node {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .mol-memory-head p,
 .mol-reset-head p {
   margin: 4px 0;
+}
+
+.mol-reset-head {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #506b98;
+  background:
+    radial-gradient(circle at 16% 28%, #93b9ff18 0, #0000 32%),
+    radial-gradient(circle at 84% 20%, #eac8ff14 0, #0000 28%),
+    linear-gradient(165deg, #101931, #0d1730 55%, #0b1328);
+}
+
+.mol-reset-head::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid #6887ba2e;
+  border-radius: 16px;
+  pointer-events: none;
 }
 
 .mol-wheel-shell {
@@ -4728,8 +4747,11 @@ a:hover {
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   border: 1px solid #4d6691;
-  border-radius: 14px;
-  background: radial-gradient(circle at center, #111e38 0%, #0b1328 72%);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at center, #18305b 0%, #0d1730 45%, #0a1123 76%),
+    linear-gradient(160deg, #0f1830, #0c1428);
+  box-shadow: inset 0 0 0 1px #7fa6db18, 0 20px 36px #02040bcc;
 }
 
 .mol02-ring-guide {
@@ -4742,6 +4764,7 @@ a:hover {
   border: 1px dashed #5c7baa;
   border-radius: 50%;
   opacity: 0.62;
+  box-shadow: 0 0 34px #7ca5ff10;
 }
 
 .mol02-ring-core {
@@ -4753,25 +4776,28 @@ a:hover {
   transform: translate(-50%, -50%);
   border: 1px solid #6487c0;
   border-radius: 50%;
-  background: #122443;
+  background:
+    radial-gradient(circle at 30% 30%, #203f77, #122443 62%, #0d1730 100%);
   display: grid;
   place-items: center;
-  box-shadow: 0 0 18px #9ad0ff33;
+  box-shadow: 0 0 18px #9ad0ff33, inset 0 0 0 1px #c0ddff1c;
 }
 
 .mol02-ring-node {
   all: unset;
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 112px;
+  width: 118px;
   border: 1px solid #5b769f;
-  border-radius: 12px;
-  background: #12243fd8;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, #142847f2, #0d1b35f4);
   display: grid;
   justify-items: center;
   gap: 5px;
-  padding: 8px 8px 6px;
+  padding: 9px 8px 7px;
   cursor: pointer;
+  box-shadow: 0 10px 24px #03071188;
 }
 
 .mol02-ring-node:hover,
@@ -4783,7 +4809,9 @@ a:hover {
 
 .mol02-ring-node.is-selected {
   border-color: #98e8d0;
-  background: #17364ad9;
+  background:
+    linear-gradient(180deg, #1b3a56f2, #123043f5);
+  box-shadow: 0 0 0 1px #9eead35c, 0 12px 26px #041018c7;
 }
 
 .mol02-ring-node span {
@@ -4931,9 +4959,88 @@ a:hover {
   margin: 4px 0;
 }
 
+.mol-reset-region {
+  border: 1px solid #4b638d;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, #e5db9d12 0, #0000 28%),
+    linear-gradient(180deg, #111d36, #0b1429);
+}
+
+.mol-reset-region-head {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.mol-reset-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.mol-reset-stat {
+  border: 1px solid #4f6792;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #142441, #0f1b33);
+  padding: 9px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.mol-reset-stat span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #95add3;
+}
+
+.mol-reset-stat strong {
+  font-size: 1rem;
+  color: #edf5ff;
+}
+
+.mol-reset-echo-panel {
+  margin-top: 12px;
+  border: 1px solid #50648d;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #0d172d, #0b1326);
+  padding: 10px 12px 12px;
+}
+
+.mol-reset-echo-panel h5 {
+  margin: 0 0 10px;
+}
+
+.mol-reset-echo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mol-reset-echo-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #617eb2;
+  background: linear-gradient(180deg, #163056, #0f2341);
+  color: #dceaff;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
 .mol-reset-confirm h4,
 .mol-reset-confirm p {
   margin: 4px 0;
+}
+
+.mol-reset-confirm {
+  border: 1px solid #5d6fa1;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 80% 18%, #a4c8ff10 0, #0000 24%),
+    linear-gradient(180deg, #101a31, #0b1224);
 }
 
 .mol-upgrade-panel h4,
@@ -4941,24 +5048,64 @@ a:hover {
   margin: 4px 0;
 }
 
+.mol-upgrade-panel {
+  border: 1px solid #536d99;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 18% 14%, #8bc4ff14 0, #0000 24%),
+    linear-gradient(180deg, #0f1930, #0b1428);
+}
+
+.mol-upgrade-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.mol-upgrade-points {
+  min-width: 120px;
+  border: 1px solid #5771a0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #162846, #0e1b33);
+  padding: 8px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.mol-upgrade-points span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #98b2d9;
+}
+
+.mol-upgrade-points strong {
+  font-size: 1rem;
+}
+
 .mol-upgrade-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
 }
 
 .mol-upgrade-card {
   border: 1px solid #405f8f;
-  border-radius: 10px;
-  background: #0e1a31d9;
-  padding: 8px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, #132440, #0d182e);
+  padding: 12px;
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: 0 10px 24px #0307116e;
 }
 
 .mol-upgrade-card.is-owned {
   border-color: #71c9ae;
-  background: #102a2cdb;
+  background:
+    linear-gradient(180deg, #123033, #0d2225);
 }
 
 .mol-upgrade-card h5,
@@ -4969,6 +5116,38 @@ a:hover {
 .mol-upgrade-owned {
   color: #95f1c7;
   font-size: 0.78rem;
+}
+
+.mol-lattice-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: #030712ba;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.mol-lattice-surface {
+  width: min(940px, 100%);
+  max-height: min(86vh, 940px);
+  overflow: auto;
+  border: 1px solid #6075a6;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 16% 18%, #a1beff14 0, #0000 26%),
+    radial-gradient(circle at 84% 78%, #f6daa918 0, #0000 24%),
+    linear-gradient(180deg, #101a31, #0c1428 62%, #0b1122);
+  box-shadow: 0 24px 60px #01040bd8;
+  padding: 18px 20px 20px;
+}
+
+.mol-lattice-surface > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .mol02-node.is-reset-pulse {

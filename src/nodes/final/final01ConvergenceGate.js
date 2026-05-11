@@ -36,10 +36,10 @@ const PHASE_DUAL = "dual";
 const PHASE_SYNTHESIS = "synthesis";
 const PHASE_COMPLETE = "complete";
 const RESOURCE_REQUIREMENTS = Object.freeze({
-  madra: 650000,
-  soulfire: 140,
-  clout: 5000,
-  gold: 7000,
+  madra: 2400000,
+  soulfire: 320,
+  clout: 14000,
+  gold: 18000,
 });
 const RESOURCE_PENDING_FIELD_BY_NAME = Object.freeze({
   madra: "pendingMadraSpend",

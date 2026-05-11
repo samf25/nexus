@@ -1,6 +1,7 @@
 import { escapeHtml } from "../../templates/shared.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import {
+  prestigePassiveBonusSummary,
   prestigeRegionDefinitions,
   prestigeRegionSnapshot,
   prestigeUpgradesForRegion,
@@ -247,8 +248,24 @@ function upgradesMarkup(regionSnapshot, state) {
 
   return `
     <section class="card mol-upgrade-panel">
-      <h4>Region Upgrades</h4>
-      <p><strong>${escapeHtml(region.pointLabel)}:</strong> ${escapeHtml(String(regionSnapshot.points))}</p>
+      <div class="mol-upgrade-panel-head">
+        <div>
+          <h4>Region Upgrades</h4>
+          <p class="muted">Permanent purchases layered on top of each reset's passive loop echoes.</p>
+        </div>
+        <div class="mol-upgrade-points">
+          <span>${escapeHtml(region.pointLabel)}</span>
+          <strong>${escapeHtml(String(regionSnapshot.points))}</strong>
+        </div>
+      </div>
+      <div class="mol-reset-echo-panel">
+        <h5>Current Loop Echoes</h5>
+        <div class="mol-reset-echo-list">
+          ${prestigePassiveBonusSummary(state && state.systems ? state.systems.prestige : {}, region.id)
+            .map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`)
+            .join("")}
+        </div>
+      </div>
       ${
         region.id === "cradle" && !reachedUnderlord
           ? `<p class="muted">Soulfire prestige upgrades unlock after first reaching Underlord.</p>`
@@ -299,19 +316,40 @@ export function renderMol03Experience(context) {
     <article class="mol03-node" data-node-id="${NODE_ID}">
       <section class="card mol-reset-head">
         <h3>Prestige Lattice</h3>
-        <p>Spend prestige currencies to permanently amplify each region.</p>
+        <p>Shape each loop with permanent region upgrades while your reset echoes keep growing underneath.</p>
       </section>
       ${wheelMarkup(runtime)}
       <section class="card mol-reset-region">
-        <h4>Selected Region</h4>
-        <p><strong>${escapeHtml(selectedSnapshot.regionDef.pointLabel)}:</strong> ${escapeHtml(String(selectedSnapshot.points))}</p>
-        <p class="muted">Use arrows to cycle regions, then Enter to open upgrade lattice.</p>
+        <div class="mol-reset-region-head">
+          <div>
+            <h4>${escapeHtml(selectedSnapshot.regionDef.label)}</h4>
+            <p class="muted">Use arrows to cycle regions, then Enter to open the lattice.</p>
+          </div>
+          <div class="mol-reset-stat-grid">
+            <div class="mol-reset-stat">
+              <span>${escapeHtml(selectedSnapshot.regionDef.pointLabel)}</span>
+              <strong>${escapeHtml(String(selectedSnapshot.points))}</strong>
+            </div>
+            <div class="mol-reset-stat">
+              <span>Resets</span>
+              <strong>${escapeHtml(String(selectedSnapshot.resets))}</strong>
+            </div>
+          </div>
+        </div>
+        <div class="mol-reset-echo-panel">
+          <h5>Loop Echoes</h5>
+          <div class="mol-reset-echo-list">
+            ${prestigePassiveBonusSummary(context.state && context.state.systems ? context.state.systems.prestige : {}, selectedSnapshot.regionId)
+              .map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`)
+              .join("")}
+          </div>
+        </div>
       </section>
       ${
         focusedSnapshot
           ? `
-            <div class="crd02-tech-modal" role="dialog" aria-label="Prestige Upgrades">
-              <section class="crd02-tech-surface">
+            <div class="mol-lattice-modal" role="dialog" aria-label="Prestige Upgrades">
+              <section class="mol-lattice-surface">
                 <header>
                   <h3>${escapeHtml(focusedSnapshot.regionDef.label)} Upgrades</h3>
                   <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="mol03-clear-focus">Close</button>

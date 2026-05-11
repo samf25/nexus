@@ -21,15 +21,15 @@ const MANUAL_HIT_TOLERANCE_MS = 180;
 const OFFLINE_CAP_SECONDS = 60 * 60 * 12;
 const MANUAL_PATTERNS = CRD02_MANUAL_RHYTHM_PATTERNS;
 const BREAKTHROUGH_COSTS = Object.freeze({
-  foundation: 200,
-  copper: 1000,
-  iron: 4500,
-  jade: 12000,
-  lowgold: 36000,
-  highgold: 90000,
-  truegold: 220000,
-  underlord: 380000,
-  overlord: 900000,
+  foundation: 260,
+  copper: 1500,
+  iron: 7000,
+  jade: 22000,
+  lowgold: 70000,
+  highgold: 180000,
+  truegold: 420000,
+  underlord: 850000,
+  overlord: 2000000,
 });
 const IRON_BREAKTHROUGH_ARTIFACT = "Cultivation Potion";
 const JADE_BREAKTHROUGH_ARTIFACT = "Jade Condensation Elixir";
