@@ -251,7 +251,6 @@ function upgradesMarkup(regionSnapshot, state) {
       <div class="mol-upgrade-panel-head">
         <div>
           <h4>Region Upgrades</h4>
-          <p class="muted">Permanent purchases layered on top of each reset's passive loop echoes.</p>
         </div>
         <div class="mol-upgrade-points">
           <span>${escapeHtml(region.pointLabel)}</span>
@@ -316,14 +315,12 @@ export function renderMol03Experience(context) {
     <article class="mol03-node" data-node-id="${NODE_ID}">
       <section class="card mol-reset-head">
         <h3>Prestige Lattice</h3>
-        <p>Shape each loop with permanent region upgrades while your reset echoes keep growing underneath.</p>
       </section>
       ${wheelMarkup(runtime)}
       <section class="card mol-reset-region">
         <div class="mol-reset-region-head">
           <div>
             <h4>${escapeHtml(selectedSnapshot.regionDef.label)}</h4>
-            <p class="muted">Use arrows to cycle regions, then Enter to open the lattice.</p>
           </div>
           <div class="mol-reset-stat-grid">
             <div class="mol-reset-stat">

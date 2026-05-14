@@ -199,11 +199,15 @@ export function renderRegionHub(context) {
           }
           <span>${escapeHtml(selectedNode ? nodeDisplayTitle(selectedNode) : "No Node Selected")}</span>
         </h3>
-        <p class="muted" style="margin-bottom: 8px;">${escapeHtml(selectedNode ? selectedNode.node_id : "")}
-          ${selectedNode ? ` | ${escapeHtml(selectedStatus)}` : ""}
-        </p>
+        <div class="nexus-focus-node-meta">
+          <span class="nexus-focus-node-id">${escapeHtml(selectedNode ? selectedNode.node_id : "")}</span>
+          ${
+            selectedNode
+              ? `<span class="nexus-focus-node-status is-${escapeHtml(selectedStatus.toLowerCase())}">${escapeHtml(selectedStatus)}</span>`
+              : ""
+          }
+        </div>
         <div class="progress-bar"><span style="width:${percent}%"></span></div>
-        <p class="muted" style="margin-top: 8px;">Green: solved, blue: unlocked, dark: locked.</p>
       </section>
     </article>
   `;

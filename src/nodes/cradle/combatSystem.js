@@ -121,11 +121,17 @@ export function emptyPalmSuccessRoll({
   const parsedPenalty = Math.max(0, Number(penaltyPerStage) || 0);
   let chance = parsedBase;
   if (gap === 1) {
-    chance = parsedBase - parsedPenalty * 0.62;
-  } else if (gap === 2) {
     chance = Math.min(
-      parsedBase - parsedPenalty * 2.7,
-      parsedBase * 0.17,
+      parsedBase - parsedPenalty * 0.38,
+      parsedBase * 0.94,
+    );
+  } else if (gap === 2) {
+    chance = Math.max(
+      minChance,
+      Math.min(
+        parsedBase - parsedPenalty * 2.15,
+        parsedBase * 0.24,
+      ),
     );
   } else if (gap >= Math.max(2, Number(severeGapThreshold) || 2)) {
     const severeFloor = Math.max(0, Number(severeGapChance) || 0.01);

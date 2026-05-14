@@ -469,7 +469,6 @@ export function renderMol02Experience(context) {
     <article class="mol02-node ${resetPulse ? "is-reset-pulse" : ""}" data-node-id="${NODE_ID}">
       <section class="card mol-reset-head">
         <h3>Loop Reset</h3>
-        <p>Collapse a region, preserve its loop echoes, then survive the memory gate to seal the reset.</p>
       </section>
       ${wheelMarkup(runtime)}
       ${regionPanelMarkup(selectedSnapshot)}

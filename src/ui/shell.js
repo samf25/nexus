@@ -219,7 +219,11 @@ function placementHintForItem(item, activeNodeId) {
   if (templateId === "crd_soul_crystal" || templateId === "crd_combat_relic") {
     return "Cradle gear selected. Open Madra Well soul/combat slots to place it.";
   }
-  if (kind === "aa_focus") {
+  if (
+    kind === "aa_focus"
+    || kind === "aa_focus_matrix"
+    || (kind === "aa_upgrade" && templateId !== "aa_workshop_slot_token")
+  ) {
     return "Workshop loot selected. Open The Workshop slots and click a socket.";
   }
   if (kind === "aa_upgrade" || kind === "slot_expansion") {

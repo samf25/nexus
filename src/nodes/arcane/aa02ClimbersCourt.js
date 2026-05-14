@@ -2,6 +2,7 @@ import { escapeHtml } from "../../templates/shared.js";
 import { renderArtifactSymbol } from "../../core/artifacts.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import {
+  arcaneAttunementRank,
   arcaneSystemFromState,
   computeTomePullCost,
   enhancementGlyphPool,
@@ -79,6 +80,7 @@ function generateShopOffers(arcane, hourKey) {
   const offers = [];
   const baseNow = hourKey * 3600000;
   const rarityBias = rarityBiasForCourtSpend(arcane.totalSpentAtCourt);
+  const aaModifiers = getArcaneLootModifiers(state, Date.now());
   for (let index = 0; index < SHOP_OFFER_COUNT; index += 1) {
     const roll = rollRegionalLoot({
       sourceRegion: "aa",
@@ -95,7 +97,7 @@ function generateShopOffers(arcane, hourKey) {
     }
     const cost = estimateLootShopPrice(roll, {
       totalSpentAtCourt: arcane.totalSpentAtCourt,
-      buyDiscountPct: arcane.bonuses.buyDiscountPct,
+      buyDiscountPct: aaModifiers.buyDiscountPct,
       shopRegion: "aa",
     });
     offers.push({
@@ -210,17 +212,18 @@ function itemStackSignature(item) {
   });
 }
 
-function groupAuctionItems(items, arcane) {
+function groupAuctionItems(items, arcane, aaModifiers) {
+  const modifiers = aaModifiers && typeof aaModifiers === "object" ? aaModifiers : { buyDiscountPct: 0, sellBonusPct: 0 };
   const grouped = new Map();
   for (const item of items) {
     const base = estimateLootShopPrice(item, {
       totalSpentAtCourt: arcane.totalSpentAtCourt,
-      buyDiscountPct: arcane.bonuses.buyDiscountPct,
+      buyDiscountPct: modifiers.buyDiscountPct,
       shopRegion: "aa",
     });
     const payout = Math.max(
       1,
-      Math.floor(base * 0.75 * (1 + Math.max(0, Number(arcane.bonuses.sellBonusPct) || 0))),
+      Math.floor(base * 0.75 * (1 + Math.max(0, Number(modifiers.sellBonusPct) || 0))),
     );
     const signature = `${itemStackSignature(item)}::${payout}`;
     if (!grouped.has(signature)) {
@@ -528,7 +531,7 @@ function auctionMarkup(runtime, state, arcane) {
       sellBonusPct: Number(aaModifiers.sellBonusPct || 0),
     },
   };
-  const groupedItems = groupAuctionItems(itemEntries, arcaneForPricing);
+  const groupedItems = groupAuctionItems(itemEntries, arcaneForPricing, aaModifiers);
   if (!itemEntries.length) {
     return `
       <section class="card aa02-market-panel">
@@ -647,9 +650,34 @@ function tomeMarkup(state, arcane, runtime) {
   `;
 }
 
+function rankPopupMarkup(arcane) {
+  const popup = arcane.attunements && arcane.attunements.pendingRankPopup && typeof arcane.attunements.pendingRankPopup === "object"
+    ? arcane.attunements.pendingRankPopup
+    : null;
+  if (!popup) {
+    return "";
+  }
+  return `
+    <div class="worm02-picker-overlay" role="dialog" aria-label="Attunement Rank Up">
+      <section class="card aa03-rankup-modal" style="--aa-rank-color:${escapeHtml(popup.color || "#d8e5ff")}">
+        <h3>${escapeHtml(popup.label || "Attunement Advanced")}</h3>
+        <p>${escapeHtml(popup.description || "")}</p>
+        <div class="aa03-rankup-benefits">
+          ${(Array.isArray(popup.benefits) ? popup.benefits : []).map((entry) => `<span class="aa03-rankup-chip">${escapeHtml(entry)}</span>`).join("")}
+        </div>
+        <div class="toolbar">
+          <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-close-rank-popup">Continue</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 export function renderAa02Experience(context) {
   const runtime = synchronizeAa02Runtime(context.runtime, context);
   const arcane = arcaneSystemFromState(context.state || {}, Date.now());
+  const attunement = arcaneAttunementRank(arcane);
+  const attunementLabel = arcane.attunements.enchanter ? attunement.label : "Unbound";
   const activeTab = runtime.activeTab || "shop";
 
   const body = activeTab === "auction"
@@ -662,9 +690,9 @@ export function renderAa02Experience(context) {
     <article class="aa02-node" data-node-id="${NODE_ID}">
       <section class="card">
         <h3>Climber's Court</h3>
+        <p><strong>Attunement:</strong> ${escapeHtml(attunementLabel)}</p>
         <p><strong>Mana Crystals:</strong> ${escapeHtml(String(arcane.manaCrystals))}</p>
         <p><strong>Total Spent at Court:</strong> ${escapeHtml(String(arcane.totalSpentAtCourt))}</p>
-        <p><strong>Enchanter Attunement:</strong> ${arcane.attunements.enchanter ? "Bound" : "Unbound"}</p>
         <div class="toolbar">
           ${tabButton("shop", activeTab === "shop", "Shop")}
           ${tabButton("auction", activeTab === "auction", "Auction")}
@@ -673,6 +701,7 @@ export function renderAa02Experience(context) {
       </section>
       ${body}
       ${activeTab !== "tome" ? statusMarkup(runtime) : ""}
+      ${rankPopupMarkup(arcane)}
     </article>
   `;
 }
@@ -717,6 +746,12 @@ export function buildAa02ActionFromElement(element) {
     return {
       type: action,
       grants: parseGlyphList(element.getAttribute("data-grants")),
+      at: Date.now(),
+    };
+  }
+  if (action === "aa03-close-rank-popup") {
+    return {
+      type: action,
       at: Date.now(),
     };
   }

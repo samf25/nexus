@@ -1,7 +1,15 @@
 import { escapeHtml } from "../../templates/shared.js";
 import { renderArtifactSymbol } from "../../core/artifacts.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
-import { arcaneSystemFromState, glyphDisplayName, glyphTemplatePoints } from "../../systems/arcaneAscension.js";
+import {
+  arcaneAttunementFeatures,
+  arcaneAttunementRank,
+  arcaneSystemFromState,
+  attunementRankOptions,
+  glyphDisplayName,
+  glyphTemplatePoints,
+  qualitativeAccuracyLabel,
+} from "../../systems/arcaneAscension.js";
 import { isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
@@ -111,11 +119,13 @@ function normalizeRuntime(runtime) {
     enhancementMatch: source.enhancementMatch && typeof source.enhancementMatch === "object" ? { ...source.enhancementMatch } : null,
     trueAccuracy: clamp(safeFinite(source.trueAccuracy, 0), 0, 1),
     estimatedAccuracy: clamp(safeFinite(source.estimatedAccuracy, 0), 0, 1),
+    craftForecast: Array.isArray(source.craftForecast) ? source.craftForecast.filter((entry) => entry && typeof entry === "object") : [],
     manaInvest: Math.max(1, safeInt(source.manaInvest, 20)),
     craftedCount: Math.max(0, safeInt(source.craftedCount, 0)),
     solved: Boolean(source.solved),
     lastOutcome: source.lastOutcome && typeof source.lastOutcome === "object" ? { ...source.lastOutcome } : null,
     outcomePopupOpen: source.outcomePopupOpen !== false,
+    rankPopupSeenKey: safeText(source.rankPopupSeenKey),
     lastMessage: safeText(source.lastMessage),
   };
 }
@@ -131,12 +141,14 @@ export function initialAa03Runtime() {
 export function synchronizeAa03Runtime(runtime, context = {}) {
   const current = normalizeRuntime(runtime);
   const arcane = arcaneSystemFromState(context.state || {}, Date.now());
+  const pendingRankKey = safeText(arcane.attunements && arcane.attunements.pendingRankPopup && arcane.attunements.pendingRankPopup.key);
   const manaInvest = Math.max(0, safeInt(current.manaInvest, 20));
   return {
     ...current,
     manaInvest,
     solved: current.solved || Math.max(0, safeInt(arcane.crafting && arcane.crafting.nonJunkCrafts, 0)) > 0,
     craftedCount: Math.max(current.craftedCount, safeInt(arcane.crafting && arcane.crafting.totalCrafts, 0)),
+    rankPopupSeenKey: pendingRankKey || current.rankPopupSeenKey,
   };
 }
 
@@ -158,6 +170,13 @@ export function reduceAa03Runtime(runtime, action) {
     };
   }
 
+  if (action.type === "aa03-select-glyph") {
+    return {
+      ...current,
+      lastMessage: "",
+    };
+  }
+
   if (action.type === "aa03-start-workshop") {
     return {
       ...current,
@@ -167,6 +186,7 @@ export function reduceAa03Runtime(runtime, action) {
       enhancementStroke: [],
       regionMatch: null,
       enhancementMatch: null,
+      craftForecast: [],
       lastOutcome: null,
       outcomePopupOpen: false,
       lastMessage: "Draw a region rune in the first panel.",
@@ -184,6 +204,7 @@ export function reduceAa03Runtime(runtime, action) {
       enhancementMatch: null,
       trueAccuracy: 0,
       estimatedAccuracy: 0,
+      craftForecast: [],
       lastOutcome: null,
       outcomePopupOpen: false,
       lastMessage: "Craft cancelled.",
@@ -230,6 +251,7 @@ export function reduceAa03Runtime(runtime, action) {
       enhancementMatch: action.enhancementMatch && typeof action.enhancementMatch === "object" ? { ...action.enhancementMatch } : null,
       trueAccuracy: clamp(safeFinite(action.trueAccuracy, current.trueAccuracy), 0, 1),
       estimatedAccuracy: clamp(safeFinite(action.estimatedAccuracy, current.estimatedAccuracy), 0, 1),
+      craftForecast: Array.isArray(action.craftForecast) ? action.craftForecast : [],
       lastMessage: safeText(action.message) || "Enhancement rune accepted.",
     };
   }
@@ -267,6 +289,14 @@ export function reduceAa03Runtime(runtime, action) {
     };
   }
 
+  if (action.type === "aa03-close-rank-popup") {
+    return {
+      ...current,
+      lastMessage: "",
+      rankPopupSeenKey: current.rankPopupSeenKey,
+    };
+  }
+
   if (action.type === "aa03-new-craft") {
     return {
       ...current,
@@ -277,6 +307,7 @@ export function reduceAa03Runtime(runtime, action) {
       enhancementMatch: null,
       trueAccuracy: 0,
       estimatedAccuracy: 0,
+      craftForecast: [],
       manaInvest: Math.max(1, safeInt(action.manaInvest, current.manaInvest || 20)),
       lastOutcome: null,
       outcomePopupOpen: false,
@@ -308,11 +339,12 @@ function tabButton(tabId, active, label) {
   `;
 }
 
-function renderRunePanel(kind, title) {
+function renderRunePanel(kind, title, overlayGlyphId = "") {
   return `
     <section class="card aa03-altar-card">
       <h4>${escapeHtml(title)}</h4>
       <div class="aa03-rune-canvas-wrap">
+        ${overlayGlyphId ? `<div class="aa03-rune-overlay">${glyphTraceMarkup(kind, overlayGlyphId)}</div>` : ""}
         <canvas
           width="460"
           height="300"
@@ -390,25 +422,60 @@ function workshopSlotsMarkup(state, arcane, selectedLootItemId = "") {
 }
 
 function appraisalMarkup(runtime, arcane) {
+  const features = arcaneAttunementFeatures(arcane);
   const maxMana = Math.max(1, safeInt(arcane.workshop.manaCurrent, 1));
   const manaInvest = safeInt(runtime.manaInvest, 0);
   const manaValid = manaInvest >= 1 && manaInvest <= maxMana;
+  const regionAccuracy = Number(runtime.regionMatch && runtime.regionMatch.accuracyScore) || 0;
+  const enhancementAccuracy = Number(runtime.enhancementMatch && runtime.enhancementMatch.accuracyScore) || 0;
+  const combinedAccuracy = Number(runtime.trueAccuracy) || 0;
+  const appraisalAccuracy = features.dualPreview ? combinedAccuracy : (Number(runtime.estimatedAccuracy) || combinedAccuracy);
+  const accuracyDisplay = features.numericAppraisal
+    ? `${Math.round(appraisalAccuracy * 100)}%`
+    : qualitativeAccuracyLabel(appraisalAccuracy);
+  const forecast = Array.isArray(runtime.craftForecast) ? runtime.craftForecast : [];
   return `
     <section class="card aa03-altar-card aa03-appraisal-card">
       <h3>Appraisal</h3>
       <div class="aa03-appraisal-grid">
-        <div class="aa03-appraisal-rune">
-          <span class="muted">Region Rune</span>
-          <strong>${escapeHtml(readableGlyphName(safeText(runtime.regionMatch && runtime.regionMatch.bestMatch)) || "Unknown")}</strong>
-        </div>
-        <div class="aa03-appraisal-rune">
-          <span class="muted">Enhancement Rune</span>
-          <strong>${escapeHtml(readableGlyphName(safeText(runtime.enhancementMatch && runtime.enhancementMatch.bestMatch)) || "Unknown")}</strong>
-        </div>
-        <div class="aa03-appraisal-rune">
-          <span class="muted">Estimated Accuracy</span>
-          <strong>${escapeHtml(String(Math.round(runtime.estimatedAccuracy * 100)))}%</strong>
-        </div>
+        ${
+          features.dualPreview
+            ? `
+              <div class="aa03-appraisal-rune aa03-appraisal-rune-combined">
+                <span class="muted">Region</span>
+                <strong>${escapeHtml(readableGlyphName(safeText(runtime.regionMatch && runtime.regionMatch.bestMatch)) || "Unknown")}</strong>
+                <em>${escapeHtml(features.numericAppraisal ? `${Math.round(regionAccuracy * 100)}%` : qualitativeAccuracyLabel(regionAccuracy))}</em>
+              </div>
+              <div class="aa03-appraisal-rune aa03-appraisal-rune-combined">
+                <span class="muted">Enhancement</span>
+                <strong>${escapeHtml(readableGlyphName(safeText(runtime.enhancementMatch && runtime.enhancementMatch.bestMatch)) || "Unknown")}</strong>
+                <em>${escapeHtml(features.numericAppraisal ? `${Math.round(enhancementAccuracy * 100)}%` : qualitativeAccuracyLabel(enhancementAccuracy))}</em>
+              </div>
+              <div class="aa03-appraisal-rune aa03-appraisal-rune-focus">
+                <span class="muted">Combined Craft Accuracy</span>
+                <strong>${escapeHtml(features.numericAppraisal ? `${Math.round(combinedAccuracy * 100)}%` : qualitativeAccuracyLabel(combinedAccuracy))}</strong>
+              </div>
+            `
+            : ""
+        }
+        ${
+          !features.dualPreview
+            ? `
+              <div class="aa03-appraisal-rune">
+                <span class="muted">Region Rune</span>
+                <strong>${escapeHtml(readableGlyphName(safeText(runtime.regionMatch && runtime.regionMatch.bestMatch)) || "Unknown")}</strong>
+              </div>
+              <div class="aa03-appraisal-rune">
+                <span class="muted">Enhancement Rune</span>
+                <strong>${escapeHtml(readableGlyphName(safeText(runtime.enhancementMatch && runtime.enhancementMatch.bestMatch)) || "Unknown")}</strong>
+              </div>
+              <div class="aa03-appraisal-rune aa03-appraisal-rune-focus">
+                <span class="muted">${features.numericAppraisal ? "Craft Accuracy" : "Appraisal"}</span>
+                <strong>${escapeHtml(accuracyDisplay)}</strong>
+              </div>
+            `
+            : ""
+        }
       </div>
       <label>
         <span class="muted">Mana Investment</span>
@@ -423,6 +490,23 @@ function appraisalMarkup(runtime, arcane) {
         />
       </label>
       <p><strong>Available:</strong> ${escapeHtml(String(maxMana))} mana</p>
+      ${
+        features.rarityThresholds && forecast.length
+          ? `
+            <div class="aa03-threshold-panel">
+              <h4>Rarity Thresholds</h4>
+              <div class="aa03-threshold-grid">
+                ${forecast.map((entry) => `
+                  <div class="aa03-threshold-card">
+                    <span>${escapeHtml(String(entry.rarity || ""))}</span>
+                    <strong>${escapeHtml(String(entry.threshold || 0))}</strong>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : ""
+      }
       <div class="toolbar">
         <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-craft-item" data-mana="${escapeHtml(String(manaInvest))}" ${manaValid ? "" : "disabled"}>Craft Item</button>
         <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="aa03-cancel-craft">Cancel</button>
@@ -452,7 +536,6 @@ function resultPopupMarkup(runtime) {
             </div>
           </div>
           <div class="toolbar">
-            <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-new-craft">Start New Craft</button>
             <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="aa03-close-outcome-popup">Close</button>
           </div>
         </section>
@@ -481,7 +564,6 @@ function resultPopupMarkup(runtime) {
           </div>
         </div>
         <div class="toolbar">
-          <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-new-craft">Start New Craft</button>
           <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="aa03-close-outcome-popup">Close</button>
         </div>
       </section>
@@ -491,6 +573,9 @@ function resultPopupMarkup(runtime) {
 
 function workshopTabMarkup(runtime, arcane) {
   const canStart = arcane.attunements.enchanter && arcane.grimoire.regionGlyphs.length > 0 && arcane.grimoire.enhancementGlyphs.length > 0;
+  const features = arcaneAttunementFeatures(arcane);
+  const selectedRegionGlyph = safeText(arcane.grimoire.selectedRegionGlyph);
+  const selectedEnhancementGlyph = safeText(arcane.grimoire.selectedEnhancementGlyph);
   let leftMarkup = "";
   if (runtime.phase === "idle") {
     leftMarkup = `
@@ -504,11 +589,13 @@ function workshopTabMarkup(runtime, arcane) {
     leftMarkup = renderRunePanel(
       "region",
       "Draw Region Rune",
+      features.traceOverlay ? selectedRegionGlyph : "",
     );
   } else if (runtime.phase === "draw-enhancement") {
     leftMarkup = renderRunePanel(
       "enhancement",
       "Draw Enhancement Rune",
+      features.traceOverlay ? selectedEnhancementGlyph : "",
     );
   } else if (runtime.phase === "appraisal") {
     leftMarkup = appraisalMarkup(runtime, arcane);
@@ -530,28 +617,128 @@ function workshopTabMarkup(runtime, arcane) {
   `;
 }
 
-function glyphCardMarkup(glyphId, index) {
+function glyphCardMarkupSelectable(glyphId, index, selectedGlyph) {
   const id = safeText(glyphId).toLowerCase();
   const type = regionSectionFromGlyph(id) ? "region" : "enhancement";
+  const isSelected = id === safeText(selectedGlyph).toLowerCase();
   return `
-    <article class="card" style="animation-delay:${(index * 40)}ms">
+    <button
+      type="button"
+      class="card aa03-glyph-card ${isSelected ? "is-selected" : ""}"
+      style="animation-delay:${(index * 40)}ms"
+      data-node-id="${NODE_ID}"
+      data-node-action="aa03-select-glyph"
+      data-glyph-kind="${escapeHtml(type)}"
+      data-glyph-id="${escapeHtml(id)}"
+    >
       <h4>${escapeHtml(readableGlyphName(id))}</h4>
       <div class="aa03-glyph-preview">${glyphTraceMarkup(type, id)}</div>
-    </article>
+    </button>
   `;
 }
 
-function grimoireTabMarkup(arcane) {
+function grimoireTabMarkup(arcane, features) {
+  const selectable = Boolean(features && features.persistentSelection);
+  const regionCards = arcane.grimoire.regionGlyphs.map((glyph, index) => (
+    selectable
+      ? glyphCardMarkupSelectable(glyph, index, arcane.grimoire.selectedRegionGlyph)
+      : `<article class="card aa03-glyph-card" style="animation-delay:${(index * 40)}ms"><h4>${escapeHtml(readableGlyphName(glyph))}</h4><div class="aa03-glyph-preview">${glyphTraceMarkup("region", glyph)}</div></article>`
+  )).join("");
+  const enhancementCards = arcane.grimoire.enhancementGlyphs.map((glyph, index) => (
+    selectable
+      ? glyphCardMarkupSelectable(glyph, index, arcane.grimoire.selectedEnhancementGlyph)
+      : `<article class="card aa03-glyph-card" style="animation-delay:${(index * 40)}ms"><h4>${escapeHtml(readableGlyphName(glyph))}</h4><div class="aa03-glyph-preview">${glyphTraceMarkup("enhancement", glyph)}</div></article>`
+  )).join("");
   return `
     <section class="card aa03-grimoire-book">
       <h3>Grimoire</h3>
       <h4>Region Glyphs</h4>
       <div class="worm01-card-grid">
-        ${arcane.grimoire.regionGlyphs.map((glyph, index) => glyphCardMarkup(glyph, index)).join("") || "<p class=\"muted\">No region glyphs learned yet.</p>"}
+        ${regionCards || "<p class=\"muted\">No region glyphs learned yet.</p>"}
       </div>
       <h4>Enhancement Glyphs</h4>
       <div class="worm01-card-grid">
-        ${arcane.grimoire.enhancementGlyphs.map((glyph, index) => glyphCardMarkup(glyph, index)).join("") || "<p class=\"muted\">No enhancement glyphs learned yet.</p>"}
+        ${enhancementCards || "<p class=\"muted\">No enhancement glyphs learned yet.</p>"}
+      </div>
+    </section>
+  `;
+}
+
+function rankPopupMarkup(arcane) {
+  const popup = arcane.attunements && arcane.attunements.pendingRankPopup && typeof arcane.attunements.pendingRankPopup === "object"
+    ? arcane.attunements.pendingRankPopup
+    : null;
+  if (!popup) {
+    return "";
+  }
+  return `
+    <div class="worm02-picker-overlay" role="dialog" aria-label="Attunement Rank Up">
+      <section class="card aa03-rankup-modal" style="--aa-rank-color:${escapeHtml(popup.color || "#d8e5ff")}">
+        <h3>${escapeHtml(popup.label || "Attunement Advanced")}</h3>
+        <p>${escapeHtml(popup.description || "")}</p>
+        <div class="aa03-rankup-benefits">
+          ${(Array.isArray(popup.benefits) ? popup.benefits : []).map((entry) => `<span class="aa03-rankup-chip">${escapeHtml(entry)}</span>`).join("")}
+        </div>
+        <div class="toolbar">
+          <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-close-rank-popup">Continue</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function attunementDebugMarkup() {
+  const options = attunementRankOptions();
+  return `
+    <section class="card aa03-attunement-debug">
+      <h4>Attunement Tester</h4>
+      <div class="toolbar">
+        <select class="select" data-aa03-rank-select>
+          ${options.map((entry) => `<option value="${escapeHtml(entry.key)}">${escapeHtml(entry.label)}</option>`).join("")}
+        </select>
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-set-attunement-rank">Set Rank</button>
+      </div>
+    </section>
+  `;
+}
+
+function attunementHudMarkup(arcane, attunement, attunementLabel, activeTab) {
+  const currentMana = Math.floor(arcane.workshop.manaCurrent);
+  const maxMana = Math.max(0, Math.floor(arcane.workshop.manaMax));
+  const manaPercent = maxMana > 0 ? Math.round((currentMana / maxMana) * 100) : 0;
+  const badgeColor = arcane.attunements.enchanter ? (attunement.color || "#d8e5ff") : "#8f96a8";
+  const requirementLabel = arcane.attunements.enchanter && attunement.nextThreshold != null
+    ? `${attunement.nextThreshold} mana`
+    : "Attunement not yet bound";
+  return `
+    <section class="card aa03-tabs-card aa03-hud-card">
+      <div class="aa03-hud-main">
+        <div class="aa03-attunement-badge" style="--aa-attunement-color:${escapeHtml(badgeColor)}">
+          <span>Current Attunement</span>
+          <strong>${escapeHtml(attunementLabel)}</strong>
+        </div>
+        <div class="aa03-mana-hud">
+          <div class="aa03-mana-head">
+            <span>Mana</span>
+            <strong>${escapeHtml(String(currentMana))}/${escapeHtml(String(maxMana))}</strong>
+          </div>
+          <div class="aa03-mana-bar" aria-label="Workshop mana">
+            <span style="width:${escapeHtml(String(manaPercent))}%"></span>
+          </div>
+        </div>
+        <div class="aa03-requirement-chip">
+          <span>Requirement</span>
+          <strong>${escapeHtml(requirementLabel)}</strong>
+        </div>
+        <div class="aa03-craft-chips">
+          <span class="aa03-craft-chip">Crafts ${escapeHtml(String(arcane.crafting.totalCrafts))}</span>
+          <span class="aa03-craft-chip">Stable ${escapeHtml(String(arcane.crafting.nonJunkCrafts))}</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        ${tabButton("workshop", activeTab === "workshop", "Workshop")}
+        ${tabButton("grimoire", activeTab === "grimoire", "Grimoire")}
+        ${tabButton("slots", activeTab === "slots", "Slots")}
       </div>
     </section>
   `;
@@ -560,34 +747,23 @@ function grimoireTabMarkup(arcane) {
 export function renderAa03Experience(context) {
   const runtime = synchronizeAa03Runtime(context.runtime, context);
   const arcane = arcaneSystemFromState(context.state || {}, Date.now());
+  const attunement = arcaneAttunementRank(arcane);
+  const features = arcaneAttunementFeatures(arcane);
+  const attunementLabel = arcane.attunements.enchanter ? attunement.label : "Unbound";
   const activeTab = runtime.activeTab || "workshop";
 
   const body = activeTab === "grimoire"
-    ? grimoireTabMarkup(arcane)
+    ? grimoireTabMarkup(arcane, features)
     : activeTab === "slots"
       ? workshopSlotsMarkup(context.state || {}, arcane, context.selectedLootItemId)
       : workshopTabMarkup(runtime, arcane);
 
   return `
     <article class="aa03-node" data-node-id="${NODE_ID}">
-      <section class="card aa03-tabs-card">
-        <div class="aa03-header-row">
-          <div>
-            <h3>Workshop</h3>
-          </div>
-          <div class="aa03-workshop-stats">
-            <span class="aa03-result-pill">Mana ${escapeHtml(String(Math.floor(arcane.workshop.manaCurrent)))}/${escapeHtml(String(arcane.workshop.manaMax))}</span>
-            <span class="aa03-result-pill">Total Crafts ${escapeHtml(String(arcane.crafting.totalCrafts))}</span>
-            <span class="aa03-result-pill">Stable Crafts ${escapeHtml(String(arcane.crafting.nonJunkCrafts))}</span>
-          </div>
-        </div>
-        <div class="toolbar">
-          ${tabButton("workshop", activeTab === "workshop", "Workshop")}
-          ${tabButton("grimoire", activeTab === "grimoire", "Grimoire")}
-          ${tabButton("slots", activeTab === "slots", "Slots")}
-        </div>
-      </section>
+      ${attunementHudMarkup(arcane, attunement, attunementLabel, activeTab)}
+      ${attunementDebugMarkup()}
       ${body}
+      ${rankPopupMarkup(arcane)}
     </article>
   `;
 }
@@ -604,7 +780,28 @@ export function buildAa03ActionFromElement(element) {
       at: Date.now(),
     };
   }
+  if (action === "aa03-select-glyph") {
+    return {
+      type: action,
+      glyphKind: safeText(element.getAttribute("data-glyph-kind")).toLowerCase(),
+      glyphId: safeText(element.getAttribute("data-glyph-id")).toLowerCase(),
+      at: Date.now(),
+    };
+  }
+  if (action === "aa03-set-attunement-rank") {
+    const root = element.closest(".aa03-node");
+    const select = root ? root.querySelector("[data-aa03-rank-select]") : null;
+    const rankKey = select && "value" in select ? String(select.value || "") : "";
+    return {
+      type: action,
+      rankKey: safeText(rankKey).toLowerCase(),
+      at: Date.now(),
+    };
+  }
   if (action === "aa03-start-workshop" || action === "aa03-new-craft" || action === "aa03-cancel-craft" || action === "aa03-close-outcome-popup") {
+    return { type: action, at: Date.now() };
+  }
+  if (action === "aa03-close-rank-popup") {
     return { type: action, at: Date.now() };
   }
   if (action === "aa03-clear-rune") {

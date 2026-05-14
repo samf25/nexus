@@ -137,8 +137,8 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_mana_capacitor",
       label: "Aether Capacitor",
-      kind: "aa_upgrade",
-      stackable: true,
+      kind: "aa_focus_matrix",
+      stackable: false,
       weight: 3.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_mana_max_flat", type: "flat", base: 10, perTier: 8 }),
@@ -147,8 +147,8 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_precision_lens",
       label: "Precision Lens",
-      kind: "aa_upgrade",
-      stackable: true,
+      kind: "aa_focus",
+      stackable: false,
       weight: 3.2,
       effects: Object.freeze([
         Object.freeze({ key: "aa_accuracy_flat", type: "flat", base: 2, perTier: 1 }),
@@ -157,8 +157,8 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_regen_coil",
       label: "Regeneration Coil",
-      kind: "aa_upgrade",
-      stackable: true,
+      kind: "aa_focus_matrix",
+      stackable: false,
       weight: 3.2,
       effects: Object.freeze([
         Object.freeze({ key: "aa_mana_regen_pct", type: "flat", base: 0.06, perTier: 0.03 }),
@@ -177,12 +177,23 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_market_seal",
       label: "Court Market Seal",
-      kind: "aa_upgrade",
-      stackable: true,
+      kind: "aa_focus_matrix",
+      stackable: false,
       weight: 2.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_sell_bonus_pct", type: "flat", base: 0.04, perTier: 0.02 }),
         Object.freeze({ key: "aa_buy_discount_pct", type: "flat", base: 0.02, perTier: 0.01 }),
+      ]),
+    }),
+    Object.freeze({
+      templateId: "aa_attunement_lattice",
+      label: "Attunement Lattice",
+      kind: "aa_focus_matrix",
+      stackable: false,
+      weight: 0.72,
+      effects: Object.freeze([
+        Object.freeze({ key: "aa_mana_growth_pct", type: "flat", base: 0.06, perTier: 0.04 }),
+        Object.freeze({ key: "aa_rarity_bias_flat", type: "flat", base: 0.04, perTier: 0.025 }),
       ]),
     }),
     Object.freeze({
@@ -280,9 +291,11 @@ function effectSummaryLabelAndValue(effect) {
     aa_mana_max_flat: { label: "Mana", value: signedNumber(value, 0) },
     aa_accuracy_flat: { label: "Rune accuracy", value: signedNumber(value, 2) },
     aa_mana_regen_pct: { label: "Mana regen", value: percent },
+    aa_mana_growth_pct: { label: "Mana growth", value: percent },
     aa_extra_workshop_slot: { label: "Workshop slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     aa_sell_bonus_pct: { label: "Sell value", value: percent },
     aa_buy_discount_pct: { label: "Shop discount", value: percent },
+    aa_rarity_bias_flat: { label: "Craft rarity", value: percent },
     attack: { label: "Attack", value: signedNumber(value, 2) },
     defense: { label: "Defense", value: signedNumber(value, 2) },
     endurance: { label: "Endurance", value: signedNumber(value, 2) },
@@ -350,7 +363,10 @@ export function isDirectUseLootItem(item) {
   if (safeText(source.templateId) === "worm_shard_slot_token") {
     return false;
   }
-  return kind === "slot_expansion" || kind === "aa_upgrade";
+  if (kind === "aa_upgrade") {
+    return safeText(source.templateId) === "aa_workshop_slot_token";
+  }
+  return kind === "slot_expansion";
 }
 
 export function isManualSocketLootItem(item, region = "") {
@@ -366,7 +382,9 @@ export function isManualSocketLootItem(item, region = "") {
     return source.kind === "dcc_armor";
   }
   if (regionKey === "aa") {
-    return source.kind === "aa_focus";
+    return source.kind === "aa_focus"
+      || source.kind === "aa_focus_matrix"
+      || (source.kind === "aa_upgrade" && safeText(source.templateId) !== "aa_workshop_slot_token");
   }
   return false;
 }
@@ -839,6 +857,32 @@ function normalizeAaLoadout(candidate) {
   };
 }
 
+function aaWorkshopCoreBonuses(items, equippedIds) {
+  const itemMap = items && typeof items === "object" ? items : {};
+  const ids = Array.isArray(equippedIds) ? equippedIds : [];
+  let manaMaxFlat = 0;
+  let extraWorkshopSlots = 0;
+  for (const itemId of ids) {
+    const item = itemMap[safeText(itemId)];
+    if (!item) {
+      continue;
+    }
+    const effects = Array.isArray(item.effects) ? item.effects : [];
+    for (const effect of effects) {
+      if (effect.key === "aa_mana_max_flat") {
+        manaMaxFlat += Math.max(0, Math.floor(safeFinite(effect.value, 0)));
+      }
+      if (effect.key === "aa_extra_workshop_slot") {
+        extraWorkshopSlots += Math.max(0, Math.floor(safeFinite(effect.value, 0)));
+      }
+    }
+  }
+  return {
+    manaMaxFlat,
+    extraWorkshopSlots,
+  };
+}
+
 export function defaultLootInventoryState() {
   return {
     items: {},
@@ -1000,6 +1044,7 @@ export function rollRegionalLoot({
   sourceRegion,
   triggerType = "",
   rarityBias = 0,
+  minRarity = "",
   outRegionChance = 0,
   dropChance = 1,
   forceOutRegion = false,
@@ -1026,7 +1071,9 @@ export function rollRegionalLoot({
 
   const rarityEntry = weightedPick(
     rng,
-    RARITY_ORDER.map((rarity) => buildRarityEntry(rarity, numericBias)),
+    RARITY_ORDER
+      .filter((rarity) => rarityIndex(rarity) >= rarityIndex(minRarity || "common"))
+      .map((rarity) => buildRarityEntry(rarity, numericBias)),
   );
   const rarity = rarityEntry ? rarityEntry.rarity : "common";
   const table = LOOT_TABLES[targetRegion] || [];
@@ -1104,11 +1151,28 @@ export function rollRegionalLoot({
 }
 
 function assignStackItemId(items, lootDrop) {
+  const buildStackSignature = (entry) => JSON.stringify({
+    templateId: safeText(entry && entry.templateId),
+    region: safeText(entry && entry.region).toLowerCase(),
+    rarity: safeText(entry && entry.rarity).toLowerCase(),
+    kind: safeText(entry && entry.kind),
+    durationMs: Math.max(0, Math.floor(safeFinite(entry && entry.durationMs, 0))),
+    runLifespan: Math.max(0, Math.floor(safeFinite(entry && entry.runLifespan, 0))),
+    effects: (Array.isArray(entry && entry.effects) ? entry.effects : [])
+      .map(normalizeEffect)
+      .filter((effect) => effect.key)
+      .sort((left, right) => `${left.key}:${left.type}:${left.abilityId}:${left.stat}:${left.value}`.localeCompare(`${right.key}:${right.type}:${right.abilityId}:${right.stat}:${right.value}`)),
+    enchantments: (Array.isArray(entry && entry.enchantments) ? entry.enchantments : [])
+      .map(normalizeDccEnchantment)
+      .filter((effect) => effect.id || effect.effects.length || effect.abilityId)
+      .sort((left, right) => `${left.id}:${left.label}:${left.abilityId}`.localeCompare(`${right.id}:${right.label}:${right.abilityId}`)),
+  });
+  const targetSignature = buildStackSignature(lootDrop);
   for (const [itemId, item] of Object.entries(items)) {
     if (!item.stackable) {
       continue;
     }
-    if (item.templateId !== lootDrop.templateId || item.rarity !== lootDrop.rarity || item.region !== lootDrop.region) {
+    if (buildStackSignature(item) !== targetSignature) {
       continue;
     }
     return itemId;
@@ -1306,33 +1370,13 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
   } else if (item.kind === "aa_upgrade") {
     const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, now);
     const effects = effectListFromItem(item);
-    let manaMaxDelta = 0;
-    let accuracyDelta = 0;
-    let regenDelta = 0;
-    let sellBonus = 0;
-    let buyDiscount = 0;
     let workshopSlots = 0;
     for (const effect of effects) {
-      if (effect.key === "aa_mana_max_flat") {
-        manaMaxDelta += Math.max(0, Math.floor(effect.value || 0));
-      }
-      if (effect.key === "aa_accuracy_flat") {
-        accuracyDelta += Math.max(0, Number(effect.value || 0));
-      }
-      if (effect.key === "aa_mana_regen_pct") {
-        regenDelta += Math.max(0, Number(effect.value || 0));
-      }
-      if (effect.key === "aa_sell_bonus_pct") {
-        sellBonus += Math.max(0, Number(effect.value || 0));
-      }
-      if (effect.key === "aa_buy_discount_pct") {
-        buyDiscount += Math.max(0, Number(effect.value || 0));
-      }
       if (effect.key === "aa_extra_workshop_slot") {
         workshopSlots += Math.max(0, Math.floor(effect.value || 0));
       }
     }
-    if (!(manaMaxDelta || accuracyDelta || regenDelta || sellBonus || buyDiscount || workshopSlots)) {
+    if (!workshopSlots) {
       return {
         nextState: sourceState,
         changed: false,
@@ -1343,16 +1387,14 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
       ...arcane,
       workshop: {
         ...arcane.workshop,
-        manaMax: arcane.workshop.manaMax + manaMaxDelta,
-        manaCurrent: arcane.workshop.manaCurrent + manaMaxDelta,
         equipSlotCount: clamp(arcane.workshop.equipSlotCount + workshopSlots, 2, 6),
       },
       bonuses: {
         ...arcane.bonuses,
-        accuracyFlat: arcane.bonuses.accuracyFlat + accuracyDelta,
-        manaRegenPct: arcane.bonuses.manaRegenPct + regenDelta,
-        sellBonusPct: arcane.bonuses.sellBonusPct + sellBonus,
-        buyDiscountPct: arcane.bonuses.buyDiscountPct + buyDiscount,
+        accuracyFlat: arcane.bonuses.accuracyFlat,
+        manaRegenPct: arcane.bonuses.manaRegenPct,
+        sellBonusPct: arcane.bonuses.sellBonusPct,
+        buyDiscountPct: arcane.bonuses.buyDiscountPct,
       },
     }, now);
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
@@ -1542,7 +1584,11 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
   }
 
   if (regionKey === "aa") {
-    const aaEquippable = item.region === "aa" && item.kind === "aa_focus";
+    const aaEquippable = item.region === "aa" && (
+      item.kind === "aa_focus"
+      || item.kind === "aa_focus_matrix"
+      || (item.kind === "aa_upgrade" && safeText(item.templateId) !== "aa_workshop_slot_token")
+    );
     if (!aaEquippable) {
       return {
         nextState: sourceState,
@@ -1553,6 +1599,8 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
     const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, Date.now());
     const slotCap = Math.max(2, Math.floor(safeFinite(arcane.workshop.equipSlotCount, 2)));
     const slotIndex = clamp(Math.floor(safeFinite(slotId, 0)), 0, slotCap - 1);
+    const beforeIds = Array.from({ length: slotCap }, (_, index) => safeText(arcane.workshop.equippedLootIds[index]) || null).filter(Boolean);
+    const beforeBonus = aaWorkshopCoreBonuses(lootState.items, beforeIds);
     const slots = Array.from({ length: slotCap }, (_, index) => safeText(arcane.workshop.equippedLootIds[index]) || null);
     for (let index = 0; index < slots.length; index += 1) {
       if (slots[index] === itemId) {
@@ -1560,6 +1608,13 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
       }
     }
     slots[slotIndex] = itemId;
+    const afterIds = slots.filter(Boolean);
+    const afterBonus = aaWorkshopCoreBonuses(lootState.items, afterIds);
+    const manaBase = Math.max(arcane.attunements.enchanter ? 25 : 0, arcane.workshop.manaMax - beforeBonus.manaMaxFlat);
+    const nextManaMax = Math.max(arcane.attunements.enchanter ? 25 : 0, manaBase + afterBonus.manaMaxFlat);
+    const manaDelta = afterBonus.manaMaxFlat - beforeBonus.manaMaxFlat;
+    const slotBase = Math.max(2, arcane.workshop.equipSlotCount - beforeBonus.extraWorkshopSlots);
+    const nextSlotCap = Math.max(afterIds.length, clamp(slotBase + afterBonus.extraWorkshopSlots, 2, 6));
 
     nextLoadouts.aa.workshopSlots = Array.from({ length: 6 }, (_, index) => slots[index] || null);
     const nextState = withLootState(sourceState, {
@@ -1575,7 +1630,10 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
             ...arcane,
             workshop: {
               ...arcane.workshop,
-              equippedLootIds: slots.filter(Boolean),
+              equippedLootIds: afterIds,
+              equipSlotCount: nextSlotCap,
+              manaMax: nextManaMax,
+              manaCurrent: clamp(arcane.workshop.manaCurrent + manaDelta, 0, nextManaMax),
             },
           },
         },
@@ -1689,6 +1747,8 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
     const arcane = normalizeArcaneSystemState(sourceState && sourceState.systems ? sourceState.systems.arcane : {}, Date.now());
     const slotCap = Math.max(2, Math.floor(safeFinite(arcane.workshop.equipSlotCount, 2)));
     const slots = Array.from({ length: slotCap }, (_, index) => safeText(arcane.workshop.equippedLootIds[index]) || null);
+    const beforeIds = slots.filter(Boolean);
+    const beforeBonus = aaWorkshopCoreBonuses(lootState.items, beforeIds);
     const slotIndex = clamp(Math.floor(safeFinite(slotId, 0)), 0, slotCap - 1);
     if (!slots[slotIndex]) {
       return {
@@ -1698,6 +1758,13 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
       };
     }
     slots[slotIndex] = null;
+    const afterIds = slots.filter(Boolean);
+    const afterBonus = aaWorkshopCoreBonuses(lootState.items, afterIds);
+    const manaBase = Math.max(arcane.attunements.enchanter ? 25 : 0, arcane.workshop.manaMax - beforeBonus.manaMaxFlat);
+    const nextManaMax = Math.max(arcane.attunements.enchanter ? 25 : 0, manaBase + afterBonus.manaMaxFlat);
+    const manaDelta = afterBonus.manaMaxFlat - beforeBonus.manaMaxFlat;
+    const slotBase = Math.max(2, arcane.workshop.equipSlotCount - beforeBonus.extraWorkshopSlots);
+    const nextSlotCap = Math.max(afterIds.length, clamp(slotBase + afterBonus.extraWorkshopSlots, 2, 6));
     nextLoadouts.aa.workshopSlots = Array.from({ length: 6 }, (_, index) => slots[index] || null);
     const nextState = withLootState(sourceState, {
       ...lootState,
@@ -1712,7 +1779,10 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
             ...arcane,
             workshop: {
               ...arcane.workshop,
-              equippedLootIds: slots.filter(Boolean),
+              equippedLootIds: afterIds,
+              equipSlotCount: nextSlotCap,
+              manaMax: nextManaMax,
+              manaCurrent: clamp(arcane.workshop.manaCurrent + manaDelta, 0, nextManaMax),
             },
           },
         },
@@ -1981,6 +2051,8 @@ export function getArcaneLootModifiers(state, now = Date.now()) {
     manaRegenPct: Math.max(0, safeFinite(arcane.bonuses.manaRegenPct, 0)),
     buyDiscountPct: clamp(safeFinite(arcane.bonuses.buyDiscountPct, 0), 0, 0.5),
     sellBonusPct: clamp(safeFinite(arcane.bonuses.sellBonusPct, 0), 0, 1),
+    manaGrowthPct: 0,
+    rarityBiasFlat: 0,
     manaMaxFlat: 0,
     extraWorkshopSlots: 0,
   };
@@ -1991,6 +2063,12 @@ export function getArcaneLootModifiers(state, now = Date.now()) {
     }
     if (effect.key === "aa_mana_regen_pct") {
       result.manaRegenPct += Math.max(0, safeFinite(effect.value, 0));
+    }
+    if (effect.key === "aa_mana_growth_pct") {
+      result.manaGrowthPct += Math.max(0, safeFinite(effect.value, 0));
+    }
+    if (effect.key === "aa_rarity_bias_flat") {
+      result.rarityBiasFlat += Math.max(0, safeFinite(effect.value, 0));
     }
     if (effect.key === "aa_buy_discount_pct") {
       result.buyDiscountPct = clamp(result.buyDiscountPct + Math.max(0, safeFinite(effect.value, 0)), 0, 0.5);
@@ -2096,12 +2174,13 @@ export function estimateLootShopPrice(item, economyContext = {}) {
     dcc_enchant: 1.5,
     aa_upgrade: 1.9,
     aa_focus: 2.2,
+    aa_focus_matrix: 2.5,
     aa_junk: 0.45,
   };
   const base = 12;
   const rarityMult = rarityScale[normalized.rarity] || 1;
   const kindMult = kindScale[normalized.kind] || 1.3;
-  const regionDiscount = normalized.region === "dcc" ? 0.58 : 1;
+  const regionDiscount = normalized.region === "dcc" ? 0.38 : 1;
   const spent = Math.max(0, Math.floor(safeFinite(economyContext.totalSpentAtCourt, 0)));
   const progressionMult = 1 + Math.min(2.4, Math.log10(1 + spent) * 0.35);
   const discount = clamp(safeFinite(economyContext.buyDiscountPct, 0), 0, 0.5);

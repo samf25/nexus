@@ -41,6 +41,64 @@ const REGION_GLYPH_LABELS = Object.freeze({
   aa: "Arcane Ascension Region Glyph",
 });
 
+const ATTUNEMENT_TIER_ORDER = Object.freeze(["quartz", "carnelian", "sunstone", "citrine", "emerald", "sapphire"]);
+const ATTUNEMENT_SUBRANK_ORDER = Object.freeze(["E", "D", "C", "B", "A"]);
+const ATTUNEMENT_THRESHOLDS = Object.freeze([
+  Object.freeze({ tier: "quartz", subrank: "E", minimumMana: 0 }),
+  Object.freeze({ tier: "quartz", subrank: "D", minimumMana: 15 }),
+  Object.freeze({ tier: "quartz", subrank: "C", minimumMana: 20 }),
+  Object.freeze({ tier: "quartz", subrank: "B", minimumMana: 25 }),
+  Object.freeze({ tier: "quartz", subrank: "A", minimumMana: 30 }),
+  Object.freeze({ tier: "carnelian", subrank: "E", minimumMana: 60 }),
+  Object.freeze({ tier: "carnelian", subrank: "D", minimumMana: 90 }),
+  Object.freeze({ tier: "carnelian", subrank: "C", minimumMana: 120 }),
+  Object.freeze({ tier: "carnelian", subrank: "B", minimumMana: 150 }),
+  Object.freeze({ tier: "carnelian", subrank: "A", minimumMana: 180 }),
+  Object.freeze({ tier: "sunstone", subrank: "E", minimumMana: 360 }),
+  Object.freeze({ tier: "sunstone", subrank: "D", minimumMana: 540 }),
+  Object.freeze({ tier: "sunstone", subrank: "C", minimumMana: 720 }),
+  Object.freeze({ tier: "sunstone", subrank: "B", minimumMana: 900 }),
+  Object.freeze({ tier: "sunstone", subrank: "A", minimumMana: 1080 }),
+  Object.freeze({ tier: "citrine", subrank: "E", minimumMana: 2160 }),
+  Object.freeze({ tier: "citrine", subrank: "D", minimumMana: 3240 }),
+  Object.freeze({ tier: "citrine", subrank: "C", minimumMana: 4320 }),
+  Object.freeze({ tier: "citrine", subrank: "B", minimumMana: 5400 }),
+  Object.freeze({ tier: "citrine", subrank: "A", minimumMana: 6480 }),
+  Object.freeze({ tier: "emerald", subrank: "E", minimumMana: 12960 }),
+  Object.freeze({ tier: "emerald", subrank: "D", minimumMana: 19440 }),
+  Object.freeze({ tier: "emerald", subrank: "C", minimumMana: 25920 }),
+  Object.freeze({ tier: "emerald", subrank: "B", minimumMana: 32400 }),
+  Object.freeze({ tier: "emerald", subrank: "A", minimumMana: 38880 }),
+  Object.freeze({ tier: "sapphire", subrank: "E", minimumMana: 77760 }),
+  Object.freeze({ tier: "sapphire", subrank: "D", minimumMana: 116640 }),
+  Object.freeze({ tier: "sapphire", subrank: "C", minimumMana: 155520 }),
+  Object.freeze({ tier: "sapphire", subrank: "B", minimumMana: 194400 }),
+  Object.freeze({ tier: "sapphire", subrank: "A", minimumMana: 233280 }),
+]);
+const ATTUNEMENT_TIER_LABELS = Object.freeze({
+  quartz: "Quartz",
+  carnelian: "Carnelian",
+  sunstone: "Sunstone",
+  citrine: "Citrine",
+  emerald: "Emerald",
+  sapphire: "Sapphire",
+});
+const ATTUNEMENT_TIER_COLORS = Object.freeze({
+  quartz: "#d8d4ff",
+  carnelian: "#ff8d66",
+  sunstone: "#ffcf61",
+  citrine: "#aef36f",
+  emerald: "#47d4a0",
+  sapphire: "#77b9ff",
+});
+const QUARTZ_GROWTH_DIVISOR = 20;
+const CARNELIAN_GROWTH_DIVISOR = 20;
+const SUNSTONE_GROWTH_DIVISOR = 5;
+const CITRINE_GROWTH_DIVISOR = 3;
+const EMERALD_GROWTH_DIVISOR = 2;
+const SAPPHIRE_GROWTH_DIVISOR = 1;
+const QUARTZ_B_MANA = 25;
+
 const REGION_GLYPH_ALIASES = Object.freeze({
   cradle: "crd",
   crd: "crd",
@@ -72,6 +130,101 @@ function readableGlyphName(glyphId) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function attunementThresholdEntryForMana(manaMax) {
+  const maxMana = Math.max(0, Math.floor(safeFinite(manaMax, 0)));
+  let best = ATTUNEMENT_THRESHOLDS[0];
+  for (const entry of ATTUNEMENT_THRESHOLDS) {
+    if (maxMana >= entry.minimumMana) {
+      best = entry;
+    } else {
+      break;
+    }
+  }
+  return best;
+}
+
+function nextAttunementThresholdEntry(manaMax) {
+  const maxMana = Math.max(0, Math.floor(safeFinite(manaMax, 0)));
+  return ATTUNEMENT_THRESHOLDS.find((entry) => maxMana < entry.minimumMana) || null;
+}
+
+function attunementTierIndex(tier) {
+  return Math.max(0, ATTUNEMENT_TIER_ORDER.indexOf(safeText(tier).toLowerCase()));
+}
+
+function attunementSubrankIndex(subrank) {
+  return Math.max(0, ATTUNEMENT_SUBRANK_ORDER.indexOf(String(subrank || "").trim().toUpperCase()));
+}
+
+function attunementDescriptionForTier(tier) {
+  const key = safeText(tier).toLowerCase();
+  if (key === "quartz") {
+    return "The attunement is barely awake, but the workshop will answer your hand.";
+  }
+  if (key === "carnelian") {
+    return "Your senses sharpen, and the attunement starts giving you cleaner feedback.";
+  }
+  if (key === "sunstone") {
+    return "The enchantment stops being blind craft and becomes controlled evaluation.";
+  }
+  if (key === "citrine") {
+    return "You can hold chosen patterns in mind and lay them over the world at will.";
+  }
+  if (key === "emerald") {
+    return "The bench reveals the cost of quality before you commit yourself to the cast.";
+  }
+  if (key === "sapphire") {
+    return "Your control is so complete that crude collapse no longer occurs.";
+  }
+  return "";
+}
+
+function attunementUnlockSummary(tier) {
+  const key = safeText(tier).toLowerCase();
+  if (key === "quartz") {
+    return ["Enchanting unlocked."];
+  }
+  if (key === "carnelian") {
+    return ["Numeric appraisal unlocked.", "Appraisal precision improves with Carnelian subranks."];
+  }
+  if (key === "sunstone") {
+    return ["Dual Preview unlocked."];
+  }
+  if (key === "citrine") {
+    return ["Persistent rune selection unlocked.", "Trace overlays unlocked."];
+  }
+  if (key === "emerald") {
+    return ["Rarity-threshold forecasting unlocked."];
+  }
+  if (key === "sapphire") {
+    return ["Junk results removed."];
+  }
+  return [];
+}
+
+function attunementSubrankSummary(tier) {
+  const key = safeText(tier).toLowerCase();
+  if (key === "quartz") {
+    return ["Mana reservoir expanded.", "Workshop endurance improved."];
+  }
+  if (key === "carnelian") {
+    return ["Mana reservoir expanded.", "Appraisal precision improved."];
+  }
+  if (key === "sunstone") {
+    return ["Mana reservoir expanded.", "Dual Preview control sharpened."];
+  }
+  if (key === "citrine") {
+    return ["Mana reservoir expanded.", "Stored rune impressions hold more cleanly."];
+  }
+  if (key === "emerald") {
+    return ["Mana reservoir expanded.", "Threshold forecasts sharpened."];
+  }
+  if (key === "sapphire") {
+    return ["Mana reservoir expanded.", "Refinement control deepened."];
+  }
+  return ["Mana reservoir expanded."];
 }
 
 function uniqueLowerTextList(values, fallback = []) {
@@ -186,16 +339,20 @@ export function defaultArcaneSystemState(now = Date.now()) {
     totalSpentAtCourt: 0,
     attunements: {
       enchanter: false,
+      lastSeenRankKey: "",
+      pendingRankPopup: null,
     },
     grimoire: {
       regionGlyphs: [],
       enhancementGlyphs: [],
       starterGranted: false,
       pullCount: 0,
+      selectedRegionGlyph: "",
+      selectedEnhancementGlyph: "",
     },
     workshop: {
-      manaCurrent: 100,
-      manaMax: 100,
+      manaCurrent: 0,
+      manaMax: 0,
       manaRegenPerHour: 100,
       lastManaTickAt: Math.floor(safeFinite(now, Date.now())),
       totalManaSpent: 0,
@@ -227,15 +384,25 @@ export function normalizeArcaneSystemState(candidate, now = Date.now()) {
   const bonuses = source.bonuses && typeof source.bonuses === "object" ? source.bonuses : {};
   const crafting = source.crafting && typeof source.crafting === "object" ? source.crafting : {};
 
-  const manaMax = Math.max(100, Math.floor(safeFinite(workshop.manaMax, base.workshop.manaMax)));
+  const isEnchanter = Boolean(attunements.enchanter);
+  const rawManaMax = Math.floor(safeFinite(workshop.manaMax, base.workshop.manaMax));
+  const manaMax = isEnchanter
+    ? Math.max(QUARTZ_B_MANA, rawManaMax)
+    : Math.max(0, rawManaMax);
   const equipSlotCount = clamp(Math.floor(safeFinite(workshop.equipSlotCount, 2)), 2, 6);
+  const selectedRegionGlyph = canonicalGlyphId("region", grimoire.selectedRegionGlyph);
+  const selectedEnhancementGlyph = canonicalGlyphId("enhancement", grimoire.selectedEnhancementGlyph);
 
   return {
     ...base,
     manaCrystals: Math.max(0, Math.floor(safeFinite(source.manaCrystals, 0))),
     totalSpentAtCourt: Math.max(0, Math.floor(safeFinite(source.totalSpentAtCourt, 0))),
     attunements: {
-      enchanter: Boolean(attunements.enchanter),
+      enchanter: isEnchanter,
+      lastSeenRankKey: safeText(attunements.lastSeenRankKey),
+      pendingRankPopup: attunements.pendingRankPopup && typeof attunements.pendingRankPopup === "object"
+        ? { ...attunements.pendingRankPopup }
+        : null,
     },
     grimoire: {
       regionGlyphs: uniqueLowerTextList(grimoire.regionGlyphs)
@@ -246,6 +413,8 @@ export function normalizeArcaneSystemState(candidate, now = Date.now()) {
         .filter((glyph) => ENHANCEMENT_GLYPHS.includes(glyph)),
       starterGranted: Boolean(grimoire.starterGranted),
       pullCount: Math.max(0, Math.floor(safeFinite(grimoire.pullCount, 0))),
+      selectedRegionGlyph,
+      selectedEnhancementGlyph,
     },
     workshop: {
       manaCurrent: clamp(safeFinite(workshop.manaCurrent, manaMax), 0, manaMax),
@@ -270,6 +439,102 @@ export function normalizeArcaneSystemState(candidate, now = Date.now()) {
       buyDiscountPct: clamp(safeFinite(bonuses.buyDiscountPct, 0), 0, 0.5),
       sellBonusPct: clamp(safeFinite(bonuses.sellBonusPct, 0), 0, 1),
       extraLootSlots: Math.max(0, Math.floor(safeFinite(bonuses.extraLootSlots, 0))),
+    },
+  };
+}
+
+export function attunementRankFromManaMax(manaMax) {
+  const entry = attunementThresholdEntryForMana(manaMax);
+  const tier = entry.tier;
+  const subrank = entry.subrank;
+  const tierLabel = ATTUNEMENT_TIER_LABELS[tier] || tier;
+  const nextEntry = nextAttunementThresholdEntry(manaMax);
+  return {
+    tier,
+    subrank,
+    tierLabel,
+    label: `${tierLabel} ${subrank}`,
+    key: `${tier}:${subrank}`.toLowerCase(),
+    minimumMana: entry.minimumMana,
+    nextThreshold: nextEntry ? nextEntry.minimumMana : null,
+    nextLabel: nextEntry ? `${ATTUNEMENT_TIER_LABELS[nextEntry.tier] || nextEntry.tier} ${nextEntry.subrank}` : "",
+    tierIndex: attunementTierIndex(tier),
+    subrankIndex: attunementSubrankIndex(subrank),
+    color: ATTUNEMENT_TIER_COLORS[tier] || "#d8e5ff",
+  };
+}
+
+export function arcaneAttunementRank(arcaneState) {
+  const arcane = normalizeArcaneSystemState(arcaneState, Date.now());
+  return attunementRankFromManaMax(arcane.workshop.manaMax);
+}
+
+export function arcaneWorkshopGrowthDivisor(arcaneState) {
+  const rank = arcaneAttunementRank(arcaneState);
+  if (rank.tierIndex >= attunementTierIndex("sunstone")) {
+    return SUNSTONE_GROWTH_DIVISOR;
+  }
+  return QUARTZ_GROWTH_DIVISOR;
+}
+
+export function arcaneAttunementFeatures(arcaneState) {
+  const rank = arcaneAttunementRank(arcaneState);
+  const tierIndex = rank.tierIndex;
+  return {
+    rank,
+    preCarnelianQualitative: tierIndex < attunementTierIndex("carnelian"),
+    numericAppraisal: tierIndex >= attunementTierIndex("carnelian"),
+    dualPreview: tierIndex >= attunementTierIndex("sunstone"),
+    persistentSelection: tierIndex >= attunementTierIndex("citrine"),
+    traceOverlay: tierIndex >= attunementTierIndex("citrine"),
+    rarityThresholds: tierIndex >= attunementTierIndex("emerald"),
+    noJunk: tierIndex >= attunementTierIndex("sapphire"),
+  };
+}
+
+export function qualitativeAccuracyLabel(accuracy) {
+  const value = clamp(safeFinite(accuracy, 0), 0, 1);
+  if (value >= 0.78) {
+    return "Good";
+  }
+  if (value >= 0.48) {
+    return "Average";
+  }
+  return "Bad";
+}
+
+export function buildAttunementRankPopup(rank, previousRank = null) {
+  const safeRank = rank && typeof rank === "object" ? rank : attunementRankFromManaMax(QUARTZ_B_MANA);
+  const priorRank = previousRank && typeof previousRank === "object" ? previousRank : null;
+  const tierChanged = !priorRank || safeText(priorRank.tier) !== safeText(safeRank.tier);
+  const description = tierChanged
+    ? attunementDescriptionForTier(safeRank.tier)
+    : `Your attunement deepens within ${ATTUNEMENT_TIER_LABELS[safeRank.tier] || safeRank.tier}.`;
+  const benefits = tierChanged
+    ? attunementUnlockSummary(safeRank.tier)
+    : attunementSubrankSummary(safeRank.tier);
+  return {
+    key: safeText(safeRank.key),
+    label: safeText(safeRank.label),
+    tier: safeText(safeRank.tier),
+    color: safeText(safeRank.color),
+    description,
+    benefits,
+  };
+}
+
+function withRankPopupMetadata(previousArcane, nextArcane) {
+  const before = arcaneAttunementRank(previousArcane);
+  const after = arcaneAttunementRank(nextArcane);
+  if (before.key === after.key) {
+    return nextArcane;
+  }
+  return {
+    ...nextArcane,
+    attunements: {
+      ...nextArcane.attunements,
+      lastSeenRankKey: after.key,
+      pendingRankPopup: buildAttunementRankPopup(after, before),
     },
   };
 }
@@ -391,19 +656,50 @@ function weightedSignature(points, sampleCount = 72) {
   if (!sampled.length) {
     return [];
   }
+  const smoothed = smoothPointCloud(sampled, 2, 2);
   const anchors = [
-    sampled[0],
-    sampled[Math.floor(sampled.length * 0.25)],
-    sampled[Math.floor(sampled.length * 0.5)],
-    sampled[Math.floor(sampled.length * 0.75)],
-    sampled[sampled.length - 1],
+    smoothed[0],
+    smoothed[Math.floor(smoothed.length * 0.25)],
+    smoothed[Math.floor(smoothed.length * 0.5)],
+    smoothed[Math.floor(smoothed.length * 0.75)],
+    smoothed[smoothed.length - 1],
   ].filter(Boolean);
   const weightedAnchors = anchors.flatMap((point) => [point, point, point, point]);
-  return normalizePointCloud([...sampled, ...weightedAnchors]);
+  return normalizePointCloud([...smoothed, ...weightedAnchors]);
 }
 
 function preprocessRunePointCloud(points, sampleCount = 72) {
   return weightedSignature(points, sampleCount);
+}
+
+function smoothPointCloud(points, passes = 1, radius = 1) {
+  let current = Array.isArray(points) ? points.map((point) => ({ x: point.x, y: point.y })) : [];
+  const normalizedPasses = Math.max(0, Math.floor(safeFinite(passes, 1)));
+  const normalizedRadius = Math.max(1, Math.floor(safeFinite(radius, 1)));
+  for (let pass = 0; pass < normalizedPasses; pass += 1) {
+    current = current.map((point, index) => {
+      let totalX = 0;
+      let totalY = 0;
+      let count = 0;
+      for (let offset = -normalizedRadius; offset <= normalizedRadius; offset += 1) {
+        const source = current[index + offset];
+        if (!source) {
+          continue;
+        }
+        totalX += source.x;
+        totalY += source.y;
+        count += 1;
+      }
+      if (!count) {
+        return point;
+      }
+      return {
+        x: totalX / count,
+        y: totalY / count,
+      };
+    });
+  }
+  return current;
 }
 
 function makeCostMatrix(left, right) {
@@ -537,23 +833,24 @@ function cyclicPathDistance(left, right) {
 function combinedRuneDistance(left, right) {
   const emd = earthMoversDistance(left, right);
   const path = cyclicPathDistance(left, right);
-  if (!Number.isFinite(emd) && !Number.isFinite(path)) {
+  const radial = radialProfileDistance(left, right);
+  const turning = turningSignatureDistance(left, right);
+  if (!Number.isFinite(emd) && !Number.isFinite(path) && !Number.isFinite(radial) && !Number.isFinite(turning)) {
     return Infinity;
   }
-  if (!Number.isFinite(emd)) {
-    return path;
-  }
-  if (!Number.isFinite(path)) {
-    return emd;
-  }
-  return (emd * 0.6) + (path * 0.4);
+  return weightedDistanceBlend([
+    { value: emd, weight: 0.16 },
+    { value: path, weight: 0.34 },
+    { value: radial, weight: 0.28 },
+    { value: turning, weight: 0.22 },
+  ]);
 }
 
 function scoreFromDistance(distance) {
   if (!Number.isFinite(distance)) {
     return 0;
   }
-  return clamp(1 - (distance / 1.1), 0, 1);
+  return clamp(Math.exp(-Math.pow(distance / 0.24, 2.15)), 0, 1);
 }
 
 function confidenceFromDistances(bestDistance, secondDistance) {
@@ -564,8 +861,81 @@ function confidenceFromDistances(bestDistance, secondDistance) {
     ? secondDistance
     : bestDistance + 0.25;
   const separation = clamp((safeSecond - bestDistance) / Math.max(0.000001, safeSecond), 0, 1);
-  const distanceQuality = Math.exp(-Math.pow(bestDistance / 0.42, 1.35));
-  return clamp((distanceQuality * 0.82) + (separation * 0.18), 0.04, 1);
+  const distanceQuality = Math.exp(-Math.pow(bestDistance / 0.22, 2.1));
+  return clamp((distanceQuality * 0.68) + (separation * 0.32) - 0.05, 0.01, 1);
+}
+
+function weightedDistanceBlend(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  let total = 0;
+  let weight = 0;
+  for (const entry of list) {
+    const value = safeFinite(entry && entry.value, Infinity);
+    const scalar = Math.max(0, safeFinite(entry && entry.weight, 0));
+    if (!Number.isFinite(value) || !scalar) {
+      continue;
+    }
+    total += value * scalar;
+    weight += scalar;
+  }
+  return weight > 0 ? total / weight : Infinity;
+}
+
+function cyclicNumericDistance(left, right) {
+  const a = Array.isArray(left) ? left : [];
+  const b = Array.isArray(right) ? right : [];
+  if (!a.length || a.length !== b.length) {
+    return Infinity;
+  }
+  const count = a.length;
+  let best = Infinity;
+  for (let offset = 0; offset < count; offset += 1) {
+    let total = 0;
+    for (let index = 0; index < count; index += 1) {
+      total += Math.abs(a[index] - b[(index + offset) % count]);
+    }
+    best = Math.min(best, total / count);
+  }
+  return best;
+}
+
+function radialProfileDistance(left, right) {
+  const toProfile = (points) => {
+    const cloud = Array.isArray(points) ? points : [];
+    return cloud.map((point) => Math.sqrt((point.x * point.x) + (point.y * point.y)));
+  };
+  return cyclicNumericDistance(toProfile(left), toProfile(right));
+}
+
+function normalizeAngle(angle) {
+  let value = safeFinite(angle, 0);
+  while (value > Math.PI) {
+    value -= Math.PI * 2;
+  }
+  while (value < -Math.PI) {
+    value += Math.PI * 2;
+  }
+  return value;
+}
+
+function turningSignatureDistance(left, right) {
+  const toTurning = (points) => {
+    const cloud = Array.isArray(points) ? points : [];
+    if (cloud.length < 3) {
+      return [];
+    }
+    const values = [];
+    for (let index = 1; index < cloud.length - 1; index += 1) {
+      const previous = cloud[index - 1];
+      const current = cloud[index];
+      const next = cloud[index + 1];
+      const a1 = Math.atan2(current.y - previous.y, current.x - previous.x);
+      const a2 = Math.atan2(next.y - current.y, next.x - current.x);
+      values.push(normalizeAngle(a2 - a1) / Math.PI);
+    }
+    return values;
+  };
+  return cyclicNumericDistance(toTurning(left), toTurning(right));
 }
 
 export function normalizeRuneStroke(strokePoints) {
@@ -639,10 +1009,13 @@ export function matchRuneAgainstGrimoire({ strokePoints, glyphType, ownedGlyphs 
   };
 }
 
-export function estimateAppraisal({ trueAccuracy, totalCrafts, seed = 0 } = {}) {
+export function estimateAppraisal({ trueAccuracy, totalCrafts, seed = 0, arcaneState = null } = {}) {
   const accuracy = clamp(safeFinite(trueAccuracy, 0), 0, 1);
   const crafts = Math.max(0, Math.floor(safeFinite(totalCrafts, 0)));
-  const jitterMagnitude = clamp(0.22 / Math.sqrt(crafts + 1), 0.025, 0.22);
+  const rank = arcaneState ? arcaneAttunementRank(arcaneState) : attunementRankFromManaMax(QUARTZ_B_MANA);
+  const carnelianDepth = rank.tier === "carnelian" ? (rank.subrankIndex + 1) : rank.tierIndex > attunementTierIndex("carnelian") ? 6 : 0;
+  const jitterReduction = carnelianDepth > 0 ? 1 - Math.min(0.55, carnelianDepth * 0.08) : 1;
+  const jitterMagnitude = clamp((0.22 / Math.sqrt(crafts + 1)) * jitterReduction, 0.012, 0.22);
   const rng = createRng((hashText(`${accuracy}:${crafts}:${seed}`) + 17) >>> 0);
   const noise = (rng() * 2) - 1;
   return {
@@ -676,6 +1049,8 @@ export function resolveWorkshopCraftOutcome({
   manaMax,
   totalCrafts,
   seed = 0,
+  arcaneState = null,
+  rarityBiasBonus = 0,
 } = {}) {
   const region = safeText(regionGlyph).toLowerCase();
   const enhancement = safeText(enhancementGlyph).toLowerCase();
@@ -684,12 +1059,65 @@ export function resolveWorkshopCraftOutcome({
   const invested = clamp(safeFinite(manaInvested, 0), 0, maxMana);
   const manaRatio = clamp(invested / maxMana, 0, 1);
   const craftCount = Math.max(0, Math.floor(safeFinite(totalCrafts, 0)));
+  const rank = arcaneState ? arcaneAttunementRank(arcaneState) : attunementRankFromManaMax(maxMana);
+  const features = arcaneAttunementFeatures(arcaneState || { workshop: { manaMax: maxMana } });
+  const regionThresholdScalar = {
+    crd: 1.02,
+    worm: 0.96,
+    dcc: 0.72,
+    aa: 1.08,
+  }[region] || 1;
+  const tierMultiplier = 1 + (rank.tierIndex * 0.85) + (rank.subrankIndex * 0.16);
+  const accuracyFactor = 0.65 + (trueAccuracy * 0.7);
+  const baseThresholdCommon = Math.max(
+    12,
+    Math.round((Math.pow(Math.max(25, maxMana), 0.72) * 2.4 * tierMultiplier * regionThresholdScalar) / Math.max(0.55, accuracyFactor)),
+  );
+  const baseThresholdRare = Math.max(baseThresholdCommon + 8, Math.round(baseThresholdCommon * (2.3 + (rank.tierIndex * 0.18))));
+  const baseThresholdEpic = Math.max(baseThresholdRare + 12, Math.round(baseThresholdRare * (2.8 + (rank.tierIndex * 0.22))));
+  const baseThresholdLegendary = Math.max(baseThresholdEpic + 24, Math.round(baseThresholdEpic * (3.2 + (rank.tierIndex * 0.28))));
+  const thresholdCommon = features.noJunk ? 0 : baseThresholdCommon;
+  const thresholdRare = baseThresholdRare;
+  const thresholdEpic = baseThresholdEpic;
+  const thresholdLegendary = baseThresholdLegendary;
+  const thresholdMap = Object.freeze({
+    common: thresholdCommon,
+    rare: thresholdRare,
+    epic: thresholdEpic,
+    legendary: thresholdLegendary,
+  });
+  const forecast = [
+    { rarity: "Common", threshold: thresholdCommon },
+    { rarity: "Rare", threshold: thresholdRare },
+    { rarity: "Epic", threshold: thresholdEpic },
+    { rarity: "Legendary", threshold: thresholdLegendary },
+  ];
   const qualityScore = clamp((trueAccuracy * 0.68) + (manaRatio * 0.32), 0, 1);
   const earlyCraftPenalty = craftCount < 10 ? (10 - craftCount) * 0.012 : 0;
-  const junkChance = clamp(0.93 - (trueAccuracy * 0.44) - (manaRatio * 0.31) + earlyCraftPenalty, 0.32, 0.97);
-  const rarityBias = clamp((trueAccuracy * 0.78) + (manaRatio * 0.52) - 0.66, 0, 1.45);
+  const minimumRarity = invested >= thresholdLegendary
+    ? "legendary"
+    : invested >= thresholdEpic
+      ? "epic"
+      : invested >= thresholdRare
+        ? "rare"
+        : invested >= thresholdCommon
+          ? "common"
+          : "";
+  const spendTier = minimumRarity || "common";
+  const commonGate = Math.max(1, thresholdCommon || 1);
+  const junkChance = minimumRarity
+    ? 0
+    : clamp(0.9 - (trueAccuracy * 0.34) - ((invested / commonGate) * 0.72) + earlyCraftPenalty, 0.06, 0.96);
+  const rarityBiasBase = spendTier === "legendary"
+    ? 1.5
+    : spendTier === "epic"
+      ? 1.08
+      : spendTier === "rare"
+        ? 0.62
+        : 0.08;
+  const rarityBias = clamp(rarityBiasBase + (trueAccuracy * 0.35) + (rank.tierIndex * 0.08) + Math.max(0, safeFinite(rarityBiasBonus, 0)), 0, 1.7);
   const rng = createRng((hashText(`${region}:${enhancement}:${trueAccuracy}:${invested}:${craftCount}`) + (Number(seed) || 0)) >>> 0);
-  const isJunk = rng() < junkChance;
+  const isJunk = minimumRarity ? false : rng() < junkChance;
   return {
     regionGlyph: region,
     enhancementGlyph: enhancement,
@@ -697,12 +1125,16 @@ export function resolveWorkshopCraftOutcome({
     junkChance,
     rarityBias,
     qualityScore,
+    spendTier,
+    minimumRarity,
+    thresholdMap,
+    forecast,
     powerScalar: 0.7 + (qualityScore * 0.8),
     descriptor: enhancementDescriptor(enhancement),
   };
 }
 
-export function consumeWorkshopMana(state, amount, now = Date.now()) {
+export function consumeWorkshopMana(state, amount, now = Date.now(), growthBonusPct = 0) {
   const spend = Math.max(0, Math.floor(safeFinite(amount, 0)));
   const arcane = normalizeArcaneSystemState(state && state.systems ? state.systems.arcane : {}, now);
   const ticked = tickArcaneMana(arcane, now);
@@ -713,10 +1145,13 @@ export function consumeWorkshopMana(state, amount, now = Date.now()) {
       message: "Not enough workshop mana.",
     };
   }
-  const totalSpent = ticked.workshop.totalManaSpent + spend;
-  const gainedCap = Math.floor(totalSpent / 20);
-  const nextMax = 100 + gainedCap;
-  const nextArcane = {
+  const effectiveSpend = spend * (1 + Math.max(0, safeFinite(growthBonusPct, 0)));
+  const totalSpent = ticked.workshop.totalManaSpent + effectiveSpend;
+  const previousArcane = ticked;
+  const growthDivisor = arcaneWorkshopGrowthDivisor(previousArcane);
+  const gainedCap = Math.floor(totalSpent / Math.max(1, growthDivisor));
+  const nextMax = QUARTZ_B_MANA + gainedCap;
+  let nextArcane = {
     ...ticked,
     workshop: {
       ...ticked.workshop,
@@ -725,6 +1160,7 @@ export function consumeWorkshopMana(state, amount, now = Date.now()) {
       manaMax: nextMax,
     },
   };
+  nextArcane = withRankPopupMetadata(previousArcane, nextArcane);
   return {
     nextState: withArcaneSystem(state, nextArcane),
     changed: true,
@@ -827,7 +1263,7 @@ export function spendManaCrystals(state, amount) {
   };
 }
 
-export function applyArcaneManaSpendProgress(state, manaSpent) {
+export function applyArcaneManaSpendProgress(state, manaSpent, growthBonusPct = 0) {
   const spend = Math.max(0, Math.floor(safeFinite(manaSpent, 0)));
   if (!spend) {
     return state;
@@ -835,10 +1271,12 @@ export function applyArcaneManaSpendProgress(state, manaSpent) {
   const now = Date.now();
   const arcane = normalizeArcaneSystemState(state && state.systems ? state.systems.arcane : {}, now);
   const ticked = tickArcaneMana(arcane, now);
-  const totalSpent = ticked.workshop.totalManaSpent + spend;
-  const gainedCap = Math.floor(totalSpent / 20);
-  const nextMax = 100 + gainedCap;
-  return withArcaneSystem(state, {
+  const effectiveSpend = spend * (1 + Math.max(0, safeFinite(growthBonusPct, 0)));
+  const totalSpent = ticked.workshop.totalManaSpent + effectiveSpend;
+  const growthDivisor = arcaneWorkshopGrowthDivisor(ticked);
+  const gainedCap = Math.floor(totalSpent / Math.max(1, growthDivisor));
+  const nextMax = QUARTZ_B_MANA + gainedCap;
+  return withArcaneSystem(state, withRankPopupMetadata(ticked, {
     ...ticked,
     workshop: {
       ...ticked.workshop,
@@ -846,7 +1284,7 @@ export function applyArcaneManaSpendProgress(state, manaSpent) {
       manaMax: nextMax,
       manaCurrent: clamp(ticked.workshop.manaCurrent, 0, nextMax),
     },
-  });
+  }));
 }
 
 export function grantStarterGlyphs(state, now = Date.now()) {
@@ -951,13 +1389,79 @@ export function setEnchanterAttunement(state, enabled = true) {
   if (Boolean(arcane.attunements.enchanter) === Boolean(enabled)) {
     return state;
   }
-  return withArcaneSystem(state, {
+  let nextArcane = {
     ...arcane,
     attunements: {
       ...arcane.attunements,
       enchanter: Boolean(enabled),
     },
+  };
+  if (enabled) {
+    nextArcane = {
+      ...nextArcane,
+      workshop: {
+        ...nextArcane.workshop,
+        manaMax: Math.max(QUARTZ_B_MANA, safeFinite(nextArcane.workshop.manaMax, QUARTZ_B_MANA)),
+        manaCurrent: Math.max(QUARTZ_B_MANA, safeFinite(nextArcane.workshop.manaCurrent, QUARTZ_B_MANA)),
+      },
+    };
+  }
+  return withArcaneSystem(state, withRankPopupMetadata(arcane, nextArcane));
+}
+
+export function setArcaneSelectedGlyph(state, kind, glyphId) {
+  const arcane = normalizeArcaneSystemState(state && state.systems ? state.systems.arcane : {}, Date.now());
+  const normalizedKind = safeText(kind).toLowerCase();
+  const normalizedGlyph = normalizedKind === "region"
+    ? canonicalGlyphId("region", glyphId)
+    : canonicalGlyphId("enhancement", glyphId);
+  const owned = normalizedKind === "region" ? new Set(arcane.grimoire.regionGlyphs) : new Set(arcane.grimoire.enhancementGlyphs);
+  const nextGlyph = owned.has(normalizedGlyph) ? normalizedGlyph : "";
+  return withArcaneSystem(state, {
+    ...arcane,
+    grimoire: {
+      ...arcane.grimoire,
+      selectedRegionGlyph: normalizedKind === "region" ? nextGlyph : arcane.grimoire.selectedRegionGlyph,
+      selectedEnhancementGlyph: normalizedKind === "enhancement" ? nextGlyph : arcane.grimoire.selectedEnhancementGlyph,
+    },
   });
+}
+
+export function clearArcaneRankPopup(state) {
+  const arcane = normalizeArcaneSystemState(state && state.systems ? state.systems.arcane : {}, Date.now());
+  if (!arcane.attunements.pendingRankPopup) {
+    return state;
+  }
+  return withArcaneSystem(state, {
+    ...arcane,
+    attunements: {
+      ...arcane.attunements,
+      pendingRankPopup: null,
+    },
+  });
+}
+
+export function setArcaneAttunementRank(state, rankKey) {
+  const target = ATTUNEMENT_THRESHOLDS.find((entry) => `${entry.tier}:${entry.subrank}`.toLowerCase() === safeText(rankKey).toLowerCase());
+  if (!target) {
+    return state;
+  }
+  const arcane = normalizeArcaneSystemState(state && state.systems ? state.systems.arcane : {}, Date.now());
+  const totalSpent = Math.max(0, target.minimumMana - QUARTZ_B_MANA) * arcaneWorkshopGrowthDivisor({ workshop: { manaMax: target.minimumMana } });
+  const nextMax = Math.max(QUARTZ_B_MANA, target.minimumMana);
+  return withArcaneSystem(state, withRankPopupMetadata(arcane, {
+    ...arcane,
+    attunements: {
+      ...arcane.attunements,
+      enchanter: true,
+    },
+    workshop: {
+      ...arcane.workshop,
+      totalManaSpent: totalSpent,
+      manaMax: nextMax,
+      manaCurrent: nextMax,
+    },
+  }));
 }
 
 export function arcaneSystemFromState(state, now = Date.now()) {
@@ -995,6 +1499,14 @@ export function glyphDisplayName(glyphId, glyphType = "") {
       : readableGlyphName(canonical);
   }
   return readableGlyphName(canonical);
+}
+
+export function attunementRankOptions() {
+  return ATTUNEMENT_THRESHOLDS.map((entry) => ({
+    key: `${entry.tier}:${entry.subrank}`.toLowerCase(),
+    label: `${ATTUNEMENT_TIER_LABELS[entry.tier] || entry.tier} ${entry.subrank}`,
+    minimumMana: entry.minimumMana,
+  }));
 }
 
 export function glyphTemplatePoints(glyphType, glyphId) {

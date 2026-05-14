@@ -62,7 +62,9 @@ import {
 } from "./systems/loot.js";
 import {
   applyArcaneManaSpendProgress,
+  arcaneAttunementFeatures,
   arcaneSystemFromState,
+  clearArcaneRankPopup,
   awardManaCrystals,
   consumeWorkshopMana,
   enhancementGlyphPool,
@@ -74,6 +76,8 @@ import {
   recordWorkshopCraftResult,
   regionGlyphPool,
   resolveWorkshopCraftOutcome,
+  setArcaneAttunementRank,
+  setArcaneSelectedGlyph,
   setEnchanterAttunement,
   spendManaCrystals,
   tickArcaneMana,
@@ -887,16 +891,19 @@ function applyRuntimeLootEvents(state, nodeId, runtime) {
     return {
       state,
       dropped: [],
+      droppedEntries: [],
       consumed: false,
     };
   }
 
   let next = state;
   const dropped = [];
+  const droppedEntries = [];
   for (const event of events) {
     if (event.customDrop && typeof event.customDrop === "object") {
       next = applyLootDrop(next, event.customDrop);
       dropped.push(String(event.customDrop.label || "Custom drop"));
+      droppedEntries.push({ ...event.customDrop });
       continue;
     }
     const roll = rollRegionalLoot({
@@ -914,11 +921,13 @@ function applyRuntimeLootEvents(state, nodeId, runtime) {
     }
     next = applyLootDrop(next, roll);
     dropped.push(roll.label);
+    droppedEntries.push({ ...roll });
   }
 
   return {
     state: next,
     dropped,
+    droppedEntries,
     consumed: true,
   };
 }
@@ -972,7 +981,14 @@ function withMadraTick(route = getCurrentRoute()) {
 
 function withArcaneTick() {
   const currentArcane = arcaneSystemFromState(appState, Date.now());
-  const ticked = tickArcaneMana(currentArcane, Date.now());
+  const aaModifiers = getArcaneLootModifiers(appState, Date.now());
+  const ticked = tickArcaneMana({
+    ...currentArcane,
+    bonuses: {
+      ...currentArcane.bonuses,
+      manaRegenPct: Number(aaModifiers.manaRegenPct || 0),
+    },
+  }, Date.now());
   appState = updateSystemState(appState, "arcane", ticked);
 }
 
@@ -1635,6 +1651,7 @@ function dispatchActiveNodeAction(action) {
           applied: true,
           innTier: Number(lootState.progression && lootState.progression.innTier ? lootState.progression.innTier : 0),
           reputationAfter,
+          upgrades: lootState.progression && lootState.progression.twiUpgrades ? { ...lootState.progression.twiUpgrades } : {},
           lootEligible: true,
           specialRewardIndex: nextRewardIndex,
           message,
@@ -1651,20 +1668,36 @@ function dispatchActiveNodeAction(action) {
     }
 
     if (node.node_id === "TWI03" && runtimeAction.type === "twi03-cancel-quest") {
-      const penalty = 2;
-      const spend = spendTwiReputation(next, penalty);
-      if (spend.changed) {
-        next = spend.nextState;
+      const twiRuntime = getNodeRuntime(next, "TWI03", () => ({}));
+      const quests = Array.isArray(twiRuntime && twiRuntime.quests) ? twiRuntime.quests : [];
+      const questId = String(runtimeAction.questId || "");
+      const pinnedQuest = quests.find((quest) => quest && quest.id === questId && quest.isSpecial);
+      if (pinnedQuest) {
+        const loot = lootInventoryFromState(next, Date.now());
+        runtimeAction = {
+          ...runtimeAction,
+          innTier: Number(loot.progression && loot.progression.innTier ? loot.progression.innTier : 0),
+          upgrades: loot.progression && loot.progression.twiUpgrades ? { ...loot.progression.twiUpgrades } : {},
+          message: "Valued guests stay on the board until fulfilled.",
+        };
+        setBanner(runtimeAction.message);
+      } else {
+        const penalty = 2;
+        const spend = spendTwiReputation(next, penalty);
+        if (spend.changed) {
+          next = spend.nextState;
+        }
+        const loot = lootInventoryFromState(next, Date.now());
+        runtimeAction = {
+          ...runtimeAction,
+          innTier: Number(loot.progression && loot.progression.innTier ? loot.progression.innTier : 0),
+          upgrades: loot.progression && loot.progression.twiUpgrades ? { ...loot.progression.twiUpgrades } : {},
+          message: spend.changed
+            ? `Quest canceled. -${penalty} Inn Reputation.`
+            : "Quest canceled. No reputation lost.",
+        };
+        setBanner(runtimeAction.message);
       }
-      const loot = lootInventoryFromState(next, Date.now());
-      runtimeAction = {
-        ...runtimeAction,
-        innTier: Number(loot.progression && loot.progression.innTier ? loot.progression.innTier : 0),
-        message: spend.changed
-          ? `Quest canceled. -${penalty} Inn Reputation.`
-          : "Quest canceled. No reputation lost.",
-      };
-      setBanner(runtimeAction.message);
     }
 
     if (node.node_id === "TWI04" && runtimeAction.type === "twi04-buy-upgrade") {
@@ -1694,7 +1727,7 @@ function dispatchActiveNodeAction(action) {
         ...runtimeAction,
         applied: true,
         manaCrystalReward: reward,
-        message: `Judgment complete. Enchanter attunement bound. +${reward} mana crystals.`,
+        message: `Judgment complete. Enchanter attunement bound at Quartz B. +${reward} mana crystals.`,
       };
       setBanner(runtimeAction.message);
     }
@@ -1747,7 +1780,7 @@ function dispatchActiveNodeAction(action) {
           const aaModifiers = getArcaneLootModifiers(next, Date.now());
           const basePrice = estimateLootShopPrice(item, {
             totalSpentAtCourt: arcane.totalSpentAtCourt,
-            buyDiscountPct: arcane.bonuses.buyDiscountPct,
+            buyDiscountPct: aaModifiers.buyDiscountPct,
             shopRegion: "aa",
           });
           const payout = Math.max(
@@ -1899,10 +1932,23 @@ function dispatchActiveNodeAction(action) {
           } else {
             const enhancementName = glyphDisplayName(match.bestMatch, "enhancement");
             const trueAccuracy = Math.min(1, Math.max(0, ((regionAccuracy + match.accuracyScore) / 2) + (aaModifiers.accuracyFlat * 0.01)));
+            const features = arcaneAttunementFeatures(arcane);
             const estimate = estimateAppraisal({
               trueAccuracy,
               totalCrafts: Number(arcane.crafting && arcane.crafting.totalCrafts ? arcane.crafting.totalCrafts : 0),
               seed: Date.now(),
+              arcaneState: arcane,
+            });
+            const preview = resolveWorkshopCraftOutcome({
+              regionGlyph: String(currentRuntime.regionMatch && currentRuntime.regionMatch.bestMatch ? currentRuntime.regionMatch.bestMatch : ""),
+              enhancementGlyph: match.bestMatch,
+              accuracy: Math.min(1, Math.max(0, trueAccuracy + (aaModifiers.accuracyFlat * 0.005))),
+              manaInvested: Math.max(1, Math.floor(Number(arcane.workshop && arcane.workshop.manaCurrent ? arcane.workshop.manaCurrent : 1) * 0.2)),
+              manaMax: Number(arcane.workshop && arcane.workshop.manaMax ? arcane.workshop.manaMax : 25),
+              totalCrafts: Number(arcane.crafting && arcane.crafting.totalCrafts ? arcane.crafting.totalCrafts : 0),
+              seed: Date.now(),
+              arcaneState: arcane,
+              rarityBiasBonus: Number(aaModifiers.rarityBiasFlat || 0),
             });
             runtimeAction = {
               ...runtimeAction,
@@ -1911,6 +1957,7 @@ function dispatchActiveNodeAction(action) {
               enhancementMatch: match,
               trueAccuracy,
               estimatedAccuracy: estimate.estimatedAccuracy,
+              craftForecast: features.rarityThresholds ? preview.forecast : [],
               message: `Enhancement rune resolved as ${enhancementName}.`,
             };
           }
@@ -1938,7 +1985,8 @@ function dispatchActiveNodeAction(action) {
           message: "Enter a valid mana investment before crafting.",
         };
       } else {
-        const spend = consumeWorkshopMana(next, manaInvest, Date.now());
+        const aaModifiers = getArcaneLootModifiers(next, Date.now());
+        const spend = consumeWorkshopMana(next, manaInvest, Date.now(), Number(aaModifiers.manaGrowthPct || 0));
         if (!spend.changed) {
           runtimeAction = {
             ...runtimeAction,
@@ -1948,15 +1996,17 @@ function dispatchActiveNodeAction(action) {
         } else {
           let working = spend.nextState;
           const arcane = arcaneSystemFromState(working, Date.now());
-          const aaModifiers = getArcaneLootModifiers(working, Date.now());
+          const liveAaModifiers = getArcaneLootModifiers(working, Date.now());
           const outcome = resolveWorkshopCraftOutcome({
             regionGlyph,
             enhancementGlyph,
-            accuracy: Math.min(1, Math.max(0, trueAccuracy + (aaModifiers.accuracyFlat * 0.005))),
+            accuracy: Math.min(1, Math.max(0, trueAccuracy + (liveAaModifiers.accuracyFlat * 0.005))),
             manaInvested: manaInvest,
-            manaMax: Number(arcane.workshop && arcane.workshop.manaMax ? arcane.workshop.manaMax : 100),
+            manaMax: Number(arcane.workshop && arcane.workshop.manaMax ? arcane.workshop.manaMax : 25),
             totalCrafts: Number(arcane.crafting && arcane.crafting.totalCrafts ? arcane.crafting.totalCrafts : 0),
             seed: Date.now(),
+            arcaneState: arcane,
+            rarityBiasBonus: Number(liveAaModifiers.rarityBiasFlat || 0),
           });
           let craftedDrop = null;
           if (outcome.isJunk) {
@@ -1982,6 +2032,7 @@ function dispatchActiveNodeAction(action) {
               outRegionChance: 0,
               forceOutRegion: false,
               rarityBias: outcome.rarityBias,
+              minRarity: outcome.minimumRarity,
               now: Date.now(),
               seed: Date.now(),
             });
@@ -1999,6 +2050,13 @@ function dispatchActiveNodeAction(action) {
               createdAt: Date.now(),
               durationMs: 0,
             };
+            if (craftedDrop && craftedDrop.region === "aa" && craftedDrop.kind === "aa_upgrade") {
+              craftedDrop = {
+                ...craftedDrop,
+                kind: "aa_focus_matrix",
+                stackable: false,
+              };
+            }
             const descriptor = outcome.descriptor || null;
             if (descriptor && descriptor.key && craftedDrop.region === "aa") {
               const boost = Math.max(0.01, Number(descriptor.base || 0) * Number(outcome.powerScalar || 1));
@@ -2056,7 +2114,23 @@ function dispatchActiveNodeAction(action) {
     }
 
     if (node.node_id === "AA03" && runtimeAction.type === "aa03-spend-mana") {
-      next = applyArcaneManaSpendProgress(next, Math.max(0, Number(runtimeAction.amount) || 0));
+      const aaModifiers = getArcaneLootModifiers(next, Date.now());
+      next = applyArcaneManaSpendProgress(next, Math.max(0, Number(runtimeAction.amount) || 0), Number(aaModifiers.manaGrowthPct || 0));
+    }
+    if (node.node_id === "AA03" && runtimeAction.type === "aa03-select-glyph") {
+      next = setArcaneSelectedGlyph(next, runtimeAction.glyphKind, runtimeAction.glyphId);
+    }
+    if ((node.node_id === "AA03" || node.node_id === "AA02") && runtimeAction.type === "aa03-close-rank-popup") {
+      next = clearArcaneRankPopup(next);
+    }
+    if (node.node_id === "AA03" && runtimeAction.type === "aa03-set-attunement-rank") {
+      next = setArcaneAttunementRank(next, runtimeAction.rankKey);
+      runtimeAction = {
+        ...runtimeAction,
+        applied: true,
+        message: "Attunement rank adjusted for testing.",
+      };
+      setBanner(runtimeAction.message);
     }
     next = applyNodeRewardConsumption(next, node, action);
 
@@ -2605,6 +2679,34 @@ function dispatchActiveNodeAction(action) {
       }
     }
     runtime = readNodeRuntime(next, node, experience);
+
+    if (node.node_id === "TWI03" && runtimeAction.type === "twi03-fulfill-quest" && runtimeAction.applied) {
+      const lootDrops = Array.isArray(lootResolution.droppedEntries)
+        ? lootResolution.droppedEntries.map((entry) => ({
+          label: String(entry && entry.label ? entry.label : "Loot"),
+          rarity: String(entry && entry.rarity ? entry.rarity : ""),
+          region: String(entry && entry.region ? entry.region : ""),
+          details: String(entry && entry.details ? entry.details : ""),
+        }))
+        : [];
+      next = updateNodeRuntime(
+        next,
+        node.node_id,
+        (currentRuntime) => ({
+          ...(currentRuntime && typeof currentRuntime === "object" ? currentRuntime : {}),
+          rewardPopupOpen: true,
+          rewardSummary: {
+            character: String(runtimeAction.character || ""),
+            requirementText: String(runtimeAction.requirementText || ""),
+            repReward: Math.max(0, Number(runtimeAction.finalRepReward || runtimeAction.repReward || 0)),
+            specialReward: String(runtimeAction.specialReward || ""),
+            lootDrops,
+          },
+        }),
+        () => experience.initialState({ node, state: next }),
+      );
+      runtime = readNodeRuntime(next, node, experience);
+    }
 
     if (runtime && Array.isArray(runtime.pendingLootRemovals) && runtime.pendingLootRemovals.length) {
       const removals = parseArtifactList(runtime.pendingLootRemovals);
@@ -3864,6 +3966,9 @@ function handleClick(event) {
       withState(result.nextState);
       const nextLoot = lootInventoryFromState(result.nextState, Date.now());
       if (!nextLoot.items[itemId]) {
+        selectedLootItemId = "";
+      }
+      if (region === "aa") {
         selectedLootItemId = "";
       }
     }

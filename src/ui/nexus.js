@@ -163,6 +163,42 @@ function sectionCircleStyle(entry, position) {
   ].join("; ");
 }
 
+function nexusMetricMarkup(selected) {
+  if (!selected) {
+    return "";
+  }
+  const title = String(selected.progressTitle || "Progress");
+  const display = String(selected.progressDisplay || `${selected.solved}/${selected.total}`);
+  const label = String(selected.progressLabel || "");
+  const kind = String(selected.progressKind || "bar");
+  if (kind === "counter") {
+    return `
+      <section class="nexus-focus-metric is-counter">
+        <div class="nexus-focus-metric-head">
+          <span class="nexus-focus-metric-title">${escapeHtml(title)}</span>
+        </div>
+        <div class="nexus-focus-counter-value">${escapeHtml(display)}</div>
+        ${label ? `<p class="nexus-focus-detail">${escapeHtml(label)}</p>` : ""}
+      </section>
+    `;
+  }
+  const progressMax = Math.max(0, Number(selected.progressMax || 0));
+  const progressCurrent = Math.max(0, Number(selected.progressCurrent || 0));
+  return `
+    <section class="nexus-focus-metric">
+      <div class="nexus-focus-metric-head">
+        <span class="nexus-focus-metric-title">${escapeHtml(title)}</span>
+        <span class="nexus-focus-metric-value">${escapeHtml(display)}</span>
+      </div>
+      <div class="progress-bar nexus-progress-bar"><span style="width:${Math.max(0, Math.min(100, Number(selected.percent) || 0))}%"></span></div>
+      <div class="nexus-focus-foot">
+        <span>${progressMax > 0 ? `${escapeHtml(String(progressCurrent))}/${escapeHtml(String(progressMax))}` : ""}</span>
+        ${label ? `<span>${escapeHtml(label)}</span>` : ""}
+      </div>
+    </section>
+  `;
+}
+
 export function renderNexusView({ rings, selectedRingIndex, selectedItemIndices, state, selectedArtifactReward }) {
   const nexusRings = Array.isArray(rings) ? rings : [];
 
@@ -243,9 +279,10 @@ export function renderNexusView({ rings, selectedRingIndex, selectedItemIndices,
           }
           <span>${escapeHtml(selected ? selected.section : "No Sector")}</span>
         </h3>
-        <p>${escapeHtml(selected ? String(selected.solved) : "0")}/${escapeHtml(selected ? String(selected.total) : "0")} solved</p>
-        <div class="progress-bar"><span style="width:${selected ? selected.percent : 0}%"></span></div>
-        ${selected && selected.progressLabel ? `<p class="key-hint" style="margin-top:8px;">${escapeHtml(selected.progressLabel)}</p>` : ""}
+        <p class="nexus-focus-subtitle">
+          ${escapeHtml(selected ? `${String(selected.solved)} of ${String(selected.total)} nodes solved` : "No sector selected")}
+        </p>
+        ${nexusMetricMarkup(selected)}
       </section>
     </article>
   `;
