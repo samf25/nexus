@@ -1087,10 +1087,8 @@ export function matchRuneAgainstGrimoire({ strokePoints, glyphType, ownedGlyphs 
 export function combineWorkshopRuneAccuracy(regionAccuracy, enhancementAccuracy, accuracyFlat = 0) {
   const region = clamp(safeFinite(regionAccuracy, 0), 0, 1);
   const enhancement = clamp(safeFinite(enhancementAccuracy, 0), 0, 1);
-  const gatedBase = Math.sqrt(region * enhancement);
-  const floorRespect = Math.min(region, enhancement);
-  const blended = (gatedBase * 0.7) + (floorRespect * 0.3);
-  return clamp(blended + (Math.max(0, safeFinite(accuracyFlat, 0)) * 0.01), 0, 1);
+  const averaged = (region + enhancement) / 2;
+  return clamp(averaged + (Math.max(0, safeFinite(accuracyFlat, 0)) * 0.01), 0, 1);
 }
 
 export function estimateAppraisal({ trueAccuracy, totalCrafts, seed = 0, arcaneState = null } = {}) {

@@ -1937,7 +1937,6 @@ function dispatchActiveNodeAction(action) {
             const trueAccuracy = combineWorkshopRuneAccuracy(
               regionAccuracy,
               match.accuracyScore,
-              aaModifiers.accuracyFlat,
             );
             const features = arcaneAttunementFeatures(arcane);
             const estimate = estimateAppraisal({
