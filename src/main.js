@@ -66,6 +66,7 @@ import {
   arcaneSystemFromState,
   clearArcaneRankPopup,
   awardManaCrystals,
+  combineWorkshopRuneAccuracy,
   consumeWorkshopMana,
   enhancementGlyphPool,
   estimateAppraisal,
@@ -86,6 +87,7 @@ import { wormCardById } from "./nodes/worm/wormData.js";
 import { memoryRevealBeatMs, memoryRevealDurationMs } from "./nodes/motheroflearning/memoryGameCore.js";
 
 const root = document.getElementById("app");
+const FIRST_VISIT_MODAL_KEY = "nexus:first-visit-modal-dismissed:v1";
 
 let blueprintIndex = null;
 const DEPRECATED_REWARD_NAMES = new Set([
@@ -133,6 +135,7 @@ let widgetState = {
   signals: false,
   save: false,
 };
+let firstVisitModalOpen = false;
 let selectedArtifactReward = "";
 let selectedArtifactSource = "all";
 let selectedLootItemId = "";
@@ -1931,7 +1934,11 @@ function dispatchActiveNodeAction(action) {
             };
           } else {
             const enhancementName = glyphDisplayName(match.bestMatch, "enhancement");
-            const trueAccuracy = Math.min(1, Math.max(0, ((regionAccuracy + match.accuracyScore) / 2) + (aaModifiers.accuracyFlat * 0.01)));
+            const trueAccuracy = combineWorkshopRuneAccuracy(
+              regionAccuracy,
+              match.accuracyScore,
+              aaModifiers.accuracyFlat,
+            );
             const features = arcaneAttunementFeatures(arcane);
             const estimate = estimateAppraisal({
               trueAccuracy,
@@ -3679,6 +3686,36 @@ function renderApp(route = getCurrentRoute()) {
   const activeRouteNode = blueprintIndex.nodesByRoute.get(route) || null;
   const activeRouteNodeId = activeRouteNode ? activeRouteNode.node_id : "";
   const backLink = backLinkForRoute(route);
+  const globalOverlayHtml = firstVisitModalOpen
+    ? `
+      <div class="nexus-first-visit-overlay" role="dialog" aria-modal="true" aria-label="Welcome to Nexus">
+        <section class="card nexus-first-visit-modal">
+          <div class="nexus-first-visit-crest" aria-hidden="true">
+            <span class="nexus-first-visit-ring"></span>
+            <span class="nexus-first-visit-star">N</span>
+          </div>
+          <h2 style="text-align: center;">First Arrival</h2>
+          <p class="nexus-first-visit-copy" style="text-align: center;">
+            Yes, Calvin, you <em>could</em> open the GitHub page and find out every answer.
+            But where's the fun in that? Leave a little mystery intact.
+          </p>
+          <div class="nexus-first-visit-keyboard">
+            <h3>Useful Keys</h3>
+            <ul class="nexus-first-visit-key-list">
+              <li><span>Navigate</span><strong>Arrows · Enter · Esc</strong></li>
+              <li><span>Manipulating</span><strong>Arrows · Q · E</strong></li>
+              <li><span>Breathing</span><strong>Space</strong></li>
+              <li><span>Delving</span><strong>W A S D I R 1 2 3...</strong></li>
+              <li><span>Resetting</span><strong>R</strong></li>
+            </ul>
+          </div>
+          <div class="toolbar nexus-first-visit-actions">
+            <button type="button" data-action="dismiss-first-visit-modal">Step In</button>
+          </div>
+        </section>
+      </div>
+    `
+    : "";
 
   root.innerHTML = renderShellLayout({
     summary: blueprintIndex.summary,
@@ -3695,6 +3732,7 @@ function renderApp(route = getCurrentRoute()) {
     widgetState,
     currentRoute: route,
     activeNodeId: activeRouteNodeId,
+    globalOverlayHtml,
   });
 
   if (pendingArtifactListScrollRestore) {
@@ -3754,6 +3792,17 @@ function handleClick(event) {
   }
 
   const action = button.getAttribute("data-action");
+
+  if (action === "dismiss-first-visit-modal") {
+    firstVisitModalOpen = false;
+    try {
+      window.localStorage.setItem(FIRST_VISIT_MODAL_KEY, "1");
+    } catch {
+      // Storage can fail in some browser modes; close for this session anyway.
+    }
+    renderApp();
+    return;
+  }
 
   if (action === "go-home") {
     navigate("/");
@@ -4321,6 +4370,18 @@ function handleChange(event) {
 function handleKeyDown(event) {
   const target = event.target;
   if (event.key === "Escape") {
+    if (firstVisitModalOpen) {
+      firstVisitModalOpen = false;
+      try {
+        window.localStorage.setItem(FIRST_VISIT_MODAL_KEY, "1");
+      } catch {
+        // Storage can fail in some browser modes; close for this session anyway.
+      }
+      event.preventDefault();
+      renderApp();
+      return;
+    }
+
     const isTypingTarget =
       target instanceof Element &&
       ((target instanceof HTMLElement && target.isContentEditable) ||
@@ -4454,6 +4515,12 @@ function handleWheel(event) {
 async function bootstrap() {
   if (!window.location.hash) {
     navigate("/");
+  }
+
+  try {
+    firstVisitModalOpen = window.localStorage.getItem(FIRST_VISIT_MODAL_KEY) !== "1";
+  } catch {
+    firstVisitModalOpen = true;
   }
 
   try {

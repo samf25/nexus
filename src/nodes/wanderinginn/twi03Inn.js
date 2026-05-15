@@ -98,14 +98,36 @@ const QUEST_TYPES = Object.freeze([
   Object.freeze({ type: "sacrifice_int", baseAmount: 1, growth: 0, label: "Cape Sacrifice" }),
 ]);
 
-const GUEST_PALETTES = Object.freeze([
-  Object.freeze({ accent: "#d87f61", soft: "#4b241f", glow: "#f4b091", trait: "fireside" }),
-  Object.freeze({ accent: "#7fa8d8", soft: "#1f2f48", glow: "#b9d7ff", trait: "scholar" }),
-  Object.freeze({ accent: "#83b889", soft: "#203b2b", glow: "#c3f2c6", trait: "steady" }),
-  Object.freeze({ accent: "#b18ae0", soft: "#302346", glow: "#dfcbff", trait: "strange" }),
-  Object.freeze({ accent: "#d7b169", soft: "#433318", glow: "#ffe3af", trait: "merchant" }),
-  Object.freeze({ accent: "#6fc4bc", soft: "#173a3d", glow: "#b8f3eb", trait: "traveler" }),
-]);
+const DEFAULT_GUEST_PALETTE = Object.freeze({ accent: "#a88761", soft: "#3d2818", glow: "#f1d6ab", trait: "guest" });
+
+const CHARACTER_PALETTES = Object.freeze({
+  "Erin Solstice": Object.freeze({ accent: "#ef9664", soft: "#4f2417", glow: "#ffd0a8", trait: "innkeeper" }),
+  "Lyonette du Marquin": Object.freeze({ accent: "#d58dc9", soft: "#40203d", glow: "#f7d4f2", trait: "royal" }),
+  "Pisces Jealnet": Object.freeze({ accent: "#8da0d8", soft: "#212b4d", glow: "#d5defe", trait: "scholar" }),
+  "Ceria Springwalker": Object.freeze({ accent: "#83c7d2", soft: "#163640", glow: "#c9f0ff", trait: "frost" }),
+  Ishkr: Object.freeze({ accent: "#baa06c", soft: "#3d2f1a", glow: "#f0dfb3", trait: "steady" }),
+  Klbkch: Object.freeze({ accent: "#9bb38f", soft: "#253624", glow: "#dff0d4", trait: "disciplined" }),
+  "Olesm Swifttail": Object.freeze({ accent: "#cb8d63", soft: "#4a2718", glow: "#f9ccb0", trait: "strategist" }),
+  Bird: Object.freeze({ accent: "#79b87d", soft: "#1c3523", glow: "#d5f7d2", trait: "strange" }),
+  Pawn: Object.freeze({ accent: "#d5b164", soft: "#49371a", glow: "#ffe8ad", trait: "faith" }),
+  "Krshia Silverfang": Object.freeze({ accent: "#7dc7a4", soft: "#18392c", glow: "#c9f8df", trait: "merchant" }),
+  "Selys Shivertail": Object.freeze({ accent: "#6faed9", soft: "#173145", glow: "#cae7ff", trait: "broker" }),
+  Numbtongue: Object.freeze({ accent: "#bf8767", soft: "#462416", glow: "#f4c8af", trait: "bard" }),
+  Rags: Object.freeze({ accent: "#8ec167", soft: "#233617", glow: "#daf3c6", trait: "cunning" }),
+  "Relc Grasstongue": Object.freeze({ accent: "#78c39e", soft: "#193b31", glow: "#c8fbe6", trait: "guard" }),
+  "Yvlon Byres": Object.freeze({ accent: "#9eb2d9", soft: "#242d47", glow: "#e1e9ff", trait: "steel" }),
+  "Montressa du Valeross": Object.freeze({ accent: "#8e91d4", soft: "#272549", glow: "#d7d6ff", trait: "mage" }),
+  "Ryoka Griffin": Object.freeze({ accent: "#6fc4bc", soft: "#173a3d", glow: "#b8f3eb", trait: "runner" }),
+  "Mrsha du Marquin": Object.freeze({ accent: "#b7a26d", soft: "#42331c", glow: "#f7e6b8", trait: "mischief" }),
+  "Ilvriss Gemscale": Object.freeze({ accent: "#a170cf", soft: "#332046", glow: "#e3ccff", trait: "lord" }),
+  "Saliss of Lights": Object.freeze({ accent: "#e38e63", soft: "#4e2617", glow: "#ffd4b0", trait: "alchemy" }),
+  Grimalkin: Object.freeze({ accent: "#7f8fd6", soft: "#252c48", glow: "#d8ddff", trait: "force" }),
+  "Niers Astoragon": Object.freeze({ accent: "#d0a764", soft: "#4a3619", glow: "#ffe6ae", trait: "tactician" }),
+  "Magnolia Reinhart": Object.freeze({ accent: "#d88aa8", soft: "#471f34", glow: "#ffd2e6", trait: "noble" }),
+  "Az'kerash": Object.freeze({ accent: "#a06dbd", soft: "#311d41", glow: "#e8d0fa", trait: "necromancy" }),
+  "Fetohep of Reim": Object.freeze({ accent: "#d0c07d", soft: "#463a1e", glow: "#fff0b8", trait: "eternal" }),
+  Teriarch: Object.freeze({ accent: "#d88259", soft: "#4f2315", glow: "#ffcfad", trait: "dragon" }),
+});
 
 function safeText(value) {
   return String(value || "").trim();
@@ -126,26 +148,17 @@ function randomIndex(seed, size) {
   return state % count;
 }
 
-function hashText(value) {
-  const source = safeText(value);
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = ((hash << 5) - hash) + source.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 function guestPalette(character, isSpecial = false) {
-  if (isSpecial) {
-    return {
-      accent: "#e3bd74",
-      soft: "#4a2f17",
-      glow: "#ffe4ad",
-      trait: "valued guest",
-    };
+  const base = CHARACTER_PALETTES[safeText(character)] || DEFAULT_GUEST_PALETTE;
+  if (!isSpecial) {
+    return base;
   }
-  return GUEST_PALETTES[hashText(character) % GUEST_PALETTES.length] || GUEST_PALETTES[0];
+  return {
+    accent: base.accent,
+    soft: "#4a2f17",
+    glow: "#ffe4ad",
+    trait: "valued guest",
+  };
 }
 
 function guestPreferredType(character, tier, seed) {

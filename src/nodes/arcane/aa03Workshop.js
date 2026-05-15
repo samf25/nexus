@@ -6,6 +6,7 @@ import {
   arcaneAttunementRank,
   arcaneSystemFromState,
   attunementRankOptions,
+  attunementSubrankVisualFactor,
   glyphDisplayName,
   glyphTemplatePoints,
   qualitativeAccuracyLabel,
@@ -84,24 +85,75 @@ function renderGlyphSymbol(glyphId, className = "") {
   });
 }
 
-function glyphTraceMarkup(glyphType, glyphId) {
+function glyphTraceMarkup(glyphType, glyphId, options = {}) {
   const points = glyphTemplatePoints(glyphType, glyphId);
+  const overlayMode = Boolean(options && options.overlay);
   if (!Array.isArray(points) || !points.length) {
     return `<svg class="aa03-glyph-trace" viewBox="0 0 100 100" aria-hidden="true"></svg>`;
   }
-  const coords = points
+  if (!overlayMode) {
+    const coords = points
+      .map((point) => {
+        if (Array.isArray(point)) {
+          const x = Number(point[0]);
+          const y = Number(point[1]);
+          return Number.isFinite(x) && Number.isFinite(y)
+            ? `${(x * 100).toFixed(1)},${(y * 100).toFixed(1)}`
+            : "";
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ");
+    return `
+      <svg class="aa03-glyph-trace" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <polyline points="${escapeHtml(coords)}"></polyline>
+      </svg>
+    `;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const normalizedPoints = points
     .map((point) => {
       if (Array.isArray(point)) {
         const x = Number(point[0]);
         const y = Number(point[1]);
-        return `${(x * 100).toFixed(1)},${(y * 100).toFixed(1)}`;
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+          return { x, y };
+        }
       }
-      return "";
+      return null;
     })
-    .filter(Boolean)
+    .filter(Boolean);
+  if (!normalizedPoints.length) {
+    return `<svg class="aa03-glyph-trace" viewBox="0 0 100 100" aria-hidden="true"></svg>`;
+  }
+  const overlayPad = {
+    "merchant-sigil": 0.2,
+    "stability-anchor": 0.48,
+    "surge-glyph": 0.34,
+  }[safeText(glyphId).toLowerCase()] || 0.12;
+  const overlayScale = {
+    "stability-anchor": 0.72,
+    "surge-glyph": 0.86,
+  }[safeText(glyphId).toLowerCase()] || 1;
+  const width = Math.max(0.12, maxX - minX);
+  const height = Math.max(0.12, maxY - minY);
+  const viewX = (minX - (width * overlayPad)) * 100;
+  const viewY = (minY - (height * overlayPad)) * 100;
+  const viewWidth = width * (1 + (overlayPad * 2)) * 100;
+  const viewHeight = height * (1 + (overlayPad * 2)) * 100;
+  const coords = normalizedPoints
+    .map((point) => `${(point.x * 100).toFixed(1)},${(point.y * 100).toFixed(1)}`)
     .join(" ");
   return `
-    <svg class="aa03-glyph-trace" viewBox="0 0 100 100" aria-hidden="true">
+    <svg class="aa03-glyph-trace" style="transform:scale(${escapeHtml(overlayScale.toFixed(2))}); transform-origin:center;" viewBox="${escapeHtml(viewX.toFixed(2))} ${escapeHtml(viewY.toFixed(2))} ${escapeHtml(viewWidth.toFixed(2))} ${escapeHtml(viewHeight.toFixed(2))}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <polyline points="${escapeHtml(coords)}"></polyline>
     </svg>
   `;
@@ -339,12 +391,15 @@ function tabButton(tabId, active, label) {
   `;
 }
 
-function renderRunePanel(kind, title, overlayGlyphId = "") {
+function renderRunePanel(kind, title, overlayGlyphId = "", overlayStrength = null) {
+  const opacity = overlayStrength ? (0.22 + (overlayStrength * 0.54)).toFixed(2) : "0.62";
+  const blurPx = overlayStrength ? (15 - (overlayStrength * 9)).toFixed(1) : "10";
+  const strokeOpacity = overlayStrength ? (0.34 + (overlayStrength * 0.52)).toFixed(2) : "0.78";
   return `
     <section class="card aa03-altar-card">
       <h4>${escapeHtml(title)}</h4>
       <div class="aa03-rune-canvas-wrap">
-        ${overlayGlyphId ? `<div class="aa03-rune-overlay">${glyphTraceMarkup(kind, overlayGlyphId)}</div>` : ""}
+        ${overlayGlyphId ? `<div class="aa03-rune-overlay" style="--aa03-overlay-opacity:${escapeHtml(opacity)}; --aa03-overlay-blur:${escapeHtml(blurPx)}px; --aa03-overlay-stroke-opacity:${escapeHtml(strokeOpacity)}">${glyphTraceMarkup(kind, overlayGlyphId, { overlay: true })}</div>` : ""}
         <canvas
           width="460"
           height="300"
@@ -574,6 +629,7 @@ function resultPopupMarkup(runtime) {
 function workshopTabMarkup(runtime, arcane) {
   const canStart = arcane.attunements.enchanter && arcane.grimoire.regionGlyphs.length > 0 && arcane.grimoire.enhancementGlyphs.length > 0;
   const features = arcaneAttunementFeatures(arcane);
+  const overlayStrength = attunementSubrankVisualFactor(features.rank);
   const selectedRegionGlyph = safeText(arcane.grimoire.selectedRegionGlyph);
   const selectedEnhancementGlyph = safeText(arcane.grimoire.selectedEnhancementGlyph);
   let leftMarkup = "";
@@ -590,12 +646,14 @@ function workshopTabMarkup(runtime, arcane) {
       "region",
       "Draw Region Rune",
       features.traceOverlay ? selectedRegionGlyph : "",
+      overlayStrength,
     );
   } else if (runtime.phase === "draw-enhancement") {
     leftMarkup = renderRunePanel(
       "enhancement",
       "Draw Enhancement Rune",
       features.traceOverlay ? selectedEnhancementGlyph : "",
+      overlayStrength,
     );
   } else if (runtime.phase === "appraisal") {
     leftMarkup = appraisalMarkup(runtime, arcane);

@@ -21,16 +21,16 @@ const GLYPH_TEMPLATES = Object.freeze({
     aa: Object.freeze([[0.14, 0.78], [0.31, 0.24], [0.52, 0.58], [0.72, 0.22], [0.86, 0.78], [0.67, 0.62], [0.52, 0.82], [0.33, 0.62], [0.14, 0.78]]),
   }),
   enhancement: Object.freeze({
-    "force-lattice": Object.freeze([[0.15, 0.15], [0.85, 0.15], [0.85, 0.85], [0.15, 0.85], [0.15, 0.15], [0.5, 0.5], [0.85, 0.85]]),
+    "force-lattice": Object.freeze([[0.18, 0.2], [0.82, 0.2], [0.82, 0.8], [0.18, 0.8], [0.18, 0.5], [0.82, 0.5], [0.5, 0.5], [0.5, 0.22], [0.5, 0.8]]),
     "precision-mark": Object.freeze([[0.15, 0.85], [0.5, 0.15], [0.85, 0.85], [0.5, 0.56], [0.15, 0.85]]),
-    "resonance-loop": Object.freeze([[0.22, 0.5], [0.34, 0.28], [0.56, 0.2], [0.75, 0.34], [0.82, 0.56], [0.67, 0.76], [0.42, 0.8], [0.24, 0.64], [0.22, 0.5]]),
+    "resonance-loop": Object.freeze([[0.26, 0.5], [0.36, 0.32], [0.54, 0.26], [0.7, 0.34], [0.76, 0.5], [0.68, 0.68], [0.5, 0.76], [0.34, 0.68], [0.26, 0.5], [0.44, 0.5]]),
     "vital-knot": Object.freeze([[0.2, 0.2], [0.8, 0.8], [0.6, 0.5], [0.8, 0.2], [0.2, 0.8], [0.4, 0.5], [0.2, 0.2]]),
-    "swift-circuit": Object.freeze([[0.16, 0.62], [0.35, 0.28], [0.55, 0.48], [0.72, 0.18], [0.84, 0.4], [0.62, 0.72], [0.42, 0.58], [0.26, 0.82]]),
-    "merchant-sigil": Object.freeze([[0.22, 0.2], [0.78, 0.2], [0.78, 0.6], [0.5, 0.82], [0.22, 0.6], [0.22, 0.2], [0.5, 0.5], [0.78, 0.6]]),
+    "swift-circuit": Object.freeze([[0.14, 0.7], [0.24, 0.34], [0.4, 0.34], [0.4, 0.58], [0.58, 0.58], [0.58, 0.24], [0.76, 0.24], [0.86, 0.5], [0.72, 0.76], [0.5, 0.76], [0.34, 0.88]]),
+    "merchant-sigil": Object.freeze([[0.28, 0.26], [0.72, 0.26], [0.72, 0.54], [0.5, 0.74], [0.28, 0.54], [0.28, 0.26], [0.5, 0.26], [0.5, 0.58]]),
     "overflow-channel": Object.freeze([[0.14, 0.3], [0.34, 0.2], [0.52, 0.3], [0.64, 0.48], [0.52, 0.68], [0.34, 0.8], [0.14, 0.7], [0.26, 0.52], [0.42, 0.5], [0.6, 0.52], [0.82, 0.7]]),
     "stability-anchor": Object.freeze([[0.5, 0.15], [0.5, 0.8], [0.32, 0.56], [0.5, 0.8], [0.68, 0.56], [0.5, 0.8]]),
     "echo-ward": Object.freeze([[0.2, 0.8], [0.22, 0.22], [0.78, 0.22], [0.8, 0.8], [0.6, 0.62], [0.4, 0.62], [0.2, 0.8]]),
-    "surge-glyph": Object.freeze([[0.18, 0.72], [0.42, 0.18], [0.58, 0.46], [0.74, 0.2], [0.82, 0.42], [0.64, 0.82], [0.48, 0.56], [0.34, 0.8]]),
+    "surge-glyph": Object.freeze([[0.26, 0.14], [0.54, 0.14], [0.42, 0.42], [0.7, 0.42], [0.3, 0.88], [0.42, 0.58], [0.18, 0.58], [0.26, 0.14]]),
   }),
 });
 
@@ -492,6 +492,14 @@ export function arcaneAttunementFeatures(arcaneState) {
   };
 }
 
+export function attunementSubrankVisualFactor(rankOrState) {
+  const rank = rankOrState && typeof rankOrState === "object" && "tier" in rankOrState && "subrankIndex" in rankOrState
+    ? rankOrState
+    : arcaneAttunementRank(rankOrState);
+  const factor = clamp((safeFinite(rank.subrankIndex, 0) + 1) / 5, 0.2, 1);
+  return factor;
+}
+
 export function qualitativeAccuracyLabel(accuracy) {
   const value = clamp(safeFinite(accuracy, 0), 0, 1);
   if (value >= 0.78) {
@@ -625,10 +633,20 @@ function resamplePath(path, sampleCount = 48) {
   return result;
 }
 
-function normalizePointCloud(points) {
+function pointCloudBounds(points) {
   const cloud = Array.isArray(points) ? points : [];
   if (!cloud.length) {
-    return [];
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: 0,
+      maxY: 0,
+      width: 0.001,
+      height: 0.001,
+      centerX: 0,
+      centerY: 0,
+      aspectRatio: 1,
+    };
   }
   let minX = Infinity;
   let minY = Infinity;
@@ -642,34 +660,58 @@ function normalizePointCloud(points) {
   }
   const width = Math.max(0.001, maxX - minX);
   const height = Math.max(0.001, maxY - minY);
-  const scale = Math.max(width, height);
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width,
+    height,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+    aspectRatio: width / height,
+  };
+}
+
+function normalizePointCloud(points) {
+  const cloud = Array.isArray(points) ? points : [];
+  if (!cloud.length) {
+    return [];
+  }
+  const bounds = pointCloudBounds(cloud);
   return cloud.map((point) => ({
-    x: (point.x - centerX) / scale,
-    y: (point.y - centerY) / scale,
+    x: (point.x - bounds.minX) / bounds.width,
+    y: (point.y - bounds.minY) / bounds.height,
   }));
 }
 
-function weightedSignature(points, sampleCount = 72) {
-  const sampled = resamplePath(points, sampleCount);
-  if (!sampled.length) {
-    return [];
+function buildRuneTraceData(points, sampleCount = 96) {
+  const raw = toPointArray(points);
+  if (raw.length < 2) {
+    return {
+      raw,
+      sampled: [],
+      normalized: [],
+      bounds: pointCloudBounds(raw),
+      closed: false,
+    };
   }
-  const smoothed = smoothPointCloud(sampled, 2, 2);
-  const anchors = [
-    smoothed[0],
-    smoothed[Math.floor(smoothed.length * 0.25)],
-    smoothed[Math.floor(smoothed.length * 0.5)],
-    smoothed[Math.floor(smoothed.length * 0.75)],
-    smoothed[smoothed.length - 1],
-  ].filter(Boolean);
-  const weightedAnchors = anchors.flatMap((point) => [point, point, point, point]);
-  return normalizePointCloud([...smoothed, ...weightedAnchors]);
+  const sampled = resamplePath(raw, sampleCount);
+  const smoothed = smoothPointCloud(sampled, 1, 1);
+  const normalized = normalizePointCloud(smoothed);
+  const bounds = pointCloudBounds(raw);
+  const closed = pointDistance(normalized[0], normalized[normalized.length - 1]) <= 0.09;
+  return {
+    raw,
+    sampled: smoothed,
+    normalized,
+    bounds,
+    closed,
+  };
 }
 
-function preprocessRunePointCloud(points, sampleCount = 72) {
-  return weightedSignature(points, sampleCount);
+function preprocessRunePointCloud(points, sampleCount = 96) {
+  return buildRuneTraceData(points, sampleCount).normalized;
 }
 
 function smoothPointCloud(points, passes = 1, radius = 1) {
@@ -809,7 +851,7 @@ function earthMoversDistance(left, right) {
   return assignment.cost / a.length;
 }
 
-function cyclicPathDistance(left, right) {
+function orderedPathDistance(left, right, allowCyclic = false) {
   const a = Array.isArray(left) ? left : [];
   const b = Array.isArray(right) ? right : [];
   if (!a.length || a.length !== b.length) {
@@ -817,8 +859,9 @@ function cyclicPathDistance(left, right) {
   }
 
   const count = a.length;
+  const maxOffset = allowCyclic ? count : 1;
   let best = Infinity;
-  for (let offset = 0; offset < count; offset += 1) {
+  for (let offset = 0; offset < maxOffset; offset += 1) {
     let total = 0;
     for (let index = 0; index < count; index += 1) {
       const pointA = a[index];
@@ -830,27 +873,58 @@ function cyclicPathDistance(left, right) {
   return best;
 }
 
-function combinedRuneDistance(left, right) {
+function anchorSignature(points) {
+  const cloud = Array.isArray(points) ? points : [];
+  if (!cloud.length) {
+    return [];
+  }
+  const anchors = [0, 0.25, 0.5, 0.75, 1];
+  return anchors.map((ratio) => {
+    const index = Math.min(cloud.length - 1, Math.round(ratio * (cloud.length - 1)));
+    return cloud[index];
+  });
+}
+
+function aspectRatioDistance(leftBounds, rightBounds) {
+  const leftRatio = Math.max(0.001, safeFinite(leftBounds && leftBounds.aspectRatio, 1));
+  const rightRatio = Math.max(0.001, safeFinite(rightBounds && rightBounds.aspectRatio, 1));
+  return Math.abs(Math.log(leftRatio / rightRatio));
+}
+
+function combinedRuneDistance(leftData, rightData) {
+  const left = leftData && Array.isArray(leftData.normalized) ? leftData.normalized : [];
+  const right = rightData && Array.isArray(rightData.normalized) ? rightData.normalized : [];
+  const allowCyclic = Boolean(leftData && rightData && leftData.closed && rightData.closed);
+  const ordered = orderedPathDistance(left, right, allowCyclic);
+  const anchors = orderedPathDistance(anchorSignature(left), anchorSignature(right), allowCyclic);
+  const radial = radialProfileDistance(left, right, allowCyclic);
+  const turning = turningSignatureDistance(left, right, allowCyclic);
   const emd = earthMoversDistance(left, right);
-  const path = cyclicPathDistance(left, right);
-  const radial = radialProfileDistance(left, right);
-  const turning = turningSignatureDistance(left, right);
-  if (!Number.isFinite(emd) && !Number.isFinite(path) && !Number.isFinite(radial) && !Number.isFinite(turning)) {
+  const aspect = aspectRatioDistance(leftData && leftData.bounds, rightData && rightData.bounds);
+  if (!Number.isFinite(ordered) && !Number.isFinite(anchors) && !Number.isFinite(radial) && !Number.isFinite(turning)) {
     return Infinity;
   }
   return weightedDistanceBlend([
-    { value: emd, weight: 0.16 },
-    { value: path, weight: 0.34 },
-    { value: radial, weight: 0.28 },
-    { value: turning, weight: 0.22 },
-  ]);
+    { value: ordered, weight: 0.52 },
+    { value: anchors, weight: 0.2 },
+    { value: turning, weight: 0.13 },
+    { value: radial, weight: 0.08 },
+    { value: emd, weight: 0.07 },
+  ]) + (aspect * 0.12);
 }
 
 function scoreFromDistance(distance) {
   if (!Number.isFinite(distance)) {
     return 0;
   }
-  return clamp(Math.exp(-Math.pow(distance / 0.24, 2.15)), 0, 1);
+  const raw = clamp(Math.exp(-Math.pow(distance / 0.19, 1.82)), 0, 1);
+  if (raw <= 0.2) {
+    return clamp(raw * 0.5, 0, 1);
+  }
+  if (raw >= 0.8) {
+    return clamp(1 - ((1 - raw) * 0.5), 0, 1);
+  }
+  return clamp(0.1 + (((raw - 0.2) / 0.6) * 0.8), 0, 1);
 }
 
 function confidenceFromDistances(bestDistance, secondDistance) {
@@ -861,8 +935,8 @@ function confidenceFromDistances(bestDistance, secondDistance) {
     ? secondDistance
     : bestDistance + 0.25;
   const separation = clamp((safeSecond - bestDistance) / Math.max(0.000001, safeSecond), 0, 1);
-  const distanceQuality = Math.exp(-Math.pow(bestDistance / 0.22, 2.1));
-  return clamp((distanceQuality * 0.68) + (separation * 0.32) - 0.05, 0.01, 1);
+  const distanceQuality = scoreFromDistance(bestDistance);
+  return clamp((distanceQuality * 0.88) + (separation * 0.12), 0.02, 1);
 }
 
 function weightedDistanceBlend(entries) {
@@ -881,15 +955,16 @@ function weightedDistanceBlend(entries) {
   return weight > 0 ? total / weight : Infinity;
 }
 
-function cyclicNumericDistance(left, right) {
+function orderedNumericDistance(left, right, allowCyclic = false) {
   const a = Array.isArray(left) ? left : [];
   const b = Array.isArray(right) ? right : [];
   if (!a.length || a.length !== b.length) {
     return Infinity;
   }
   const count = a.length;
+  const maxOffset = allowCyclic ? count : 1;
   let best = Infinity;
-  for (let offset = 0; offset < count; offset += 1) {
+  for (let offset = 0; offset < maxOffset; offset += 1) {
     let total = 0;
     for (let index = 0; index < count; index += 1) {
       total += Math.abs(a[index] - b[(index + offset) % count]);
@@ -899,12 +974,12 @@ function cyclicNumericDistance(left, right) {
   return best;
 }
 
-function radialProfileDistance(left, right) {
+function radialProfileDistance(left, right, allowCyclic = false) {
   const toProfile = (points) => {
     const cloud = Array.isArray(points) ? points : [];
     return cloud.map((point) => Math.sqrt((point.x * point.x) + (point.y * point.y)));
   };
-  return cyclicNumericDistance(toProfile(left), toProfile(right));
+  return orderedNumericDistance(toProfile(left), toProfile(right), allowCyclic);
 }
 
 function normalizeAngle(angle) {
@@ -918,7 +993,7 @@ function normalizeAngle(angle) {
   return value;
 }
 
-function turningSignatureDistance(left, right) {
+function turningSignatureDistance(left, right, allowCyclic = false) {
   const toTurning = (points) => {
     const cloud = Array.isArray(points) ? points : [];
     if (cloud.length < 3) {
@@ -935,7 +1010,7 @@ function turningSignatureDistance(left, right) {
     }
     return values;
   };
-  return cyclicNumericDistance(toTurning(left), toTurning(right));
+  return orderedNumericDistance(toTurning(left), toTurning(right), allowCyclic);
 }
 
 export function normalizeRuneStroke(strokePoints) {
@@ -943,8 +1018,8 @@ export function normalizeRuneStroke(strokePoints) {
 }
 
 export function scoreRuneMatch({ strokePoints, glyphTemplatePoints } = {}) {
-  const left = preprocessRunePointCloud(strokePoints, 72);
-  const right = preprocessRunePointCloud(glyphTemplatePoints, 72);
+  const left = buildRuneTraceData(strokePoints, 96);
+  const right = buildRuneTraceData(glyphTemplatePoints, 96);
   return scoreFromDistance(combinedRuneDistance(left, right));
 }
 
@@ -968,8 +1043,8 @@ export function matchRuneAgainstGrimoire({ strokePoints, glyphType, ownedGlyphs 
     };
   }
 
-  const normalizedStroke = preprocessRunePointCloud(strokePoints, 72);
-  if (normalizedStroke.length < 4) {
+  const normalizedStroke = buildRuneTraceData(strokePoints, 96);
+  if (normalizedStroke.normalized.length < 6) {
     return {
       bestMatch: "",
       secondMatch: "",
@@ -985,7 +1060,7 @@ export function matchRuneAgainstGrimoire({ strokePoints, glyphType, ownedGlyphs 
       glyphId,
       distance: combinedRuneDistance(
         normalizedStroke,
-        preprocessRunePointCloud(templates[glyphId] || [], 72),
+        buildRuneTraceData(templates[glyphId] || [], 96),
       ),
     }))
     .filter((entry) => Number.isFinite(entry.distance))
@@ -1007,6 +1082,15 @@ export function matchRuneAgainstGrimoire({ strokePoints, glyphType, ownedGlyphs 
     insufficientStroke: false,
     noCandidates: false,
   };
+}
+
+export function combineWorkshopRuneAccuracy(regionAccuracy, enhancementAccuracy, accuracyFlat = 0) {
+  const region = clamp(safeFinite(regionAccuracy, 0), 0, 1);
+  const enhancement = clamp(safeFinite(enhancementAccuracy, 0), 0, 1);
+  const gatedBase = Math.sqrt(region * enhancement);
+  const floorRespect = Math.min(region, enhancement);
+  const blended = (gatedBase * 0.7) + (floorRespect * 0.3);
+  return clamp(blended + (Math.max(0, safeFinite(accuracyFlat, 0)) * 0.01), 0, 1);
 }
 
 export function estimateAppraisal({ trueAccuracy, totalCrafts, seed = 0, arcaneState = null } = {}) {
@@ -1092,7 +1176,7 @@ export function resolveWorkshopCraftOutcome({
     { rarity: "Epic", threshold: thresholdEpic },
     { rarity: "Legendary", threshold: thresholdLegendary },
   ];
-  const qualityScore = clamp((trueAccuracy * 0.68) + (manaRatio * 0.32), 0, 1);
+  const qualityScore = clamp((trueAccuracy * 0.76) + (manaRatio * 0.24), 0, 1);
   const earlyCraftPenalty = craftCount < 10 ? (10 - craftCount) * 0.012 : 0;
   const minimumRarity = invested >= thresholdLegendary
     ? "legendary"
@@ -1105,17 +1189,18 @@ export function resolveWorkshopCraftOutcome({
           : "";
   const spendTier = minimumRarity || "common";
   const commonGate = Math.max(1, thresholdCommon || 1);
+  const subCommonRatio = minimumRarity ? 1 : clamp(invested / commonGate, 0, 1);
   const junkChance = minimumRarity
     ? 0
-    : clamp(0.9 - (trueAccuracy * 0.34) - ((invested / commonGate) * 0.72) + earlyCraftPenalty, 0.06, 0.96);
+    : clamp(0.985 - (trueAccuracy * 0.12) - (subCommonRatio * 0.82) + earlyCraftPenalty, 0.12, 0.995);
   const rarityBiasBase = spendTier === "legendary"
     ? 1.5
     : spendTier === "epic"
       ? 1.08
       : spendTier === "rare"
         ? 0.62
-        : 0.08;
-  const rarityBias = clamp(rarityBiasBase + (trueAccuracy * 0.35) + (rank.tierIndex * 0.08) + Math.max(0, safeFinite(rarityBiasBonus, 0)), 0, 1.7);
+        : (-0.3 + (subCommonRatio * 0.28));
+  const rarityBias = clamp(rarityBiasBase + (trueAccuracy * 0.24) + (rank.tierIndex * 0.05) + Math.max(0, safeFinite(rarityBiasBonus, 0)), -0.35, 1.7);
   const rng = createRng((hashText(`${region}:${enhancement}:${trueAccuracy}:${invested}:${craftCount}`) + (Number(seed) || 0)) >>> 0);
   const isJunk = minimumRarity ? false : rng() < junkChance;
   return {

@@ -76,7 +76,7 @@ function rarityBiasForCourtSpend(totalSpent) {
   return Math.min(2.4, (Math.log10(1 + spent) * 0.9));
 }
 
-function generateShopOffers(arcane, hourKey) {
+function generateShopOffers(arcane, hourKey, state = {}) {
   const offers = [];
   const baseNow = hourKey * 3600000;
   const rarityBias = rarityBiasForCourtSpend(arcane.totalSpentAtCourt);
@@ -371,7 +371,7 @@ export function synchronizeAa02Runtime(runtime, context = {}) {
   return {
     ...current,
     shopHourKey: hourKey,
-    shopOffers: generateShopOffers(arcane, hourKey),
+    shopOffers: generateShopOffers(arcane, hourKey, context.state || {}),
     revealQueue,
     revealTick: revealTickValue,
     revealStartedAt,

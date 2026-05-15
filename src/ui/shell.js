@@ -339,6 +339,7 @@ export function renderShellLayout({
   widgetState,
   currentRoute,
   activeNodeId,
+  globalOverlayHtml = "",
 }) {
   const isDccNode = String(activeNodeId || "") === "DCC01";
   return `
@@ -405,6 +406,7 @@ export function renderShellLayout({
           </div>
         </section>
       </aside>
+      ${globalOverlayHtml}
     </div>
   `;
 }
