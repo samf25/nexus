@@ -11,7 +11,7 @@ import {
   pulsePhaseDelaySeconds,
 } from "./rhythmCore.js";
 import { prestigeModifiersFromState } from "../../systems/prestige.js";
-import { formatDurationRemaining, getCradleActiveBoosts, getCradleLootModifiers, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
+import { formatDurationRemaining, formatLootItemEffectSummary, getCradleActiveBoosts, getCradleLootModifiers, getCradleSlotSummaryEntries, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "CRD02";
@@ -496,7 +496,10 @@ function manualMadraGain(runtime) {
   const harmonized = levelOf(runtime, "core-harmonization") > 0 ? 1 : 0;
   const base = Math.max(2, Math.pow(2, resonanceLevel + 1) + harmonized);
   const stageMultiplier = STAGE_MANUAL_MULTIPLIER[runtime.cultivationStage] || 1;
-  const prestigeMultiplier = Math.max(1, Number(runtime.prestige && runtime.prestige.madraGainMultiplier) || 1);
+  const prestigeMultiplier = Math.max(
+    1,
+    Number(runtime.prestige && runtime.prestige.manualCultivationRewardMultiplier) || 1,
+  );
   return Math.max(1, Math.round(base * stageMultiplier * prestigeMultiplier));
 }
 
@@ -561,7 +564,15 @@ function passiveSoulfirePerSecond(runtime) {
   const soulfireRate = soulfireCycler * 0.02;
   const underlordBoost = 1 + Math.max(0, stageIndex(runtime.cultivationStage) - stageIndex("underlord")) * 0.12;
   const prestigeMultiplier = Math.max(1, Number(runtime.prestige && runtime.prestige.soulfireGainMultiplier) || 1);
-  return (base + madraRate + soulfireRate) * underlordBoost * prestigeMultiplier;
+  const passiveMultiplier = Math.max(1, Number(runtime.prestige && runtime.prestige.passiveSoulfireRateMultiplier) || 1);
+  return (base + madraRate + soulfireRate) * underlordBoost * prestigeMultiplier * passiveMultiplier;
+}
+
+function breakthroughCost(runtime, stageId) {
+  const key = normalizeStage(stageId);
+  const baseCost = Math.max(0, Number(BREAKTHROUGH_COSTS[key]) || 0);
+  const divider = Math.max(1, Number(runtime.prestige && runtime.prestige.breakthroughCostDivider) || 1);
+  return Math.max(1, Math.round(baseCost / divider));
 }
 
 function applyPassiveTick(runtime, now) {
@@ -714,6 +725,18 @@ export function synchronizeCrd02Runtime(runtime, { now = nowMs(), state = null }
         Number(modifiers.cradle && modifiers.cradle.combatAttackMultiplier ? modifiers.cradle.combatAttackMultiplier : 1)
           * Number(lootModifiers.combatAttackMultiplier || 1),
       ),
+      manualCultivationRewardMultiplier: Math.max(
+        1,
+        Number(
+          modifiers.cradle && modifiers.cradle.manualCultivationRewardMultiplier
+            ? modifiers.cradle.manualCultivationRewardMultiplier
+            : 1,
+        ),
+      ),
+      breakthroughCostDivider: Math.max(
+        1,
+        Number(modifiers.cradle && modifiers.cradle.breakthroughCostDivider ? modifiers.cradle.breakthroughCostDivider : 1),
+      ),
       soulfireGainMultiplier: Math.max(
         1,
         Number(modifiers.cradle && modifiers.cradle.soulfireGainMultiplier ? modifiers.cradle.soulfireGainMultiplier : 1),
@@ -721,6 +744,14 @@ export function synchronizeCrd02Runtime(runtime, { now = nowMs(), state = null }
       soulfireCostDivider: Math.max(
         1,
         Number(modifiers.cradle && modifiers.cradle.soulfireCostDivider ? modifiers.cradle.soulfireCostDivider : 1),
+      ),
+      passiveSoulfireRateMultiplier: Math.max(
+        1,
+        Number(
+          modifiers.cradle && modifiers.cradle.passiveSoulfireRateMultiplier
+            ? modifiers.cradle.passiveSoulfireRateMultiplier
+            : 1,
+        ),
       ),
     },
   };
@@ -878,10 +909,11 @@ export function reduceCrd02Runtime(runtime, action) {
   if (action.type === "crd02-breakthrough") {
     const stage = normalizeStage(current.cultivationStage);
     if (stage === "foundation") {
-      if (current.madra < BREAKTHROUGH_COSTS.foundation) {
+      const cost = breakthroughCost(current, "foundation");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.foundation} madra to break through to Copper.`,
+          lastMessage: `You need ${cost} madra to break through to Copper.`,
         };
       }
       return {
@@ -893,10 +925,11 @@ export function reduceCrd02Runtime(runtime, action) {
     }
 
     if (stage === "copper") {
-      if (current.madra < BREAKTHROUGH_COSTS.copper) {
+      const cost = breakthroughCost(current, "copper");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.copper} madra to break through to Iron.`,
+          lastMessage: `You need ${cost} madra to break through to Iron.`,
         };
       }
 
@@ -920,10 +953,11 @@ export function reduceCrd02Runtime(runtime, action) {
     }
 
     if (stage === "iron") {
-      if (current.madra < BREAKTHROUGH_COSTS.iron) {
+      const cost = breakthroughCost(current, "iron");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.iron} madra to break through to Jade.`,
+          lastMessage: `You need ${cost} madra to break through to Jade.`,
         };
       }
       if (!rewardMatches(action.artifact, JADE_BREAKTHROUGH_ARTIFACT)) {
@@ -941,10 +975,11 @@ export function reduceCrd02Runtime(runtime, action) {
     }
 
     if (stage === "jade") {
-      if (current.madra < BREAKTHROUGH_COSTS.jade) {
+      const cost = breakthroughCost(current, "jade");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.jade} madra to advance to Low Gold.`,
+          lastMessage: `You need ${cost} madra to advance to Low Gold.`,
         };
       }
       return {
@@ -956,10 +991,11 @@ export function reduceCrd02Runtime(runtime, action) {
     }
 
     if (stage === "lowgold") {
-      if (current.madra < BREAKTHROUGH_COSTS.lowgold) {
+      const cost = breakthroughCost(current, "lowgold");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.lowgold} madra to advance to High Gold.`,
+          lastMessage: `You need ${cost} madra to advance to High Gold.`,
         };
       }
       return {
@@ -971,10 +1007,11 @@ export function reduceCrd02Runtime(runtime, action) {
     }
 
     if (stage === "highgold") {
-      if (current.madra < BREAKTHROUGH_COSTS.highgold) {
+      const cost = breakthroughCost(current, "highgold");
+      if (current.madra < cost) {
         return {
           ...current,
-          lastMessage: `You need ${BREAKTHROUGH_COSTS.highgold} madra to advance to True Gold.`,
+          lastMessage: `You need ${cost} madra to advance to True Gold.`,
         };
       }
       return {
@@ -1686,12 +1723,20 @@ function visibleRuntimeMessage(message) {
   return text;
 }
 
+function stageThemeClass(stageId) {
+  const stage = normalizeStage(stageId);
+  if (["foundation", "copper"].includes(stage)) return "early";
+  if (["iron", "jade"].includes(stage)) return "core";
+  if (["lowgold", "highgold", "truegold"].includes(stage)) return "gold";
+  if (["underlord", "overlord", "archlord"].includes(stage)) return "lord";
+  return "early";
+}
+
 function soulCircuitMarkup({
   unlockedSoulSlots,
   soulSlotIds,
   lootState,
   selectedLootItemId,
-  soulCrystals,
 } = {}) {
   const slotCount = Math.min(6, Math.max(0, Number(unlockedSoulSlots) || 0));
   const slots = Array.from({ length: slotCount }, (_, index) => {
@@ -1729,6 +1774,7 @@ function soulCircuitMarkup({
           : {},
     };
   });
+  const summaryEntries = getCradleSlotSummaryEntries({ inventory: { loot: lootState } });
 
   return `
     <section class="crd02-panel">
@@ -1743,7 +1789,21 @@ function soulCircuitMarkup({
         }),
         ariaLabel: "Cradle soul crystal circuit",
       })}
-      <p><strong>Available Soul Crystals:</strong> ${soulCrystals.length}</p>
+      <div class="slot-bonus-summary">
+        <span class="slot-bonus-kicker">Slotted Buffs</span>
+        <div class="slot-bonus-grid">
+          ${
+            summaryEntries.length
+              ? summaryEntries.map((entry) => `
+                <article class="slot-bonus-chip">
+                  <span>${escapeHtml(entry.label)}</span>
+                  <strong>${escapeHtml(entry.value)}</strong>
+                </article>
+              `).join("")
+              : '<p class="slot-bonus-empty">No active soul crystal bonuses.</p>'
+          }
+        </div>
+      </div>
       <div class="toolbar">
         <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>
       </div>
@@ -1793,7 +1853,26 @@ function combatLoadoutMarkup({ lootState, selectedLootItemId, equippedCombatId, 
         radiusPct: 41,
         ariaLabel: "Cradle combat gear slot",
       })}
-      <p><strong>Available Combat Relics:</strong> ${combatRelics.length}</p>
+      <div class="slot-bonus-summary">
+        <span class="slot-bonus-kicker">Equipped Buff</span>
+        <div class="slot-bonus-grid">
+          ${
+            equippedItem
+              ? formatLootItemEffectSummary(equippedItem, { maxEffects: 6 }).split(" | ").map((entry) => {
+                const parts = String(entry).split(": ");
+                const label = parts[0] || "Effect";
+                const value = parts.slice(1).join(": ") || "";
+                return `
+                  <article class="slot-bonus-chip">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(value)}</strong>
+                  </article>
+                `;
+              }).join("")
+              : '<p class="slot-bonus-empty">No combat relic equipped.</p>'
+          }
+        </div>
+      </div>
       <div class="toolbar">
         <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>
       </div>
@@ -1890,31 +1969,31 @@ export function renderCrd02Experience(context) {
   const hasJadePotionSelected = rewardMatches(selectedArtifact, JADE_BREAKTHROUGH_ARTIFACT);
   const breakthroughReady =
     currentStage === "foundation"
-      ? runtime.madra >= BREAKTHROUGH_COSTS.foundation
+      ? runtime.madra >= breakthroughCost(runtime, "foundation")
       : currentStage === "copper"
-        ? runtime.madra >= BREAKTHROUGH_COSTS.copper && hasIronPotionSelected
+        ? runtime.madra >= breakthroughCost(runtime, "copper") && hasIronPotionSelected
         : currentStage === "iron"
-          ? runtime.madra >= BREAKTHROUGH_COSTS.iron && hasJadePotionSelected
+          ? runtime.madra >= breakthroughCost(runtime, "iron") && hasJadePotionSelected
           : currentStage === "jade"
-            ? runtime.madra >= BREAKTHROUGH_COSTS.jade
+            ? runtime.madra >= breakthroughCost(runtime, "jade")
             : currentStage === "lowgold"
-              ? runtime.madra >= BREAKTHROUGH_COSTS.lowgold
+              ? runtime.madra >= breakthroughCost(runtime, "lowgold")
               : currentStage === "highgold"
-                ? runtime.madra >= BREAKTHROUGH_COSTS.highgold
+                ? runtime.madra >= breakthroughCost(runtime, "highgold")
                 : false;
   const breakthroughLabel =
     currentStage === "foundation"
-      ? `Breakthrough: Copper (${BREAKTHROUGH_COSTS.foundation} Madra)`
+      ? `Breakthrough: Copper (${breakthroughCost(runtime, "foundation")} Madra)`
       : currentStage === "copper"
-        ? `Breakthrough: Iron (${BREAKTHROUGH_COSTS.copper} Madra + Cultivation Potion)`
+        ? `Breakthrough: Iron (${breakthroughCost(runtime, "copper")} Madra + Cultivation Potion)`
         : currentStage === "iron"
-          ? `Breakthrough: Jade (${BREAKTHROUGH_COSTS.iron} Madra + Jade Condensation Elixir)`
+          ? `Breakthrough: Jade (${breakthroughCost(runtime, "iron")} Madra + Jade Condensation Elixir)`
           : currentStage === "jade"
-            ? `Breakthrough: Low Gold (${BREAKTHROUGH_COSTS.jade} Madra)`
+            ? `Breakthrough: Low Gold (${breakthroughCost(runtime, "jade")} Madra)`
             : currentStage === "lowgold"
-              ? `Breakthrough: High Gold (${BREAKTHROUGH_COSTS.lowgold} Madra)`
+              ? `Breakthrough: High Gold (${breakthroughCost(runtime, "lowgold")} Madra)`
               : currentStage === "highgold"
-                ? `Breakthrough: True Gold (${BREAKTHROUGH_COSTS.highgold} Madra)`
+                ? `Breakthrough: True Gold (${breakthroughCost(runtime, "highgold")} Madra)`
                 : currentStage === "truegold"
                   ? "Underlord advancement is forged in Nightwheel Valley."
                   : currentStage === "underlord"
@@ -1948,10 +2027,14 @@ export function renderCrd02Experience(context) {
             `
             : ""
         }
-        <div class="crd02-tech-row">
-          <div>
-            <p><strong>The Heart of Twin Stars</strong></p>
-            <p class="muted">Level ${escapeHtml(String(runtime.cycling.twinStarsLevel))} | ${(Math.pow(heartOfTwinStarsBase(runtime), runtime.cycling.twinStarsLevel) - 1).toFixed(3)} madra/sec</p>
+        <div class="crd02-cycle-grid">
+        <div class="crd02-tech-row crd02-cycle-card">
+          <div class="crd02-cycle-copy">
+            <strong>The Heart of Twin Stars</strong>
+            <div class="crd02-cycle-meta">
+              <span class="crd02-cycle-chip">Level ${escapeHtml(String(runtime.cycling.twinStarsLevel))}</span>
+              <span class="crd02-cycle-chip is-strong">+${escapeHtml((Math.pow(heartOfTwinStarsBase(runtime), runtime.cycling.twinStarsLevel) - 1).toFixed(3))}/sec</span>
+            </div>
           </div>
           <button
             type="button"
@@ -1964,10 +2047,19 @@ export function renderCrd02Experience(context) {
             Upgrade (${escapeHtml(String(twinCost))})
           </button>
         </div>
-        <div class="crd02-tech-row">
-          <div>
-            <p><strong>The Heaven and Earth Purification Wheel</strong></p>
-            <p class="muted">Level ${escapeHtml(String(runtime.cycling.heavenEarthLevel))} | ${crd06Solved ? `${escapeHtml(heavenAndEarthRate(runtime).toFixed(3))} madra/sec` : "Locked until Duel with Jai Long"}</p>
+        <div class="crd02-tech-row crd02-cycle-card">
+          <div class="crd02-cycle-copy">
+            <strong>The Heaven and Earth Purification Wheel</strong>
+            <div class="crd02-cycle-meta">
+              <span class="crd02-cycle-chip">Level ${escapeHtml(String(runtime.cycling.heavenEarthLevel))}</span>
+              <span class="crd02-cycle-chip ${crd06Solved ? "is-strong" : "is-locked"}">
+                ${
+                  crd06Solved
+                    ? `+${escapeHtml(heavenAndEarthRate(runtime).toFixed(3))}/sec`
+                    : "Locked until Duel with Jai Long"
+                }
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -1979,6 +2071,7 @@ export function renderCrd02Experience(context) {
           >
             Upgrade (${escapeHtml(String(heavenCost))})
           </button>
+        </div>
         </div>
       </section>
     `
@@ -2048,62 +2141,80 @@ export function renderCrd02Experience(context) {
   return `
     <article class="crd02-node" data-node-id="${NODE_ID}">
       <section class="crd02-header">
-        <div>
-          <h3>Madra Well</h3>
-          <p class="muted">Cultivate aura into madra. Stage: ${escapeHtml(stageLabel(currentStage))}</p>
+        <div class="crd02-header-copy">
+          <div class="crd02-header-title-row">
+            <h3>Madra Well</h3>
+            <span class="crd02-stage-badge is-${escapeHtml(stageThemeClass(currentStage))}">${escapeHtml(stageLabel(currentStage))}</span>
+          </div>
+          <p class="muted">Cultivate aura into madra and refine your cores through deliberate cycling.</p>
+          <div class="crd02-stage-row">
+            ${
+              activeCradleBoosts.length
+                ? `
+                  <span class="crd02-stage-boost">
+                    ${escapeHtml(activeCradleBoosts[0].label)}
+                    ${activeCradleBoosts[0].summary ? ` · ${escapeHtml(activeCradleBoosts[0].summary)}` : ""}
+                    · ${escapeHtml(formatDurationRemaining(activeCradleBoosts[0].remainingMs))}
+                  </span>
+                `
+                : ""
+            }
+          </div>
+          <div class="toolbar crd02-header-tabs">
+            <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="well" ${activeTab === "well" ? "disabled" : ""}>Madra Well</button>
+            <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="soul" ${activeTab === "soul" ? "disabled" : ""}>Soul Crystals</button>
+            <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="combat" ${activeTab === "combat" ? "disabled" : ""}>Combat Gear</button>
+            ${
+              stageIndex(currentStage) >= stageIndex("underlord") || runtime.soulfire.unlocked
+                ? `<button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="soulfire" ${activeTab === "soulfire" ? "disabled" : ""}>Soulfire</button>`
+                : ""
+            }
+          </div>
         </div>
         <div class="crd02-counter">
-          <p><strong>Madra</strong></p>
-          <p class="crd02-counter-value">${escapeHtml(runtime.madra.toFixed(2))}</p>
-          <p class="muted">${escapeHtml(mps.toFixed(3))}/sec passive</p>
-          ${
-            activeCradleBoosts.length
-              ? `
-                <p class="muted">
-                  Active boost:
-                  ${escapeHtml(activeCradleBoosts[0].label)}
-                  ${activeCradleBoosts[0].summary ? ` | ${escapeHtml(activeCradleBoosts[0].summary)}` : ""}
-                  (${escapeHtml(formatDurationRemaining(activeCradleBoosts[0].remainingMs))})
-                </p>
-              `
-              : ""
-          }
+          <article class="crd02-madra-card">
+            <span>Madra</span>
+            <strong class="crd02-counter-value">${escapeHtml(runtime.madra.toFixed(2))}</strong>
+          </article>
+          <div class="crd02-rate-grid">
+            <article class="crd02-rate-chip">
+              <span>Passive Gain</span>
+              <strong>+${escapeHtml(mps.toFixed(3))}/sec</strong>
+            </article>
+            <article class="crd02-rate-chip">
+              <span>Manual Gain</span>
+              <strong>+${escapeHtml(String(manualReward))}</strong>
+            </article>
+          </div>
         </div>
       </section>
-
-      <section class="crd02-controls">
-        <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-manual">Manual Cultivation</button>
-        <button
-          type="button"
-          data-node-id="${NODE_ID}"
-          data-node-action="crd02-open-techniques"
-          ${canSeeMenus ? "" : "disabled"}
-        >
-          Open Techniques
-        </button>
-        <button
-          type="button"
-          data-node-id="${NODE_ID}"
-          data-node-action="crd02-breakthrough"
-          data-selected-artifact="${escapeHtml(selectedArtifact)}"
-          data-breakthrough-ready="${breakthroughReady ? "true" : "false"}"
-          ${breakthroughReady ? "" : "disabled"}
-        >
-          ${escapeHtml(breakthroughLabel)}
-        </button>
-      </section>
-      <section class="crd02-panel">
-        <div class="toolbar">
-          <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="well" ${activeTab === "well" ? "disabled" : ""}>Madra Well</button>
-          <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="soul" ${activeTab === "soul" ? "disabled" : ""}>Soul Crystals</button>
-          <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="combat" ${activeTab === "combat" ? "disabled" : ""}>Combat Gear</button>
-          ${
-            stageIndex(currentStage) >= stageIndex("underlord") || runtime.soulfire.unlocked
-              ? `<button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-tab" data-tab="soulfire" ${activeTab === "soulfire" ? "disabled" : ""}>Soulfire</button>`
-              : ""
-          }
-        </div>
-      </section>
+      ${
+        activeTab === "well"
+          ? `
+            <section class="crd02-controls">
+              <button type="button" data-node-id="${NODE_ID}" data-node-action="crd02-open-manual">Manual Cultivation</button>
+              <button
+                type="button"
+                data-node-id="${NODE_ID}"
+                data-node-action="crd02-open-techniques"
+                ${canSeeMenus ? "" : "disabled"}
+              >
+                Open Techniques
+              </button>
+              <button
+                type="button"
+                data-node-id="${NODE_ID}"
+                data-node-action="crd02-breakthrough"
+                data-selected-artifact="${escapeHtml(selectedArtifact)}"
+                data-breakthrough-ready="${breakthroughReady ? "true" : "false"}"
+                ${breakthroughReady ? "" : "disabled"}
+              >
+                ${escapeHtml(breakthroughLabel)}
+              </button>
+            </section>
+          `
+          : ""
+      }
 
       ${
         activeTab === "soul"

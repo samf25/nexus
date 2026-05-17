@@ -822,10 +822,21 @@ function dccModifiers(state) {
   return {
     maxHpBonus: Math.max(0, Number(source.maxHpBonus) || 0),
     attackBonus: Math.max(0, Number(source.attackBonus) || 0),
+    maxStaminaBonus: Math.max(0, Number(source.maxStaminaBonus) || 0),
+    damageReduction: Math.max(0, Number(source.damageReduction) || 0),
     goldGainBonus: Math.max(0, Number(source.goldGainBonus) || 0),
     rareDropBonus: Math.max(0, Number(source.rareDropBonus) || 0),
+    shopPriceDivider: Math.max(1, Number(source.shopPriceDivider) || 1),
+    mapRevealChanceBonus: Math.max(0, Number(source.mapRevealChanceBonus) || 0),
     startWithSponsorSkill: Boolean(source.startWithSponsorSkill),
     extraAbilitySlots: Math.max(0, Number(source.extraAbilitySlots) || 0),
+    startBasicAttackRefinements: Math.max(0, Number(source.startBasicAttackRefinements) || 0),
+    tomeDropChanceBonus: Math.max(0, Number(source.tomeDropChanceBonus) || 0),
+    skillDamageMultiplier: Math.max(1, Number(source.skillDamageMultiplier) || 1),
+    potionHealingMultiplier: Math.max(1, Number(source.potionHealingMultiplier) || 1),
+    startingHealingPotions: Math.max(0, Math.floor(Number(source.startingHealingPotions) || 0)),
+    startingGoldBonus: Math.max(0, Math.floor(Number(source.startingGoldBonus) || 0)),
+    bonusLootRollChance: Math.max(0, Number(source.bonusLootRollChance) || 0),
   };
 }
 
@@ -872,7 +883,7 @@ function deriveBaseStats(meta, modifiers) {
   return {
     maxHp: 70 + (meta.upgrades.hp * 12) + modifiers.maxHpBonus,
     attack: 8 + (meta.upgrades.attack * 2) + modifiers.attackBonus,
-    maxStamina: 6 + (meta.upgrades.stamina * 2),
+    maxStamina: 6 + (meta.upgrades.stamina * 2) + modifiers.maxStaminaBonus,
     slotCount,
     rareBonus: Math.min(0.45, (meta.upgrades.rare * 0.05) + modifiers.rareDropBonus),
     goldMultiplier: 1 + modifiers.goldGainBonus,
@@ -1046,13 +1057,16 @@ function farthestRooms(startKey, roomKeys) {
   });
 }
 
-function chooseLootDrop(rand, rareBonus, floor = 1) {
+function chooseLootDrop(rand, rareBonus, floor = 1, tomeDropChanceBonus = 0) {
   const entries = LOOT_TABLE.map((entry) => {
     let weight = Number(entry.weight) || 1;
     const minFloor = Math.max(1, Math.floor(Number(entry.minFloor) || 1));
     const currentFloor = Math.max(1, Math.floor(Number(floor) || 1));
     if (currentFloor < minFloor) {
       weight = 0;
+    }
+    if (entry.type === "book") {
+      weight *= 1 + Math.max(0, Number(tomeDropChanceBonus || 0)) * 2.2;
     }
     if (entry.rarity === "epic") {
       weight *= 1 + (rareBonus * 8.5);
@@ -1234,6 +1248,11 @@ function randomCheckpointBasicBoosts(rand) {
     available.splice(index, 1);
   }
   return chosen;
+}
+
+function randomBasicRefinement(rand) {
+  const picks = randomCheckpointBasicBoosts(rand);
+  return picks[0] || Object.freeze({ stat: "damage", amount: 3, rarity: "rare" });
 }
 
 function scaledAbility(run, abilityId) {
@@ -1993,8 +2012,14 @@ function startFloor(runtime, state, floor = 1) {
     baseAttack: stats.attack,
     rareBonus: stats.rareBonus,
     goldMultiplier: stats.goldMultiplier,
+    damageReduction: modifiers.damageReduction,
+    shopPriceDivider: modifiers.shopPriceDivider,
+    tomeDropChanceBonus: modifiers.tomeDropChanceBonus,
+    skillDamageMultiplier: modifiers.skillDamageMultiplier,
+    potionHealingMultiplier: modifiers.potionHealingMultiplier,
+    bonusLootRollChance: modifiers.bonusLootRollChance,
     bag: [],
-    hasFloorMap: false,
+    hasFloorMap: createRng(seed + 97)() < Math.max(0, modifiers.mapRevealChanceBonus),
     abilitySlots: slots,
     abilityRefinements: {},
     combat: null,
@@ -2014,7 +2039,23 @@ function startFloor(runtime, state, floor = 1) {
       ...run.log,
     ].slice(0, 20);
   }
+  if (modifiers.startBasicAttackRefinements > 0) {
+    const refineRand = createRng(seed + 9127);
+    for (let index = 0; index < modifiers.startBasicAttackRefinements; index += 1) {
+      applyAbilityBoosts(run, "basic", [randomBasicRefinement(refineRand)]);
+    }
+  }
+  for (let index = 0; index < modifiers.startingHealingPotions; index += 1) {
+    pushSimpleBagItem(run, {
+      type: "consumable",
+      itemId: "health_potion",
+      label: "Health Potion",
+    });
+  }
   applyEquipmentToRun(run);
+  if (runtime && runtime.meta) {
+    runtime.meta.gold = Math.max(0, Number(runtime.meta.gold || 0)) + modifiers.startingGoldBonus;
+  }
   run.hp = run.maxHp;
   run.stamina = run.maxStamina;
   return run;
@@ -2368,10 +2409,25 @@ function resolveRoomVictory(runtime, run) {
       : Math.min(0.82, 0.62 + floorDepth * 0.04);
   for (let index = 0; index < dropCount + packBonus; index += 1) {
     if (rand() < dropChance) {
-      const item = chooseLootDrop(rand, currentFloorRareBonus(run, tierRareBonus), run.floor);
+      const item = chooseLootDrop(
+        rand,
+        currentFloorRareBonus(run, tierRareBonus),
+        run.floor,
+        run.tomeDropChanceBonus,
+      );
       run.bag.push(item);
       addLog(run, `Loot drop: ${item.label}.`);
     }
+  }
+  if (rand() < Math.max(0, Number(run.bonusLootRollChance || 0))) {
+    const bonusItem = chooseLootDrop(
+      rand,
+      currentFloorRareBonus(run, tierRareBonus + 0.04),
+      run.floor,
+      run.tomeDropChanceBonus,
+    );
+    run.bag.push(bonusItem);
+    addLog(run, `Scavenger instinct finds ${bonusItem.label}.`);
   }
 }
 
@@ -2526,7 +2582,11 @@ function enemyAct(runtime, now, enemyIndex = null) {
   enemy.acted += 1;
   const blocked = Math.min(base, Math.max(0, Number(combat.block) || 0));
   combat.block = Math.max(0, (Number(combat.block) || 0) - blocked);
-  const damage = Math.max(0, base - blocked);
+  const rawDamage = Math.max(0, base - blocked);
+  const damage = Math.max(
+    0,
+    Math.round(rawDamage * (1 - Math.min(0.8, Math.max(0, Number(run.damageReduction || 0))))),
+  );
   run.hp = Math.max(0, run.hp - damage);
 
   if (enemy.trait === "leech_hit" && damage > 0 && rand() < 0.3) {
@@ -2584,17 +2644,17 @@ function useItemInRun(run, itemIndex) {
     return "Item not found.";
   }
   if (item.type === "consumable" && item.itemId === "health_potion") {
-    run.hp = Math.min(run.maxHp, run.hp + 28);
+    run.hp = Math.min(run.maxHp, run.hp + Math.round(28 * Math.max(1, Number(run.potionHealingMultiplier || 1))));
     bag.splice(index, 1);
     return "Health restored.";
   }
   if (item.type === "consumable" && item.itemId === "greater_health_potion") {
-    run.hp = Math.min(run.maxHp, run.hp + 55);
+    run.hp = Math.min(run.maxHp, run.hp + Math.round(55 * Math.max(1, Number(run.potionHealingMultiplier || 1))));
     bag.splice(index, 1);
     return "Greater health restored.";
   }
   if (item.type === "consumable" && item.itemId === "legend_health_potion") {
-    run.hp = Math.min(run.maxHp, run.hp + 95);
+    run.hp = Math.min(run.maxHp, run.hp + Math.round(95 * Math.max(1, Number(run.potionHealingMultiplier || 1))));
     bag.splice(index, 1);
     return "Legendary health restored.";
   }
@@ -2754,7 +2814,13 @@ function resolveCombatAction(runtime, abilityIndex) {
       hitSummaries.push(`${enemy.name} slips clear`);
       continue;
     }
-    const damage = Math.max(1, Math.round((run.attack * ability.multiplier) + ability.bonusDamage + randomInt(rand, 0, 3)));
+    const damage = Math.max(
+      1,
+      Math.round(
+        ((run.attack * ability.multiplier) + ability.bonusDamage + randomInt(rand, 0, 3))
+          * Math.max(1, Number(run.skillDamageMultiplier || 1)),
+      ),
+    );
     enemy.hp = Math.max(0, enemy.hp - damage);
     if (ability.inflictBlind) {
       enemy.blinded = true;
@@ -2837,7 +2903,7 @@ function resolveEncounter(runtime, optionId) {
   const room = currentRoom(run);
   const rand = createRng(Date.now() + run.floor * 521);
   if (option.effect === "loot") {
-    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor);
+    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor, run.tomeDropChanceBonus);
     run.bag.push(item);
     room.cleared = true;
     run.event = null;
@@ -2868,8 +2934,8 @@ function resolveEncounter(runtime, optionId) {
     return "Supply purchased.";
   }
   if (option.effect === "loot_plus") {
-    const first = chooseLootDrop(rand, currentFloorRareBonus(run, 0.08), run.floor);
-    const second = chooseLootDrop(rand, currentFloorRareBonus(run, 0.14), run.floor);
+    const first = chooseLootDrop(rand, currentFloorRareBonus(run, 0.08), run.floor, run.tomeDropChanceBonus);
+    const second = chooseLootDrop(rand, currentFloorRareBonus(run, 0.14), run.floor, run.tomeDropChanceBonus);
     run.bag.push(first);
     run.bag.push(second);
     room.cleared = true;
@@ -2943,7 +3009,7 @@ function resolveEncounter(runtime, optionId) {
   }
   if (option.effect === "gain_loot_or_gold") {
     if (rand() < 0.5) {
-      const item = chooseLootDrop(rand, currentFloorRareBonus(run, 0.1), run.floor);
+      const item = chooseLootDrop(rand, currentFloorRareBonus(run, 0.1), run.floor, run.tomeDropChanceBonus);
       run.bag.push(item);
       room.cleared = true;
       run.event = null;
@@ -3055,7 +3121,7 @@ function resolveEncounter(runtime, optionId) {
   }
   if (option.effect === "heal_or_ambush") {
     if (rand() < 0.62) {
-      run.hp = Math.min(run.maxHp, run.hp + 30);
+      run.hp = Math.min(run.maxHp, run.hp + Math.round(30 * Math.max(1, Number(run.potionHealingMultiplier || 1))));
       room.cleared = true;
       run.event = null;
       if (run.roomState) {
@@ -3074,11 +3140,12 @@ function resolveEncounter(runtime, optionId) {
     return "The fountain was bait. Combat begins.";
   }
   if (option.effect === "buy_rare_supply") {
-    if (runtime.meta.gold < 28) {
-      return "Need 28 gold.";
+    const price = Math.max(1, Math.round(28 / Math.max(1, Number(run.shopPriceDivider || 1))));
+    if (runtime.meta.gold < price) {
+      return `Need ${price} gold.`;
     }
-    runtime.meta.gold -= 28;
-    const premium = chooseLootDrop(rand, currentFloorRareBonus(run, 0.2), Math.max(4, run.floor));
+    runtime.meta.gold -= price;
+    const premium = chooseLootDrop(rand, currentFloorRareBonus(run, 0.2), Math.max(4, run.floor), run.tomeDropChanceBonus);
     run.bag.push(premium);
     room.cleared = true;
     run.event = null;
@@ -3090,7 +3157,7 @@ function resolveEncounter(runtime, optionId) {
   }
   if (option.effect === "steal_loot_or_fight") {
     if (rand() < 0.55) {
-      const stolen = chooseLootDrop(rand, currentFloorRareBonus(run, 0.18), Math.max(4, run.floor));
+      const stolen = chooseLootDrop(rand, currentFloorRareBonus(run, 0.18), Math.max(4, run.floor), run.tomeDropChanceBonus);
       run.bag.push(stolen);
       room.cleared = true;
       run.event = null;
@@ -3233,7 +3300,7 @@ function resolveTileInteraction(runtime, contextState) {
 
   if (roomState.chest && player.x === roomState.chest.x && player.y === roomState.chest.y && !room.cleared) {
     const rand = createRng(Date.now() + run.floor * 977 + hashText(room.id));
-    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor);
+    const item = chooseLootDrop(rand, currentFloorRareBonus(run), run.floor, run.tomeDropChanceBonus);
     run.bag.push(item);
     room.cleared = true;
     roomState.chest = null;

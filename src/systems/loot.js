@@ -1,4 +1,5 @@
 import { normalizeArcaneSystemState } from "./arcaneAscension.js";
+import { prestigeModifiersFromState } from "./prestige.js";
 
 const LOOT_REGIONS = Object.freeze(["crd", "worm", "dcc", "aa"]);
 
@@ -2015,6 +2016,8 @@ export function getWormCapeLootBonuses(state, cardId, now = Date.now()) {
     ? loot.loadouts.worm.shardSlotsByCape[cleanCardId].slice(0, unlocked)
     : [];
   const effects = collectItemEffects(loot, slots.filter(Boolean));
+  const wormPrestige = prestigeModifiersFromState(state || {}).worm || {};
+  const shardMultiplier = Math.max(1, safeFinite(wormPrestige.shardEffectMultiplier, 1));
   const bonuses = {
     attack: 0,
     defense: 0,
@@ -2024,11 +2027,14 @@ export function getWormCapeLootBonuses(state, cardId, now = Date.now()) {
     range: 0,
     speed: 0,
     stealth: 0,
+    maxHpMultiplier: Math.max(1, safeFinite(wormPrestige.capeMaxHpMultiplier, 1)),
+    damageMultiplier: Math.max(1, safeFinite(wormPrestige.capeDamageMultiplier, 1)),
+    damageReduction: Math.max(0, safeFinite(wormPrestige.capeDamageReduction, 0)),
   };
 
   for (const effect of effects) {
     if (Object.prototype.hasOwnProperty.call(bonuses, effect.key)) {
-      bonuses[effect.key] += Math.max(0, Math.floor(safeFinite(effect.value, 0)));
+      bonuses[effect.key] += Math.max(0, Math.floor(safeFinite(effect.value, 0) * shardMultiplier));
     }
   }
 
@@ -2085,6 +2091,99 @@ export function getArcaneLootModifiers(state, now = Date.now()) {
   }
 
   return result;
+}
+
+export function getCradleSlotSummaryEntries(state, now = Date.now()) {
+  const loot = lootInventoryFromState(state, now);
+  const crystalSlots = loot.loadouts.cradle.soulCrystalSlots || [];
+  const equipped = crystalSlots.filter(Boolean);
+  const staticEffects = collectItemEffects(loot, equipped);
+  let madraGainMultiplier = 1;
+  let cyclingCostDivider = 1;
+  let combatAttackMultiplier = 1;
+  for (const effect of staticEffects) {
+    if (effect.key === "madra_gain_mult") {
+      madraGainMultiplier *= Math.max(1, effect.value);
+    }
+    if (effect.key === "cycling_cost_divider") {
+      cyclingCostDivider *= Math.max(1, effect.value);
+    }
+    if (effect.key === "crd_attack_mult") {
+      combatAttackMultiplier *= Math.max(1, effect.value);
+    }
+  }
+  const entries = [];
+  if (Math.abs(madraGainMultiplier - 1) > 0.001) {
+    entries.push({ label: "Madra gain", value: `x${madraGainMultiplier.toFixed(2)}` });
+  }
+  if (Math.abs(cyclingCostDivider - 1) > 0.001) {
+    entries.push({ label: "Cycling cost", value: `/${cyclingCostDivider.toFixed(2)}` });
+  }
+  if (Math.abs(combatAttackMultiplier - 1) > 0.001) {
+    entries.push({ label: "Cradle attack", value: `x${combatAttackMultiplier.toFixed(2)}` });
+  }
+  return entries;
+}
+
+export function getWormCapeShardSummaryEntries(state, cardId, now = Date.now()) {
+  const loot = lootInventoryFromState(state, now);
+  const cleanCardId = safeText(cardId);
+  const unlocked = wormShardSlotCountFromProgression(loot.progression, cleanCardId);
+  const slots = cleanCardId && Array.isArray(loot.loadouts.worm.shardSlotsByCape[cleanCardId])
+    ? loot.loadouts.worm.shardSlotsByCape[cleanCardId].slice(0, unlocked)
+    : [];
+  const effects = collectItemEffects(loot, slots.filter(Boolean));
+  const wormPrestige = prestigeModifiersFromState(state || {}).worm || {};
+  const shardMultiplier = Math.max(1, safeFinite(wormPrestige.shardEffectMultiplier, 1));
+  const totals = {
+    attack: 0,
+    defense: 0,
+    endurance: 0,
+    info: 0,
+    manipulation: 0,
+    range: 0,
+    speed: 0,
+    stealth: 0,
+  };
+  for (const effect of effects) {
+    if (Object.prototype.hasOwnProperty.call(totals, effect.key)) {
+      totals[effect.key] += Math.max(0, Math.floor(safeFinite(effect.value, 0) * shardMultiplier));
+    }
+  }
+  return Object.entries(totals)
+    .filter(([, value]) => Math.abs(Number(value) || 0) > 0.001)
+    .map(([key, value]) => effectSummaryLabelAndValue({ key, value }))
+    .filter(Boolean);
+}
+
+export function getArcaneWorkshopSlotSummaryEntries(state, now = Date.now()) {
+  const mods = getArcaneLootModifiers(state, now);
+  const entries = [];
+  if (Math.abs(mods.manaMaxFlat) > 0.001) {
+    entries.push({ label: "Mana", value: signedNumber(mods.manaMaxFlat, 0) });
+  }
+  if (Math.abs(mods.accuracyFlat) > 0.001) {
+    entries.push({ label: "Rune accuracy", value: signedNumber(mods.accuracyFlat, 2) });
+  }
+  if (Math.abs(mods.manaRegenPct) > 0.0001) {
+    entries.push({ label: "Mana regen", value: `+${(mods.manaRegenPct * 100).toFixed(1)}%` });
+  }
+  if (Math.abs(mods.manaGrowthPct) > 0.0001) {
+    entries.push({ label: "Mana growth", value: `+${(mods.manaGrowthPct * 100).toFixed(1)}%` });
+  }
+  if (Math.abs(mods.rarityBiasFlat) > 0.0001) {
+    entries.push({ label: "Craft rarity", value: `+${(mods.rarityBiasFlat * 100).toFixed(1)}%` });
+  }
+  if (Math.abs(mods.buyDiscountPct) > 0.0001) {
+    entries.push({ label: "Shop discount", value: `+${(mods.buyDiscountPct * 100).toFixed(1)}%` });
+  }
+  if (Math.abs(mods.sellBonusPct) > 0.0001) {
+    entries.push({ label: "Sell value", value: `+${(mods.sellBonusPct * 100).toFixed(1)}%` });
+  }
+  if (Math.abs(mods.extraWorkshopSlots) > 0.001) {
+    entries.push({ label: "Workshop slots", value: `${Math.round(mods.extraWorkshopSlots) >= 0 ? "+" : ""}${Math.round(mods.extraWorkshopSlots)}` });
+  }
+  return entries;
 }
 
 export function addTwiReputation(state, amount) {

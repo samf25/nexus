@@ -6,6 +6,8 @@ const PRESTIGE_REGIONS = Object.freeze([
     pointLabel: "Condensed Madra",
     baseResetCost: 180,
     growth: 2.1,
+    firstPayoutThreshold: 0.5,
+    payoutStep: 3.2,
   }),
   Object.freeze({
     id: "worm",
@@ -14,6 +16,8 @@ const PRESTIGE_REGIONS = Object.freeze([
     pointLabel: "Shard",
     baseResetCost: 100,
     growth: 2.02,
+    firstPayoutThreshold: 0.22,
+    payoutStep: 2.15,
   }),
   Object.freeze({
     id: "dcc",
@@ -22,6 +26,8 @@ const PRESTIGE_REGIONS = Object.freeze([
     pointLabel: "Sponsor",
     baseResetCost: 420,
     growth: 2.08,
+    firstPayoutThreshold: 0.24,
+    payoutStep: 2.45,
   }),
 ]);
 
@@ -29,74 +35,393 @@ const PRESTIGE_REGION_BY_ID = Object.freeze(
   Object.fromEntries(PRESTIGE_REGIONS.map((region) => [region.id, region])),
 );
 
+const PRESTIGE_TIER_COSTS = Object.freeze({
+  1: Object.freeze([1, 2, 3, 5, 8]),
+  2: Object.freeze([3, 5, 8, 12]),
+  3: Object.freeze([6, 10, 15]),
+});
+
+function makeUpgrade({
+  id,
+  label,
+  branch,
+  tier,
+  effect,
+  prereqs = [],
+  regionGate = "",
+  shape = "hex",
+} = {}) {
+  const costs = (PRESTIGE_TIER_COSTS[Math.max(1, Math.min(3, Number(tier) || 1))] || PRESTIGE_TIER_COSTS[1]).slice();
+  return Object.freeze({
+    id: String(id || "").trim().toLowerCase(),
+    label: String(label || "").trim() || "Unnamed Upgrade",
+    branch: String(branch || "").trim().toLowerCase(),
+    tier: Math.max(1, Math.min(3, Math.floor(Number(tier) || 1))),
+    maxLevel: costs.length,
+    costs: Object.freeze(costs),
+    effect: String(effect || "").trim(),
+    prereqs: Object.freeze(
+      (Array.isArray(prereqs) ? prereqs : []).map((entry) =>
+        Object.freeze({
+          id: String(entry && entry.id ? entry.id : "").trim().toLowerCase(),
+          level: Math.max(1, Math.floor(Number(entry && entry.level) || 1)),
+        }),
+      ),
+    ),
+    regionGate: String(regionGate || "").trim().toLowerCase(),
+    shape: String(shape || "hex").trim().toLowerCase(),
+  });
+}
+
+function branchNode({ regionGate = "", branch, tier, id, label, effect, shape, prereqs: extraPrereqs = [] } = {}) {
+  const normalizedBranch = String(branch || "").trim().toLowerCase();
+  const normalizedTier = Math.max(1, Math.min(3, Math.floor(Number(tier) || 1)));
+  const mergedPrereqs = Array.isArray(extraPrereqs) ? extraPrereqs : [];
+  return makeUpgrade({
+    id,
+    label,
+    branch: normalizedBranch,
+    tier: normalizedTier,
+    effect,
+    prereqs: mergedPrereqs,
+    regionGate,
+    shape,
+  });
+}
+
 const PRESTIGE_UPGRADES = Object.freeze({
   cradle: Object.freeze([
-    Object.freeze({
+    branchNode({
+      id: "remnant-seed",
+      label: "Remnant Seed",
+      branch: "aura",
+      tier: 1,
+      shape: "circle",
+      effect: "Begin each Cradle loop with extra madra already pooled in your core.",
+    }),
+    branchNode({
       id: "madra-surge",
       label: "Madra Surge",
-      cost: 1,
-      effect: "A strong boost to madra gain across every loop.",
+      branch: "aura",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "remnant-seed", level: 2 }, { id: "manual-echo", level: 1 }],
+      effect: "Increase passive madra gain across the Madra Well.",
     }),
-    Object.freeze({
+    branchNode({
       id: "cycle-economy",
       label: "Cycle Economy",
-      cost: 1,
-      effect: "Meaningfully lowers Madra Well cycling costs.",
+      branch: "aura",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "madra-surge", level: 2 }, { id: "breakthrough-memory", level: 1 }],
+      effect: "Reduce the cost of cycling-technique upgrades in the Well.",
     }),
-    Object.freeze({
+    branchNode({
       id: "combat-edge",
       label: "Combat Edge",
-      cost: 1,
-      effect: "Sharpens combat techniques and strike output.",
+      branch: "combat",
+      tier: 1,
+      shape: "circle",
+      effect: "Sharpen combat strikes throughout Cradle encounters.",
     }),
-    Object.freeze({
+    branchNode({
+      id: "soul-cloak-memory",
+      label: "Soul Cloak Memory",
+      branch: "combat",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "combat-edge", level: 2 }, { id: "remnant-seed", level: 1 }],
+      effect: "Improve dodge windows and ease technique madra costs.",
+    }),
+    branchNode({
+      id: "empty-palm-insight",
+      label: "Empty Palm Insight",
+      branch: "combat",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "soul-cloak-memory", level: 2 }, { id: "manual-echo", level: 1 }],
+      effect: "Increase the odds that Empty Palm lands cleanly on stronger opponents.",
+    }),
+    branchNode({
+      id: "manual-echo",
+      label: "Manual Echo",
+      branch: "continuity",
+      tier: 1,
+      shape: "circle",
+      effect: "Improve the madra returned by manual cultivation.",
+    }),
+    branchNode({
+      id: "breakthrough-memory",
+      label: "Breakthrough Memory",
+      branch: "continuity",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "manual-echo", level: 2 }, { id: "combat-edge", level: 1 }],
+      effect: "Reduce breakthrough costs throughout the advancement ladder.",
+    }),
+    branchNode({
+      id: "battle-memory-array",
+      label: "Battle Memory Array",
+      branch: "continuity",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "breakthrough-memory", level: 2 }, { id: "soul-cloak-memory", level: 1 }],
+      effect: "Reduce incoming combat damage and create more enemy fumbles.",
+    }),
+    branchNode({
       id: "soulfire-surge",
       label: "Soulfire Surge",
-      cost: 1,
-      effect: "Strengthens soulfire generation in lord-level loops.",
+      branch: "soulfire",
+      tier: 1,
+      regionGate: "underlord",
+      shape: "circle",
+      prereqs: [{ id: "battle-memory-array", level: 1 }],
+      effect: "Increase soulfire generation once lord-level loops open.",
     }),
-    Object.freeze({
+    branchNode({
       id: "soulfire-forge",
       label: "Soulfire Forge",
-      cost: 1,
-      effect: "Makes soulfire growth upgrades cheaper in the Well.",
+      branch: "soulfire",
+      tier: 2,
+      regionGate: "underlord",
+      shape: "diamond",
+      prereqs: [{ id: "soulfire-surge", level: 2 }, { id: "cycle-economy", level: 1 }],
+      effect: "Reduce soulfire upgrade costs within the Madra Well.",
+    }),
+    branchNode({
+      id: "soulfire-furnace",
+      label: "Soulfire Furnace",
+      branch: "soulfire",
+      tier: 3,
+      regionGate: "underlord",
+      shape: "hex",
+      prereqs: [{ id: "soulfire-forge", level: 2 }, { id: "battle-memory-array", level: 2 }],
+      effect: "Increase passive soulfire output after reaching Underlord.",
     }),
   ]),
   worm: Object.freeze([
-    Object.freeze({
+    branchNode({
       id: "clout-surge",
       label: "Clout Surge",
-      cost: 1,
-      effect: "Raises clout gain from fights and contracts.",
+      branch: "reputation",
+      tier: 1,
+      shape: "circle",
+      effect: "Raise clout gain from battles and contracts.",
     }),
-    Object.freeze({
+    branchNode({
       id: "job-window",
       label: "Improved Job Window",
-      cost: 1,
-      effect: "Improves the odds of pulling stronger capes.",
+      branch: "reputation",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "clout-surge", level: 2 }, { id: "shard-lattice", level: 1 }],
+      effect: "Improve the odds of pulling stronger capes from the basic board.",
+    }),
+    branchNode({
+      id: "special-window-broker",
+      label: "Special Window Broker",
+      branch: "reputation",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "job-window", level: 2 }, { id: "street-medicine", level: 1 }],
+      effect: "Improve the quality of special hiring windows.",
+    }),
+    branchNode({
+      id: "street-medicine",
+      label: "Street Medicine",
+      branch: "recovery",
+      tier: 1,
+      shape: "circle",
+      effect: "Speed up cape recovery in the Sickbay.",
+    }),
+    branchNode({
+      id: "cape-conditioning",
+      label: "Cape Conditioning",
+      branch: "recovery",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "street-medicine", level: 2 }, { id: "trauma-plates", level: 1 }],
+      effect: "Increase cape durability across every fight.",
+    }),
+    branchNode({
+      id: "threat-drills",
+      label: "Threat Drills",
+      branch: "recovery",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "cape-conditioning", level: 2 }, { id: "job-window", level: 1 }],
+      effect: "Increase cape damage output in Worm combat.",
+    }),
+    branchNode({
+      id: "trauma-plates",
+      label: "Trauma Plates",
+      branch: "survival",
+      tier: 1,
+      shape: "circle",
+      effect: "Reduce incoming damage in Worm combat.",
+    }),
+    branchNode({
+      id: "sickbay-overflow",
+      label: "Sickbay Overflow",
+      branch: "survival",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "trauma-plates", level: 2 }, { id: "street-medicine", level: 1 }],
+      effect: "Expand Sickbay capacity once the branch is deep enough.",
+    }),
+    branchNode({
+      id: "compactifier-routines",
+      label: "Compactifier Routines",
+      branch: "survival",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "sickbay-overflow", level: 2 }, { id: "cape-conditioning", level: 1 }],
+      effect: "Reduce the duplicate-copy cost of compactification.",
+    }),
+    branchNode({
+      id: "shard-lattice",
+      label: "Shard Lattice",
+      branch: "spoils",
+      tier: 1,
+      shape: "circle",
+      effect: "Increase the strength of shard-slot bonuses.",
+    }),
+    branchNode({
+      id: "broker-network",
+      label: "Broker Network",
+      branch: "spoils",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "shard-lattice", level: 2 }, { id: "clout-surge", level: 1 }],
+      effect: "Increase the chance that Worm victories also recover loot.",
+    }),
+    branchNode({
+      id: "high-stakes-sponsors",
+      label: "High-Stakes Sponsors",
+      branch: "spoils",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "broker-network", level: 2 }, { id: "threat-drills", level: 1 }],
+      effect: "Increase Worm loot rarity when drops do occur.",
     }),
   ]),
   dcc: Object.freeze([
-    Object.freeze({
+    branchNode({
       id: "sponsor-might",
       label: "Sponsor Might",
-      cost: 1,
-      effect: "Permanent attack and health boosts",
+      branch: "body",
+      tier: 1,
+      shape: "circle",
+      effect: "Permanent health and attack boosts at the start of each crawl.",
     }),
-    Object.freeze({
+    branchNode({
+      id: "conditioning-program",
+      label: "Conditioning Program",
+      branch: "body",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "sponsor-might", level: 2 }, { id: "field-medicine", level: 1 }],
+      effect: "Increase starting stamina every run.",
+    }),
+    branchNode({
+      id: "crowd-survival",
+      label: "Crowd Survival",
+      branch: "body",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "conditioning-program", level: 2 }, { id: "market-favors", level: 1 }],
+      effect: "Reduce incoming damage in crawl combat.",
+    }),
+    branchNode({
       id: "sponsor-bounty",
       label: "Sponsor Bounty",
-      cost: 1,
-      effect: "Higher gold gain and better drop rarity",
+      branch: "wealth",
+      tier: 1,
+      shape: "circle",
+      effect: "Increase gold gain and improve loot rarity.",
     }),
-    Object.freeze({
+    branchNode({
+      id: "market-favors",
+      label: "Market Favors",
+      branch: "wealth",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "sponsor-bounty", level: 2 }, { id: "sponsor-might", level: 1 }],
+      effect: "Reduce the effective cost of buying rare supplies.",
+    }),
+    branchNode({
+      id: "floor-reader",
+      label: "Floor Reader",
+      branch: "wealth",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "market-favors", level: 2 }, { id: "skill-index", level: 1 }],
+      effect: "Increase the odds of starting with map knowledge.",
+    }),
+    branchNode({
       id: "sponsor-arsenal",
       label: "Sponsor Arsenal",
-      cost: 1,
-      effect: "Start each crawl with a free combat technique",
+      branch: "arsenal",
+      tier: 1,
+      shape: "circle",
+      effect: "Begin each crawl with staged sponsor combat advantages.",
+    }),
+    branchNode({
+      id: "skill-index",
+      label: "Skill Index",
+      branch: "arsenal",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "sponsor-arsenal", level: 2 }, { id: "sponsor-bounty", level: 1 }],
+      effect: "Increase the chance of finding technique tomes.",
+    }),
+    branchNode({
+      id: "execution-patterns",
+      label: "Execution Patterns",
+      branch: "arsenal",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "skill-index", level: 2 }, { id: "conditioning-program", level: 1 }],
+      effect: "Increase the damage dealt by learned crawler abilities.",
+    }),
+    branchNode({
+      id: "field-medicine",
+      label: "Field Medicine",
+      branch: "sustain",
+      tier: 1,
+      shape: "circle",
+      effect: "Increase healing from consumable restoration items.",
+    }),
+    branchNode({
+      id: "ration-cache",
+      label: "Ration Cache",
+      branch: "sustain",
+      tier: 2,
+      shape: "diamond",
+      prereqs: [{ id: "field-medicine", level: 2 }, { id: "sponsor-might", level: 1 }],
+      effect: "Start deeper crawls with extra supplies and a little gold.",
+    }),
+    branchNode({
+      id: "scavenger-instinct",
+      label: "Scavenger Instinct",
+      branch: "sustain",
+      tier: 3,
+      shape: "hex",
+      prereqs: [{ id: "ration-cache", level: 2 }, { id: "sponsor-bounty", level: 2 }],
+      effect: "Increase the odds that fights yield extra loot rolls.",
     }),
   ]),
 });
+
+const PRESTIGE_UPGRADE_BY_REGION = Object.freeze(
+  Object.fromEntries(
+    Object.entries(PRESTIGE_UPGRADES).map(([regionId, upgrades]) => [
+      regionId,
+      Object.freeze(Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]))),
+    ]),
+  ),
+);
 
 function safeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -132,10 +457,12 @@ function normalizeRegionState(regionId, candidate) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
   const base = defaultRegionState(regionId);
   const incomingUpgrades = source.upgrades && typeof source.upgrades === "object" ? source.upgrades : {};
+  const regionDefs = PRESTIGE_UPGRADE_BY_REGION[regionId] || {};
 
   const upgrades = { ...base.upgrades };
   for (const [upgradeId] of Object.entries(upgrades)) {
-    upgrades[upgradeId] = Math.max(0, Math.min(1, Math.floor(safeFinite(incomingUpgrades[upgradeId], 0))));
+    const maxLevel = Math.max(1, Math.floor(Number(regionDefs[upgradeId] && regionDefs[upgradeId].maxLevel) || 1));
+    upgrades[upgradeId] = Math.max(0, Math.min(maxLevel, Math.floor(safeFinite(incomingUpgrades[upgradeId], 0))));
   }
 
   return {
@@ -170,6 +497,79 @@ export function prestigeRegionById(regionId) {
 
 export function prestigeUpgradesForRegion(regionId) {
   return (PRESTIGE_UPGRADES[safeText(regionId)] || []).slice();
+}
+
+function hasReachedUnderlord(state) {
+  const solved = Array.isArray(state && state.solvedNodeIds) ? state.solvedNodeIds : [];
+  if (solved.includes("CRD07") || solved.includes("CRD08")) {
+    return true;
+  }
+  const crd02 =
+    state && state.nodeRuntime && state.nodeRuntime.CRD02 && typeof state.nodeRuntime.CRD02 === "object"
+      ? state.nodeRuntime.CRD02
+      : {};
+  const stage = String(crd02.cultivationStage || "").trim().toLowerCase();
+  return ["underlord", "overlord", "archlord"].includes(stage);
+}
+
+function regionGateMet(state, regionId, upgrade) {
+  if (!upgrade || typeof upgrade !== "object") {
+    return false;
+  }
+  if (safeText(regionId) === "cradle" && safeText(upgrade.regionGate) === "underlord") {
+    return hasReachedUnderlord(state);
+  }
+  return true;
+}
+
+function upgradeViewsForRegion(state, regionId, regionState) {
+  const key = safeText(regionId);
+  const upgrades = PRESTIGE_UPGRADES[key] || [];
+  return upgrades.map((upgrade) => {
+    const level = Math.max(0, Math.floor(Number(regionState && regionState.upgrades ? regionState.upgrades[upgrade.id] : 0) || 0));
+    const maxLevel = Math.max(1, Math.floor(Number(upgrade.maxLevel) || 1));
+    const prereqs = (upgrade.prereqs || []).map((entry) => {
+      const currentLevel = Math.max(
+        0,
+        Math.floor(Number(regionState && regionState.upgrades ? regionState.upgrades[entry.id] : 0) || 0),
+      );
+      return {
+        id: entry.id,
+        level: entry.level,
+        currentLevel,
+        met: currentLevel >= entry.level,
+      };
+    });
+    const prereqsMet = prereqs.every((entry) => entry.met);
+    const maxed = level >= maxLevel;
+    const nextCost = !maxed ? Number(upgrade.costs[level] || 0) : null;
+    const visible = regionGateMet(state, key, upgrade) && (level > 0 || upgrade.tier <= 1 || prereqsMet);
+    const purchasable = visible && prereqsMet && !maxed;
+    const affordable = purchasable && Number(regionState && regionState.points ? regionState.points : 0) >= Number(nextCost || 0);
+    const status = !visible
+      ? "hidden"
+      : maxed
+        ? "maxed"
+        : affordable
+          ? "available"
+          : level > 0
+            ? "owned"
+            : "locked";
+    return {
+      ...upgrade,
+      level,
+      nextCost,
+      visible,
+      gated: !visible,
+      prereqs,
+      prereqsMet,
+      purchasable,
+      affordable,
+      acquired: level > 0,
+      maxed,
+      status,
+    };
+  });
 }
 
 export function prestigeUpgradePurchased(prestigeState, regionId, upgradeId) {
@@ -248,10 +648,61 @@ export function prestigeCurrencyAmount(state, regionId) {
 }
 
 export function canAffordPrestigeReset(state, regionId) {
+  return prestigeResetAward(state, regionId) > 0;
+}
+
+function prestigeResetAwardFromValues(regionDef, amount, resetCount) {
+  const region = regionDef && typeof regionDef === "object" ? regionDef : null;
+  if (!region) {
+    return 0;
+  }
+  const currency = Math.max(0, safeFinite(amount, 0));
+  if (currency <= 0) {
+    return 0;
+  }
+  const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
+  const resetPressure = 1 + (Math.log1p(Math.max(0, resetCount)) * 0.045);
+  const firstThreshold = Math.max(
+    1,
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
+  );
+  if (currency < firstThreshold) {
+    return 0;
+  }
+  const payoutStep = Math.max(1.25, safeFinite(region.payoutStep, 2.2));
+  const raw = Math.log(currency / firstThreshold) / Math.log(payoutStep);
+  return Math.max(1, 1 + Math.floor(raw + 1e-9));
+}
+
+function prestigeNextAwardAt(regionDef, resetCount, award) {
+  const region = regionDef && typeof regionDef === "object" ? regionDef : null;
+  const currentAward = Math.max(0, Math.floor(safeFinite(award, 0)));
+  if (!region) {
+    return 1;
+  }
+  const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
+  const resetPressure = 1 + (Math.log1p(Math.max(0, resetCount)) * 0.045);
+  const firstThreshold = Math.max(
+    1,
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
+  );
+  if (currentAward <= 0) {
+    return Math.ceil(firstThreshold);
+  }
+  const payoutStep = Math.max(1.25, safeFinite(region.payoutStep, 2.2));
+  return Math.max(1, Math.ceil(firstThreshold * Math.pow(payoutStep, currentAward)));
+}
+
+export function prestigeResetAward(state, regionId) {
   const key = safeText(regionId);
-  const cost = nextPrestigeResetCost(state && state.systems ? state.systems.prestige : {}, key);
-  const amount = prestigeCurrencyAmount(state, key);
-  return amount >= cost;
+  const regionDef = prestigeRegionById(key);
+  if (!regionDef) {
+    return 0;
+  }
+  const normalized = normalizePrestigeSystemState(state && state.systems ? state.systems.prestige : {});
+  const regionState = normalized.regions[key] || defaultRegionState(key);
+  const currency = prestigeCurrencyAmount(state, key);
+  return prestigeResetAwardFromValues(regionDef, currency, regionState.resets);
 }
 
 export function prestigeRegionSnapshot(state, regionId) {
@@ -261,6 +712,8 @@ export function prestigeRegionSnapshot(state, regionId) {
   const regionState = normalized.regions[key] || defaultRegionState(key);
   const currency = prestigeCurrencyAmount(state, key);
   const nextCost = prestigeResetCost(key, regionState.resets);
+  const award = prestigeResetAwardFromValues(regionDef, currency, regionState.resets);
+  const nextAwardAt = prestigeNextAwardAt(regionDef, regionState.resets, award);
 
   return {
     regionId: key,
@@ -269,8 +722,11 @@ export function prestigeRegionSnapshot(state, regionId) {
     resets: regionState.resets,
     nextCost,
     currency,
-    affordable: currency >= nextCost,
+    affordable: award > 0,
+    award,
+    nextAwardAt,
     upgrades: { ...regionState.upgrades },
+    upgradeViews: upgradeViewsForRegion(state, key, regionState),
   };
 }
 
@@ -279,73 +735,76 @@ function zeroUpgradeLevels(upgrades) {
   return Object.fromEntries(Object.keys(source).map((upgradeId) => [upgradeId, 0]));
 }
 
-function cappedLinear(value, step, cap) {
-  return Math.min(cap, Math.max(0, value) * step);
-}
-
-function passiveBonusesForRegion(regionId, resets = 0) {
-  const count = Math.max(0, Math.floor(safeFinite(resets, 0)));
+function neutralBonusesForRegion(regionId) {
   const key = safeText(regionId);
   if (key === "cradle") {
     return {
-      madraGainMultiplier: 1 + cappedLinear(count, 0.22, 1.8),
-      cyclingCostDivider: 1 + cappedLinear(count, 0.12, 1.1),
-      combatAttackMultiplier: 1 + cappedLinear(count, 0.08, 0.6),
-      soulfireGainMultiplier: 1 + cappedLinear(count, 0.12, 0.9),
-      soulfireCostDivider: 1 + cappedLinear(count, 0.08, 0.6),
+      startingMadraBonus: 0,
+      madraGainMultiplier: 1,
+      cyclingCostDivider: 1,
+      combatAttackMultiplier: 1,
+      combatDodgeBonus: 0,
+      techniqueMadraCostDivider: 1,
+      emptyPalmBonus: 0,
+      manualCultivationRewardMultiplier: 1,
+      breakthroughCostDivider: 1,
+      combatDamageReduction: 0,
+      enemyFumbleChance: 0,
+      soulfireGainMultiplier: 1,
+      soulfireCostDivider: 1,
+      passiveSoulfireRateMultiplier: 1,
     };
   }
   if (key === "worm") {
     return {
-      cloutGainMultiplier: 1 + cappedLinear(count, 0.12, 1.2),
-      jobWeightBaseMultiplier: 1 + cappedLinear(count, 0.09, 0.9),
+      cloutGainMultiplier: 1,
+      jobWeightBaseMultiplier: 1,
+      specialWindowWeightMultiplier: 1,
+      sickbayHealMultiplier: 1,
+      capeMaxHpMultiplier: 1,
+      capeDamageMultiplier: 1,
+      capeDamageReduction: 0,
+      extraSickbaySlots: 0,
+      compactifyCostDivider: 1,
+      shardEffectMultiplier: 1,
+      wormLootDropChanceBonus: 0,
+      wormLootRarityBias: 0,
     };
   }
   if (key === "dcc") {
     return {
-      maxHpBonus: Math.round(cappedLinear(count, 10, 80)),
-      attackBonus: Math.round(cappedLinear(count, 0.8, 6)),
-      goldGainBonus: cappedLinear(count, 0.08, 0.8),
-      rareDropBonus: cappedLinear(count, 0.02, 0.16),
+      maxHpBonus: 0,
+      attackBonus: 0,
+      maxStaminaBonus: 0,
+      damageReduction: 0,
+      goldGainBonus: 0,
+      rareDropBonus: 0,
+      shopPriceDivider: 1,
+      mapRevealChanceBonus: 0,
+      startWithSponsorSkill: false,
+      extraAbilitySlots: 0,
+      startBasicAttackRefinements: 0,
+      tomeDropChanceBonus: 0,
+      skillDamageMultiplier: 1,
+      potionHealingMultiplier: 1,
+      startingHealingPotions: 0,
+      startingGoldBonus: 0,
+      bonusLootRollChance: 0,
     };
   }
   return {};
 }
 
 export function prestigePassiveBonuses(prestigeState, regionId) {
-  const normalized = normalizePrestigeSystemState(prestigeState);
   const key = safeText(regionId);
-  const region = normalized.regions[key];
-  return passiveBonusesForRegion(key, region ? region.resets : 0);
+  return neutralBonusesForRegion(key);
 }
 
 export function prestigePassiveBonusSummary(prestigeState, regionId) {
-  const key = safeText(regionId);
-  const passive = prestigePassiveBonuses(prestigeState, key);
-  if (key === "cradle") {
-    return [
-      `Madra gain x${Number(passive.madraGainMultiplier || 1).toFixed(2)}`,
-      `Cycling costs /${Number(passive.cyclingCostDivider || 1).toFixed(2)}`,
-      `Combat attack x${Number(passive.combatAttackMultiplier || 1).toFixed(2)}`,
-    ];
-  }
-  if (key === "worm") {
-    return [
-      `Clout gain x${Number(passive.cloutGainMultiplier || 1).toFixed(2)}`,
-      `Hiring odds x${Number(passive.jobWeightBaseMultiplier || 1).toFixed(2)}`,
-    ];
-  }
-  if (key === "dcc") {
-    return [
-      `+${Math.round(Number(passive.maxHpBonus || 0))} Max HP`,
-      `+${Math.round(Number(passive.attackBonus || 0))} Attack`,
-      `Gold gain x${(1 + Number(passive.goldGainBonus || 0)).toFixed(2)}`,
-    ];
-  }
   return [];
 }
 
-function applyCradleReset(state, cost, now) {
+function applyCradleReset(state, _cost, now) {
   const runtime = crd02RuntimeFromState(state);
   if (!runtime) {
     return {
@@ -355,22 +814,23 @@ function applyCradleReset(state, cost, now) {
     };
   }
 
-  const currentMadra = Math.max(0, safeFinite(runtime.madra, 0));
-  if (currentMadra < cost) {
-    return {
-      state,
-      applied: false,
-      message: `Need ${cost} madra to reset Cradle.`,
-    };
-  }
+  const prestige = prestigeModifiersFromState(state);
+  const startingMadraBonus = Math.max(
+    0,
+    Math.floor(Number(prestige && prestige.cradle && prestige.cradle.startingMadraBonus) || 0),
+  );
+  const seededMadra = startingMadraBonus;
 
   const manual = runtime.manual && typeof runtime.manual === "object" ? runtime.manual : {};
   const cycling = runtime.cycling && typeof runtime.cycling === "object" ? runtime.cycling : {};
+  const soulfire = runtime.soulfire && typeof runtime.soulfire === "object" ? runtime.soulfire : {};
+  const preservedStage = String(runtime.cultivationStage || "foundation").trim().toLowerCase() || "foundation";
+  const keepsSoulfireUnlocked = Boolean(soulfire.unlocked);
 
   const nextRuntime = {
     ...runtime,
-    cultivationStage: "foundation",
-    madra: 0,
+    cultivationStage: preservedStage,
+    madra: seededMadra,
     cycling: {
       ...cycling,
       twinStarsLevel: 0,
@@ -387,9 +847,14 @@ function applyCradleReset(state, cost, now) {
       startedAt: now,
     },
     lastTickAt: now,
-    lastMessage: "The loop snaps shut. Your core returns to Foundation.",
+    totalMadraGenerated: seededMadra,
+    manualCompletions: seededMadra > 0 ? 1 : 0,
+    lastMessage: seededMadra > 0
+      ? `The loop snaps shut. Your ${preservedStage} foundation remains, but your stores reset to ${seededMadra} madra.`
+      : `The loop snaps shut. Your ${preservedStage} foundation remains, but your stores are emptied.`,
     soulfire: {
-      unlocked: false,
+      ...soulfire,
+      unlocked: keepsSoulfireUnlocked,
       amount: 0,
       totalGenerated: 0,
       madraCyclerLevel: 0,
@@ -410,7 +875,7 @@ function applyCradleReset(state, cost, now) {
   };
 }
 
-function applyWormReset(state, cost) {
+function applyWormReset(state, _cost) {
   const worm = state && state.systems && state.systems.worm && typeof state.systems.worm === "object"
     ? state.systems.worm
     : null;
@@ -423,14 +888,18 @@ function applyWormReset(state, cost) {
     };
   }
 
-  const clout = Math.max(0, safeFinite(worm.clout, 0));
-  if (clout < cost) {
-    return {
-      state,
-      applied: false,
-      message: `Need ${cost} clout to reset Worm.`,
-    };
-  }
+  const inventoryRoot = state && state.inventory && typeof state.inventory === "object"
+    ? state.inventory
+    : {};
+  const lootRoot = inventoryRoot.loot && typeof inventoryRoot.loot === "object"
+    ? inventoryRoot.loot
+    : {};
+  const loadouts = lootRoot.loadouts && typeof lootRoot.loadouts === "object"
+    ? lootRoot.loadouts
+    : {};
+  const wormLoadouts = loadouts.worm && typeof loadouts.worm === "object"
+    ? loadouts.worm
+    : {};
 
   return {
     state: {
@@ -442,23 +911,27 @@ function applyWormReset(state, cost) {
           clout: 0,
         },
       },
+      inventory: {
+        ...inventoryRoot,
+        loot: {
+          ...lootRoot,
+          loadouts: {
+            ...loadouts,
+            worm: {
+              ...wormLoadouts,
+              shardSlotsByCape: {},
+            },
+          },
+        },
+      },
     },
     applied: true,
     message: "Worm reset complete.",
   };
 }
 
-function applyDccReset(state, cost) {
+function applyDccReset(state, _cost) {
   const runtime = dccRuntimeFromState(state);
-  const currentGold = dccCurrencyAmount(state);
-  if (currentGold < cost) {
-    return {
-      state,
-      applied: false,
-      message: `Need ${cost} gold to reset Dungeon Crawler Carl.`,
-    };
-  }
-
   const sourceMeta = runtime && runtime.meta && typeof runtime.meta === "object" ? runtime.meta : {};
   const nextRuntime = {
     ...(runtime && typeof runtime === "object" ? runtime : {}),
@@ -493,24 +966,26 @@ function applyDccReset(state, cost) {
   };
 }
 
-function withPrestigeRegionAward(state, regionId) {
+function withPrestigeRegionAward(state, regionId, award = 1) {
   const normalized = normalizePrestigeSystemState(state && state.systems ? state.systems.prestige : {});
   const key = safeText(regionId);
   const region = normalized.regions[key];
   if (!region) {
     return state;
   }
+  const pointAward = Math.max(0, Math.floor(safeFinite(award, 0)));
 
   return {
     ...state,
     systems: {
       ...(state.systems || {}),
       prestige: {
+        practicalGuideResets: normalized.practicalGuideResets,
         regions: {
           ...normalized.regions,
           [key]: {
             ...region,
-            points: region.points + 1,
+            points: region.points + pointAward,
             resets: region.resets + 1,
           },
         },
@@ -539,7 +1014,7 @@ export function applyPrestigeReset(state, regionId, now = Date.now()) {
       applied: false,
       cost: snapshot.nextCost,
       pointLabel: regionDef.pointLabel,
-      message: `Not enough ${regionDef.currencyLabel} for ${regionDef.label} reset.`,
+      message: `Push ${regionDef.label} a little further before collapsing the loop.`,
     };
   }
 
@@ -559,13 +1034,13 @@ export function applyPrestigeReset(state, regionId, now = Date.now()) {
     };
   }
 
-  const awarded = withPrestigeRegionAward(regionResult.state, key);
+  const awarded = withPrestigeRegionAward(regionResult.state, key, snapshot.award);
   return {
     nextState: awarded,
     applied: true,
     cost: snapshot.nextCost,
     pointLabel: regionDef.pointLabel,
-    message: `${regionDef.label} reset complete. +1 ${regionDef.pointLabel}.`,
+    message: `${regionDef.label} reset complete. +${snapshot.award} ${regionDef.pointLabel}.`,
   };
 }
 
@@ -586,33 +1061,59 @@ export function applyPrestigeUpgradePurchase(state, regionId, upgradeId) {
 
   const normalized = normalizePrestigeSystemState(state && state.systems ? state.systems.prestige : {});
   const region = normalized.regions[key];
-  const level = Number(region && region.upgrades ? region.upgrades[targetUpgradeId] : 0);
+  const level = Math.max(0, Math.floor(Number(region && region.upgrades ? region.upgrades[targetUpgradeId] : 0) || 0));
+  const maxLevel = Math.max(1, Math.floor(Number(upgrade.maxLevel) || 1));
+  const visible = regionGateMet(state, key, upgrade);
+  const prereqs = Array.isArray(upgrade.prereqs) ? upgrade.prereqs : [];
+  const prereqsMet = prereqs.every((entry) => {
+    const currentLevel = Math.max(0, Math.floor(Number(region && region.upgrades ? region.upgrades[entry.id] : 0) || 0));
+    return currentLevel >= Math.max(1, Math.floor(Number(entry.level) || 1));
+  });
+  const nextCost = level < maxLevel ? Math.max(0, Math.floor(Number(upgrade.costs[level]) || 0)) : 0;
 
-  if (level > 0) {
+  if (!visible) {
     return {
       nextState: state,
       applied: false,
-      message: `${upgrade.label} is already unlocked.`,
+      message: `${upgrade.label} is not available yet.`,
     };
   }
 
-  if (!region || region.points < upgrade.cost) {
+  if (level >= maxLevel) {
     return {
       nextState: state,
       applied: false,
-      message: `Need ${upgrade.cost} ${regionDef.pointLabel} for ${upgrade.label}.`,
+      message: `${upgrade.label} is already maxed.`,
     };
   }
 
+  if (!prereqsMet) {
+    return {
+      nextState: state,
+      applied: false,
+      message: `${upgrade.label} is still locked behind its branch.`,
+    };
+  }
+
+  if (!region || region.points < nextCost) {
+    return {
+      nextState: state,
+      applied: false,
+      message: `Need ${nextCost} ${regionDef.pointLabel} for ${upgrade.label}.`,
+    };
+  }
+
+  const nextLevel = level + 1;
   const nextPrestige = {
+    practicalGuideResets: normalized.practicalGuideResets,
     regions: {
       ...normalized.regions,
       [key]: {
         ...region,
-        points: region.points - upgrade.cost,
+        points: region.points - nextCost,
         upgrades: {
           ...region.upgrades,
-          [targetUpgradeId]: 1,
+          [targetUpgradeId]: nextLevel,
         },
       },
     },
@@ -627,7 +1128,7 @@ export function applyPrestigeUpgradePurchase(state, regionId, upgradeId) {
       },
     },
     applied: true,
-    message: `${upgrade.label} unlocked for ${regionDef.label}.`,
+    message: `${upgrade.label} advanced to ${nextLevel}/${maxLevel}.`,
   };
 }
 
@@ -637,32 +1138,60 @@ export function prestigeModifiersFromState(state) {
   const worm = normalized.regions.worm || defaultRegionState("worm");
   const dcc = normalized.regions.dcc || defaultRegionState("dcc");
 
-  const hasCradle = (upgradeId) => Number(cradle.upgrades[upgradeId] || 0) > 0;
-  const hasWorm = (upgradeId) => Number(worm.upgrades[upgradeId] || 0) > 0;
-  const hasDcc = (upgradeId) => Number(dcc.upgrades[upgradeId] || 0) > 0;
-  const cradlePassive = passiveBonusesForRegion("cradle", cradle.resets);
-  const wormPassive = passiveBonusesForRegion("worm", worm.resets);
-  const dccPassive = passiveBonusesForRegion("dcc", dcc.resets);
+  const cradleLevel = (upgradeId) => Math.max(0, Math.floor(Number(cradle.upgrades[upgradeId] || 0) || 0));
+  const wormLevel = (upgradeId) => Math.max(0, Math.floor(Number(worm.upgrades[upgradeId] || 0) || 0));
+  const dccLevel = (upgradeId) => Math.max(0, Math.floor(Number(dcc.upgrades[upgradeId] || 0) || 0));
+  const rounded = (value) => Number(Number(value || 0).toFixed(3));
 
   return {
     cradle: {
-      madraGainMultiplier: Number((cradlePassive.madraGainMultiplier * (hasCradle("madra-surge") ? 2.25 : 1)).toFixed(3)),
-      cyclingCostDivider: Number((cradlePassive.cyclingCostDivider * (hasCradle("cycle-economy") ? 2.35 : 1)).toFixed(3)),
-      combatAttackMultiplier: Number((cradlePassive.combatAttackMultiplier * (hasCradle("combat-edge") ? 1.3 : 1)).toFixed(3)),
-      soulfireGainMultiplier: Number((cradlePassive.soulfireGainMultiplier * (hasCradle("soulfire-surge") ? 1.8 : 1)).toFixed(3)),
-      soulfireCostDivider: Number((cradlePassive.soulfireCostDivider * (hasCradle("soulfire-forge") ? 1.5 : 1)).toFixed(3)),
+      startingMadraBonus: cradleLevel("remnant-seed") * 10,
+      madraGainMultiplier: rounded(1 + 0.3 * cradleLevel("madra-surge")),
+      cyclingCostDivider: rounded(1 + 0.22 * cradleLevel("cycle-economy")),
+      combatAttackMultiplier: rounded(1 + 0.16 * cradleLevel("combat-edge")),
+      combatDodgeBonus: rounded(0.035 * cradleLevel("soul-cloak-memory")),
+      techniqueMadraCostDivider: rounded(1 + 0.14 * cradleLevel("soul-cloak-memory")),
+      emptyPalmBonus: rounded(0.07 * cradleLevel("empty-palm-insight")),
+      manualCultivationRewardMultiplier: rounded(1 + 0.2 * cradleLevel("manual-echo")),
+      breakthroughCostDivider: rounded(1 + 0.16 * cradleLevel("breakthrough-memory")),
+      combatDamageReduction: rounded(0.06 * cradleLevel("battle-memory-array")),
+      enemyFumbleChance: rounded(0.08 * cradleLevel("battle-memory-array")),
+      soulfireGainMultiplier: rounded(1 + 0.24 * cradleLevel("soulfire-surge")),
+      soulfireCostDivider: rounded(1 + 0.18 * cradleLevel("soulfire-forge")),
+      passiveSoulfireRateMultiplier: rounded(1 + 0.3 * cradleLevel("soulfire-furnace")),
     },
     worm: {
-      cloutGainMultiplier: Number((wormPassive.cloutGainMultiplier * (hasWorm("clout-surge") ? 1.45 : 1)).toFixed(3)),
-      jobWeightBaseMultiplier: Number((wormPassive.jobWeightBaseMultiplier * (hasWorm("job-window") ? 1.6 : 1)).toFixed(3)),
+      cloutGainMultiplier: rounded(1 + 0.18 * wormLevel("clout-surge")),
+      jobWeightBaseMultiplier: rounded(1 + 0.18 * wormLevel("job-window")),
+      specialWindowWeightMultiplier: rounded(1 + 0.22 * wormLevel("special-window-broker")),
+      sickbayHealMultiplier: rounded(1 + 0.35 * wormLevel("street-medicine")),
+      capeMaxHpMultiplier: rounded(1 + 0.1 * wormLevel("cape-conditioning")),
+      capeDamageMultiplier: rounded(1 + 0.1 * wormLevel("threat-drills")),
+      capeDamageReduction: rounded(0.06 * wormLevel("trauma-plates")),
+      extraSickbaySlots: Math.max(0, wormLevel("sickbay-overflow") - 1),
+      compactifyCostDivider: rounded(1 + 0.25 * wormLevel("compactifier-routines")),
+      shardEffectMultiplier: rounded(1 + 0.2 * wormLevel("shard-lattice")),
+      wormLootDropChanceBonus: rounded(0.08 * wormLevel("broker-network")),
+      wormLootRarityBias: rounded(0.3 * wormLevel("high-stakes-sponsors")),
     },
     dcc: {
-      maxHpBonus: Math.round(Number(dccPassive.maxHpBonus || 0) + (hasDcc("sponsor-might") ? 24 : 0)),
-      attackBonus: Math.round(Number(dccPassive.attackBonus || 0) + (hasDcc("sponsor-might") ? 3 : 0)),
-      goldGainBonus: Number(((Number(dccPassive.goldGainBonus || 0)) + (hasDcc("sponsor-bounty") ? 0.5 : 0)).toFixed(3)),
-      rareDropBonus: Number(((Number(dccPassive.rareDropBonus || 0)) + (hasDcc("sponsor-bounty") ? 0.08 : 0)).toFixed(3)),
-      startWithSponsorSkill: hasDcc("sponsor-arsenal"),
-      extraAbilitySlots: hasDcc("sponsor-arsenal") ? 1 : 0,
+      maxHpBonus: dccLevel("sponsor-might") * 10,
+      attackBonus: dccLevel("sponsor-might"),
+      maxStaminaBonus: dccLevel("conditioning-program") * 2,
+      damageReduction: rounded(0.06 * dccLevel("crowd-survival")),
+      goldGainBonus: rounded(0.16 * dccLevel("sponsor-bounty")),
+      rareDropBonus: rounded(0.04 * dccLevel("sponsor-bounty")),
+      shopPriceDivider: rounded(1 + 0.16 * dccLevel("market-favors")),
+      mapRevealChanceBonus: rounded(0.18 * dccLevel("floor-reader")),
+      startWithSponsorSkill: dccLevel("sponsor-arsenal") >= 1,
+      extraAbilitySlots: dccLevel("sponsor-arsenal") >= 2 ? 1 : 0,
+      startBasicAttackRefinements: dccLevel("sponsor-arsenal") >= 3 ? 1 : 0,
+      tomeDropChanceBonus: rounded(0.09 * dccLevel("skill-index")),
+      skillDamageMultiplier: rounded(1 + 0.1 * dccLevel("execution-patterns")),
+      potionHealingMultiplier: rounded(1 + 0.22 * dccLevel("field-medicine")),
+      startingHealingPotions: dccLevel("ration-cache") >= 3 ? 2 : dccLevel("ration-cache") >= 1 ? 1 : 0,
+      startingGoldBonus: dccLevel("ration-cache") >= 2 ? 10 : 0,
+      bonusLootRollChance: rounded(0.12 * dccLevel("scavenger-instinct")),
     },
   };
 }

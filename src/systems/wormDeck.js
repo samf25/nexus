@@ -35,17 +35,29 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function maxHpForCard(card) {
+function maxHpMultiplier(options = {}) {
+  return Math.max(1, Number(options.capeMaxHpMultiplier) || 1);
+}
+
+function sickbayHealMultiplier(options = {}) {
+  return Math.max(1, Number(options.sickbayHealMultiplier) || 1);
+}
+
+function compactifyCostDivider(options = {}) {
+  return Math.max(1, Number(options.compactifyCostDivider) || 1);
+}
+
+function maxHpForCard(card, options = {}) {
   const endurance = Math.max(0, Math.round(safeNumber(card && card.endurance, 0)));
-  return Math.max(40, endurance * 50);
+  return Math.max(40, Math.round(endurance * 50 * maxHpMultiplier(options)));
 }
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeDeckEntry(entry, card) {
-  const maxHp = maxHpForCard(card);
+function normalizeDeckEntry(entry, card, options = {}) {
+  const maxHp = maxHpForCard(card, options);
   const source = entry && typeof entry === "object" ? entry : {};
   const copies = Math.max(1, Math.floor(safeNumber(source.copies, 1)));
   const currentHp = clamp(Math.round(safeNumber(source.currentHp, maxHp)), 0, maxHp);
@@ -57,7 +69,7 @@ function normalizeDeckEntry(entry, card) {
   };
 }
 
-function normalizeDeck(candidateDeck) {
+function normalizeDeck(candidateDeck, options = {}) {
   const raw = candidateDeck && typeof candidateDeck === "object" ? candidateDeck : {};
   const next = {};
   for (const [cardId, entry] of Object.entries(raw)) {
@@ -65,7 +77,7 @@ function normalizeDeck(candidateDeck) {
     if (!card) {
       continue;
     }
-    next[cardId] = normalizeDeckEntry(entry, card);
+    next[cardId] = normalizeDeckEntry(entry, card, options);
   }
   return next;
 }
@@ -86,8 +98,8 @@ function normalizeSickbayCardIds(deck, candidateCardIds) {
   return unique;
 }
 
-function healedHpForEntry(entry, card, now) {
-  const maxHp = maxHpForCard(card);
+function healedHpForEntry(entry, card, now, options = {}) {
+  const maxHp = maxHpForCard(card, options);
   const baseHp = clamp(Math.round(safeNumber(entry.currentHp, maxHp)), 0, maxHp);
   const sickbaySince = Number.isFinite(entry.sickbaySince) ? Math.max(0, Number(entry.sickbaySince)) : 0;
   if (!sickbaySince || baseHp >= maxHp) {
@@ -95,11 +107,11 @@ function healedHpForEntry(entry, card, now) {
   }
 
   const elapsedMs = Math.max(0, now - sickbaySince);
-  const healed = baseHp + (elapsedMs / 60000) * (maxHp * SICKBAY_HEAL_FRACTION_PER_MINUTE);
+  const healed = baseHp + (elapsedMs / 60000) * (maxHp * SICKBAY_HEAL_FRACTION_PER_MINUTE * sickbayHealMultiplier(options));
   return clamp(Math.round(healed), 0, maxHp);
 }
 
-function snapshotSickbayHealing(state, now) {
+function snapshotSickbayHealing(state, now, options = {}) {
   const sickbayCardIds = Array.isArray(state.sickbayCardIds) ? state.sickbayCardIds : [];
   if (!sickbayCardIds.length) {
     return state;
@@ -114,8 +126,8 @@ function snapshotSickbayHealing(state, now) {
       continue;
     }
 
-    const healedHp = healedHpForEntry(entry, card, now);
-    const maxHp = maxHpForCard(card);
+    const healedHp = healedHpForEntry(entry, card, now, options);
+    const maxHp = maxHpForCard(card, options);
     const fullyHealed = healedHp >= maxHp;
     nextDeck[sickbayCardId] = {
       ...entry,
@@ -170,9 +182,9 @@ export function defaultWormSystemState() {
   };
 }
 
-export function normalizeWormSystemState(candidate, now = nowMs()) {
+export function normalizeWormSystemState(candidate, now = nowMs(), options = {}) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
-  const deck = normalizeDeck(source.deck);
+  const deck = normalizeDeck(source.deck, options);
   const starterCardIds = Array.isArray(source.starterCardIds)
     ? source.starterCardIds.map((cardId) => String(cardId || "").trim()).filter((cardId) => cardId)
     : [];
@@ -200,7 +212,7 @@ export function normalizeWormSystemState(candidate, now = nowMs()) {
     arenaBossCleared: Boolean(source.arenaBossCleared),
   };
 
-  return snapshotSickbayHealing(base, now);
+  return snapshotSickbayHealing(base, now, options);
 }
 
 function capeDensityForCard(state, cardId) {
@@ -217,8 +229,9 @@ function capeBoostsForCard(state, cardId) {
   return raw && typeof raw === "object" ? { ...raw } : {};
 }
 
-function duplicateCostForDensity(density) {
-  return Math.max(2, Math.floor(safeNumber(density, 1)) * 2);
+function duplicateCostForDensity(density, options = {}) {
+  const baseCost = Math.max(2, Math.floor(safeNumber(density, 1)) * 2);
+  return Math.max(2, Math.ceil(baseCost / compactifyCostDivider(options)));
 }
 
 function upgradedCard(card, state, cardId) {
@@ -275,7 +288,7 @@ function weightedPick(cards, { rng = Math.random, weightBase = BASIC_WINDOW_WEIG
   return weighted[weighted.length - 1].card;
 }
 
-function addCardToDeck(state, cardId) {
+function addCardToDeck(state, cardId, options = {}) {
   const card = wormCardById(cardId);
   if (!card) {
     return {
@@ -306,7 +319,7 @@ function addCardToDeck(state, cardId) {
     };
   }
 
-  const maxHp = maxHpForCard(card);
+  const maxHp = maxHpForCard(card, options);
   return {
     nextState: {
       ...state,
@@ -346,8 +359,8 @@ function normalizeStarterSelection(starterCardIds) {
   return unique.slice(0, 2);
 }
 
-function ownedDeckEntries(state, now = nowMs()) {
-  const normalized = normalizeWormSystemState(state, now);
+function ownedDeckEntries(state, now = nowMs(), options = {}) {
+  const normalized = normalizeWormSystemState(state, now, options);
   const entries = [];
   for (const [cardId, entry] of Object.entries(normalized.deck)) {
     const baseCard = wormCardById(cardId);
@@ -355,9 +368,9 @@ function ownedDeckEntries(state, now = nowMs()) {
     if (!card) {
       continue;
     }
-    const maxHp = maxHpForCard(card);
+    const maxHp = maxHpForCard(card, options);
     const currentHp = inSickbay(normalized, cardId)
-      ? healedHpForEntry(entry, card, now)
+      ? healedHpForEntry(entry, card, now, options)
       : clamp(Math.round(safeNumber(entry.currentHp, maxHp)), 0, maxHp);
     entries.push({
       card,
@@ -366,7 +379,7 @@ function ownedDeckEntries(state, now = nowMs()) {
       currentHp,
       maxHp,
       inSickbay: inSickbay(normalized, cardId),
-      healPerMinute: maxHp * SICKBAY_HEAL_FRACTION_PER_MINUTE,
+      healPerMinute: maxHp * SICKBAY_HEAL_FRACTION_PER_MINUTE * sickbayHealMultiplier(options),
       sickbaySince: Number(entry.sickbaySince || 0),
     });
   }
@@ -385,8 +398,8 @@ export function wormStarterDraftCards() {
   return starterDraftPool();
 }
 
-export function wormOwnedCards(state, now = nowMs()) {
-  return ownedDeckEntries(state, now);
+export function wormOwnedCards(state, now = nowMs(), options = {}) {
+  return ownedDeckEntries(state, now, options);
 }
 
 export function wormHasMinimumDeck(state, minimum = 1, now = nowMs()) {
@@ -457,7 +470,7 @@ export function wormSpecialHiringWindows() {
   return SPECIAL_HIRING_WINDOWS.slice();
 }
 
-function applyOutcomeToDeck(state, playerResults, now) {
+function applyOutcomeToDeck(state, playerResults, now, options = {}) {
   const nextDeck = { ...state.deck };
   for (const result of playerResults || []) {
     const cardId = String(result && result.cardId ? result.cardId : "").trim();
@@ -470,7 +483,7 @@ function applyOutcomeToDeck(state, playerResults, now) {
       continue;
     }
 
-    const maxHp = maxHpForCard(card);
+    const maxHp = maxHpForCard(card, options);
     const hp = clamp(Math.round(safeNumber(result.hp, nextDeck[cardId].currentHp)), 0, maxHp);
     nextDeck[cardId] = {
       ...nextDeck[cardId],
@@ -505,8 +518,8 @@ function battleDifficultyMultiplier(difficulty) {
   return 1;
 }
 
-export function reduceWormSystemState(systemState, action, now = nowMs()) {
-  const current = normalizeWormSystemState(systemState, now);
+export function reduceWormSystemState(systemState, action, now = nowMs(), options = {}) {
+  const current = normalizeWormSystemState(systemState, now, options);
   if (!action || typeof action !== "object") {
     return {
       nextState: current,
@@ -528,7 +541,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
 
     let next = { ...current, startersConfirmed: true, starterCardIds: picked.slice() };
     for (const cardId of picked) {
-      const added = addCardToDeck(next, cardId);
+      const added = addCardToDeck(next, cardId, options);
       next = added.nextState;
     }
 
@@ -570,7 +583,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
       ...current,
       clout: Number((current.clout - BASIC_HIRE_COST).toFixed(2)),
     };
-    const addResult = addCardToDeck(next, pulledCard.id);
+    const addResult = addCardToDeck(next, pulledCard.id, options);
     next = addResult.nextState;
 
     return {
@@ -634,7 +647,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
     };
     let duplicateCount = 0;
     for (const card of pulledCards) {
-      const addResult = addCardToDeck(next, card.id);
+      const addResult = addCardToDeck(next, card.id, options);
       next = addResult.nextState;
       if (addResult.duplicate) {
         duplicateCount += 1;
@@ -707,7 +720,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
       ...current,
       clout: Number((current.clout - cost).toFixed(2)),
     };
-    const addResult = addCardToDeck(next, pulledCard.id);
+    const addResult = addCardToDeck(next, pulledCard.id, options);
     next = addResult.nextState;
 
     return {
@@ -735,9 +748,9 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
       return { nextState: current, changed: false, message: "Unknown cape selected.", meta: {} };
     }
 
-    const maxHp = maxHpForCard(card);
+    const maxHp = maxHpForCard(card, options);
     const entry = current.deck[cardId];
-    const hpNow = inSickbay(current, cardId) ? healedHpForEntry(entry, card, now) : entry.currentHp;
+    const hpNow = inSickbay(current, cardId) ? healedHpForEntry(entry, card, now, options) : entry.currentHp;
     if (hpNow >= maxHp) {
       return { nextState: current, changed: false, message: `${card.heroName} is already at full health.`, meta: {} };
     }
@@ -787,7 +800,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
     if (card && entry) {
       nextDeck[targetCardId] = {
         ...entry,
-        currentHp: healedHpForEntry(entry, card, now),
+        currentHp: healedHpForEntry(entry, card, now, options),
         sickbaySince: 0,
       };
     }
@@ -848,7 +861,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
     }
     const entry = current.deck[cardId];
     const density = capeDensityForCard(current, cardId);
-    const duplicateCost = duplicateCostForDensity(density);
+    const duplicateCost = duplicateCostForDensity(density, options);
     if (Math.max(1, Math.floor(safeNumber(entry.copies, 1))) <= duplicateCost) {
       return {
         nextState: current,
@@ -892,14 +905,14 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
     const difficulty = String(action.difficulty || "easy").trim().toLowerCase();
     const playerResults = Array.isArray(action.playerResults) ? action.playerResults : [];
     const enemyRarities = Array.isArray(action.enemyRarities) ? action.enemyRarities : [];
-    let next = applyOutcomeToDeck(current, playerResults, now);
+    let next = applyOutcomeToDeck(current, playerResults, now, options);
 
     let reward = 0;
     let firstWinDifficulty = "";
     let bossFirstClear = false;
     if (mode === "normal" && winner === "player") {
       const baseReward = computeArenaReward(enemyRarities);
-      const cloutMultiplier = Math.max(1, safeNumber(action.cloutMultiplier, 1));
+      const cloutMultiplier = Math.max(1, safeNumber(action.cloutMultiplier, 1)) * Math.max(1, safeNumber(options.cloutGainMultiplier, 1));
       reward = Number((baseReward * battleDifficultyMultiplier(difficulty) * cloutMultiplier).toFixed(2));
       next = {
         ...next,
@@ -918,14 +931,14 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
     }
 
     if (mode === "boss" && winner === "player") {
-      const bossCloutReward = Math.max(0, Number(action.bossCloutReward) || 0);
+      const bossCloutReward = Math.max(0, Number(action.bossCloutReward) || 0) * Math.max(1, safeNumber(options.cloutGainMultiplier, 1));
       bossFirstClear = !next.arenaBossCleared;
       next = {
         ...next,
         arenaBossCleared: true,
         clout: Number((next.clout + bossCloutReward).toFixed(2)),
       };
-      reward = bossCloutReward;
+      reward = Number(bossCloutReward.toFixed(2));
     }
 
     if (winner === "player") {
@@ -947,7 +960,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs()) {
 
   if (action.type === "worm-apply-battle-results") {
     const playerResults = Array.isArray(action.playerResults) ? action.playerResults : [];
-    const next = applyOutcomeToDeck(current, playerResults, now);
+    const next = applyOutcomeToDeck(current, playerResults, now, options);
     return {
       nextState: next,
       changed: true,

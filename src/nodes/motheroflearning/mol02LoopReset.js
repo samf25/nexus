@@ -1,7 +1,6 @@
 import { escapeHtml } from "../../templates/shared.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import {
-  prestigePassiveBonusSummary,
   prestigeRegionDefinitions,
   prestigeRegionSnapshot,
 } from "../../systems/prestige.js";
@@ -63,7 +62,9 @@ function resetRegionSnapshot(state, regionId) {
     resets: practicalGuideResets,
     nextCost: 0,
     currency: currentRole ? 1 : 0,
-    affordable: true,
+    affordable: Boolean(currentRole),
+    award: currentRole ? 1 : 0,
+    nextAwardAt: 1,
     upgrades: {},
     currentRole,
   };
@@ -202,7 +203,7 @@ export function reduceMol02Runtime(runtime, action) {
     if (!action.affordable) {
       return {
         ...current,
-        lastMessage: "Insufficient regional currency for loop reset.",
+        lastMessage: "Build a little more momentum before collapsing this loop.",
       };
     }
 
@@ -350,7 +351,7 @@ export function buildMol02ActionFromElement(element) {
   return null;
 }
 
-export function buildMol02KeyAction(event, runtime) {
+export function buildMol02KeyAction(event, runtime, state = null) {
   if (event.metaKey || event.ctrlKey || event.altKey) {
     return null;
   }
@@ -387,6 +388,15 @@ export function buildMol02KeyAction(event, runtime) {
   }
 
   if (event.key === "Enter") {
+    if (current.confirmRegionId) {
+      const confirmSnapshot = resetRegionSnapshot(state, current.confirmRegionId);
+      return {
+        type: "mol02-start-challenge",
+        regionId: current.confirmRegionId,
+        affordable: Boolean(confirmSnapshot && confirmSnapshot.affordable),
+        at: Date.now(),
+      };
+    }
     return {
       type: "mol02-open-confirm",
       regionId: selectedRegionId(current),
@@ -409,22 +419,18 @@ function regionPanelMarkup(snapshot) {
       <section class="card mol-reset-region">
         <h4>Reset Target</h4>
         <p><strong>Current Role:</strong> ${escapeHtml(roleText)}</p>
-        <p><strong>Reset Cost:</strong> None</p>
+        <p><strong>Current Yield:</strong> ${currentRole ? `+1 ${escapeHtml(PRACTICAL_GUIDE_REGION.pointLabel)}` : "None"}</p>
         <p><strong>Completed resets:</strong> ${escapeHtml(String(snapshot.resets || 0))}</p>
         <p><strong>Effect:</strong> Remove active role artifact and reopen Claimant's Knife.</p>
       </section>
     `;
   }
-  const loopEchoes = prestigePassiveBonusSummary(
-    snapshot && snapshot.regionDef ? { regions: { [snapshot.regionId]: { resets: snapshot.resets } } } : {},
-    snapshot.regionId,
-  );
   return `
     <section class="card mol-reset-region">
       <div class="mol-reset-region-head">
         <div>
           <h4>${escapeHtml(region.label)}</h4>
-          <p class="muted">Rewind the region, bank one ${escapeHtml(region.pointLabel)}, and strengthen future loops.</p>
+          <p class="muted">Collapse the loop whenever you want. Deeper runs condense more ${escapeHtml(region.pointLabel)} for the lattice.</p>
         </div>
         <div class="mol-reset-stat-grid">
           <div class="mol-reset-stat">
@@ -432,8 +438,12 @@ function regionPanelMarkup(snapshot) {
             <strong>${escapeHtml(String(Math.floor(snapshot.currency)))}</strong>
           </div>
           <div class="mol-reset-stat">
-            <span>Next Reset</span>
-            <strong>${escapeHtml(String(snapshot.nextCost))}</strong>
+            <span>Current Yield</span>
+            <strong>+${escapeHtml(String(snapshot.award || 0))}</strong>
+          </div>
+          <div class="mol-reset-stat">
+            <span>Next Yield At</span>
+            <strong>${escapeHtml(String(Math.max(1, Math.floor(Number(snapshot.nextAwardAt) || 1))))}</strong>
           </div>
           <div class="mol-reset-stat">
             <span>${escapeHtml(region.pointLabel)}</span>
@@ -445,14 +455,48 @@ function regionPanelMarkup(snapshot) {
           </div>
         </div>
       </div>
-      <div class="mol-reset-echo-panel">
-        <h5>Loop Echoes</h5>
-        <div class="mol-reset-echo-list">
-          ${loopEchoes.map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`).join("")}
-        </div>
-      </div>
     </section>
   `;
+}
+
+function resetConsequences(snapshot) {
+  if (!snapshot || !snapshot.regionDef) {
+    return [];
+  }
+  if (isPracticalGuideRegionId(snapshot.regionId)) {
+    return [
+      "Role artifact removed",
+      "Claimant's Knife reopened",
+      "PGE01 rewound",
+    ];
+  }
+  if (snapshot.regionId === "cradle") {
+    return [
+      "Madra pool reset",
+      "Cycling levels to 0",
+      "Madra Well upgrades to 0",
+      "Manual state reset",
+      "Soulfire amount to 0",
+      "Cultivation stage kept",
+    ];
+  }
+  if (snapshot.regionId === "worm") {
+    return [
+      "Clout to 0",
+      "Slotted shard enhancements cleared",
+      "Owned capes kept",
+      "Unlocked shard sockets kept",
+    ];
+  }
+  if (snapshot.regionId === "dcc") {
+    return [
+      "Current run ended",
+      "Gold to 0",
+      "Meta upgrades to 0",
+      "Best floor and totals kept",
+    ];
+  }
+  return [];
 }
 
 export function renderMol02Experience(context) {
@@ -474,123 +518,154 @@ export function renderMol02Experience(context) {
       ${regionPanelMarkup(selectedSnapshot)}
 
       ${
-        runtime.confirmRegionId
+        runtime.confirmRegionId && !runtime.challenge
           ? `
-            <section class="card mol-reset-confirm">
-              <h4>Are you sure you want to reset this region?</h4>
-              ${
-                runtime.challenge
-                  ? `
-                    <p><strong>Memory Gate:</strong> ${runtime.challenge.successCount}/${runtime.challenge.targetSuccesses} rounds cleared</p>
-                    ${renderMemoryDisplay(runtime.challenge)}
-                    ${
-                      !runtime.challenge.solved
-                        ? `
-                          <div class="toolbar">
-                            ${
-                              runtime.challenge.phase === "idle"
-                                ? `
-                                  <button type="button" data-node-id="${NODE_ID}" data-node-action="mol02-memory-begin">
-                                    Begin Sequence
-                                  </button>
-                                `
-                                : ""
-                            }
-                          </div>
-                        `
-                        : ""
-                    }
-                    ${
-                      !runtime.challenge.solved
-                        ? renderMemoryField({
-                          nodeId: NODE_ID,
-                          actionName: runtime.challenge.phase === "input" ? "mol02-memory-pick" : "",
-                          game: runtime.challenge,
-                        })
-                        : ""
-                    }
-                    ${
-                      runtime.challenge.solved
-                        ? `
-                          <div class="toolbar">
-                            <button
-                              type="button"
-                              data-node-id="${NODE_ID}"
-                              data-node-action="mol02-finalize-reset"
-                              data-region-id="${escapeHtml(runtime.confirmRegionId)}"
-                            >
-                              Finalize Reset
-                            </button>
-                          </div>
-                        `
-                        : ""
-                    }
-                  `
-                  : `
-                    <p><strong>Required:</strong> ${
+            <div class="mol-lattice-modal mol02-confirm-modal" role="dialog" aria-label="Loop Reset Confirmation">
+              <section class="card mol-lattice-surface mol02-confirm-surface mol-reset-confirm">
+                <header>
+                  <div>
+                    <h3>Reset ${escapeHtml(confirmSnapshot.regionDef.label)}?</h3>
+                  </div>
+                </header>
+                <div class="mol-reset-confirm-grid">
+                  <article class="mol-reset-mini-stat">
+                    <span>On Hand</span>
+                    <strong>${
                       isPracticalGuideRegionId(confirmSnapshot.regionId)
-                        ? "No currency cost."
-                        : `${escapeHtml(String(confirmSnapshot.nextCost))} ${escapeHtml(confirmSnapshot.regionDef.currencyLabel)}`
-                    }</p>
-                    ${
-                      !isPracticalGuideRegionId(confirmSnapshot.regionId)
-                        ? `
-                          <div class="mol-reset-echo-panel">
-                            <h5>After the reset</h5>
-                            <div class="mol-reset-echo-list">
-                              ${prestigePassiveBonusSummary({
-                                regions: {
-                                  [confirmSnapshot.regionId]: {
-                                    resets: Math.max(0, Number(confirmSnapshot.resets || 0)) + 1,
-                                  },
-                                },
-                              }, confirmSnapshot.regionId)
-                                .map((entry) => `<span class="mol-reset-echo-chip">${escapeHtml(entry)}</span>`)
-                                .join("")}
-                            </div>
-                          </div>
-                        `
-                        : ""
-                    }
-                    ${
-                      confirmSnapshot.affordable
-                        ? `
-                          <div class="toolbar">
-                            <button
-                              type="button"
-                              data-node-id="${NODE_ID}"
-                              data-node-action="mol02-start-challenge"
-                              data-region-id="${escapeHtml(runtime.confirmRegionId)}"
-                              data-affordable="true"
-                            >
-                              Begin Reset Trial
-                            </button>
-                            <button
-                              type="button"
-                              class="ghost"
-                              data-node-id="${NODE_ID}"
-                              data-node-action="mol02-close-confirm"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        `
-                        : `
-                          <div class="toolbar">
-                            <button
-                              type="button"
-                              class="ghost"
-                              data-node-id="${NODE_ID}"
-                              data-node-action="mol02-close-confirm"
-                            >
-                              Close
-                            </button>
-                          </div>
-                        `
-                    }
-                  `
-              }
-            </section>
+                        ? "Role Active"
+                        : `${escapeHtml(String(Math.floor(confirmSnapshot.currency)))} ${escapeHtml(confirmSnapshot.regionDef.currencyLabel)}`
+                    }</strong>
+                  </article>
+                  <article class="mol-reset-mini-stat">
+                    <span>Yield</span>
+                    <strong>+${escapeHtml(String(confirmSnapshot.award || 0))} ${escapeHtml(confirmSnapshot.regionDef.pointLabel)}</strong>
+                  </article>
+                  ${
+                    !isPracticalGuideRegionId(confirmSnapshot.regionId)
+                      ? `
+                        <article class="mol-reset-mini-stat">
+                          <span>Next</span>
+                          <strong>${escapeHtml(String(Math.max(1, Math.floor(Number(confirmSnapshot.nextAwardAt) || 1))))} ${escapeHtml(confirmSnapshot.regionDef.currencyLabel)}</strong>
+                        </article>
+                      `
+                      : ""
+                  }
+                </div>
+                ${
+                  !isPracticalGuideRegionId(confirmSnapshot.regionId)
+                    ? `
+                      <div class="mol-reset-award-panel">
+                        <span class="mol-reset-award-kicker">Lattice Return</span>
+                        <strong>+${escapeHtml(String(confirmSnapshot.award || 0))} ${escapeHtml(confirmSnapshot.regionDef.pointLabel)}</strong>
+                      </div>
+                    `
+                    : ""
+                }
+                <div class="crd02-tech-req-block mol-reset-consequence-block">
+                  <h5>Reset Effects</h5>
+                  <ul class="mol-reset-consequence-list">
+                    ${resetConsequences(confirmSnapshot).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+                  </ul>
+                </div>
+                ${
+                  confirmSnapshot.affordable
+                    ? `
+                      <div class="toolbar">
+                        <button
+                          type="button"
+                          data-node-id="${NODE_ID}"
+                          data-node-action="mol02-start-challenge"
+                          data-region-id="${escapeHtml(runtime.confirmRegionId)}"
+                          data-affordable="true"
+                        >
+                          Begin Reset Trial
+                        </button>
+                        <button
+                          type="button"
+                          class="ghost"
+                          data-node-id="${NODE_ID}"
+                          data-node-action="mol02-close-confirm"
+                        >
+                          Back
+                        </button>
+                      </div>
+                    `
+                    : `
+                      <div class="toolbar">
+                        <button
+                          type="button"
+                          class="ghost"
+                          data-node-id="${NODE_ID}"
+                          data-node-action="mol02-close-confirm"
+                        >
+                          Back
+                        </button>
+                      </div>
+                    `
+                }
+              </section>
+            </div>
+          `
+          : ""
+      }
+      ${
+        runtime.challenge
+          ? `
+            <div class="mol-lattice-modal mol02-reset-modal" role="dialog" aria-label="Memory Gate">
+              <section class="mol-lattice-surface mol02-reset-surface">
+                <header>
+                  <div>
+                    <h3>Memory Gate</h3>
+                    <p><strong>${escapeHtml(confirmSnapshot && confirmSnapshot.regionDef ? confirmSnapshot.regionDef.label : "Region Reset")}</strong> | ${escapeHtml(String(runtime.challenge.successCount))}/${escapeHtml(String(runtime.challenge.targetSuccesses))} rounds cleared</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="ghost"
+                    data-node-id="${NODE_ID}"
+                    data-node-action="mol02-close-confirm"
+                  >
+                    Cancel
+                  </button>
+                </header>
+                ${renderMemoryDisplay(runtime.challenge)}
+                ${
+                  !runtime.challenge.solved && runtime.challenge.phase === "idle"
+                    ? `
+                      <div class="toolbar">
+                        <button type="button" data-node-id="${NODE_ID}" data-node-action="mol02-memory-begin">
+                          Begin Sequence
+                        </button>
+                      </div>
+                    `
+                    : ""
+                }
+                ${
+                  !runtime.challenge.solved
+                    ? renderMemoryField({
+                      nodeId: NODE_ID,
+                      actionName: runtime.challenge.phase === "input" ? "mol02-memory-pick" : "",
+                      game: runtime.challenge,
+                    })
+                    : ""
+                }
+                ${
+                  runtime.challenge.solved
+                    ? `
+                      <div class="toolbar">
+                        <button
+                          type="button"
+                          data-node-id="${NODE_ID}"
+                          data-node-action="mol02-finalize-reset"
+                          data-region-id="${escapeHtml(runtime.confirmRegionId)}"
+                        >
+                          Finalize Reset
+                        </button>
+                      </div>
+                    `
+                    : ""
+                }
+              </section>
+            </div>
           `
           : ""
       }

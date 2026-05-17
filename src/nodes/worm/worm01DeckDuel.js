@@ -16,6 +16,7 @@ import { prestigeModifiersFromState } from "../../systems/prestige.js";
 import {
   formatLootItemEffectSummary,
   getWormCapeLootBonuses,
+  getWormCapeShardSummaryEntries,
   getWormHiringWeightModifier,
   getWormShardSlotCount,
   getWormSickbaySlotCount,
@@ -155,8 +156,9 @@ function panelButton(panelId, active) {
   `;
 }
 
-function compactifyDuplicateCost(density) {
-  return Math.max(2, Math.floor(Number(density || 1)) * 2);
+function compactifyDuplicateCost(density, divider = 1) {
+  const baseCost = Math.max(2, Math.floor(Number(density || 1)) * 2);
+  return Math.max(2, Math.ceil(baseCost / Math.max(1, Number(divider) || 1)));
 }
 
 function compactifierSelectedEntry(runtime, ownedCards) {
@@ -164,7 +166,7 @@ function compactifierSelectedEntry(runtime, ownedCards) {
   return ownedCards.find((entry) => entry.cardId === selectedId) || null;
 }
 
-function compactifierSlotMarkup(runtime, ownedCards) {
+function compactifierSlotMarkup(runtime, ownedCards, compactifyCostDiv = 1) {
   const selected = compactifierSelectedEntry(runtime, ownedCards);
   if (!selected) {
     return `
@@ -180,7 +182,7 @@ function compactifierSlotMarkup(runtime, ownedCards) {
     `;
   }
   const density = Math.max(1, Number(selected.card.density || 1));
-  const duplicateCost = compactifyDuplicateCost(density);
+  const duplicateCost = compactifyDuplicateCost(density, compactifyCostDiv);
   return `
     <button
       type="button"
@@ -199,7 +201,7 @@ function compactifierSlotMarkup(runtime, ownedCards) {
   `;
 }
 
-function compactifierPickerPopup(runtime, ownedCards) {
+function compactifierPickerPopup(runtime, ownedCards, compactifyCostDiv = 1) {
   return `
     <div class="worm02-picker-overlay" role="dialog" aria-label="Select cape for compactifier">
       <section class="card worm02-picker-panel worm01-compact-picker-panel">
@@ -213,7 +215,7 @@ function compactifierPickerPopup(runtime, ownedCards) {
         <div class="worm02-picker-grid">
           ${ownedCards.map((entry) => {
             const density = Math.max(1, Number(entry.card.density || 1));
-            const duplicateCost = compactifyDuplicateCost(density);
+            const duplicateCost = compactifyDuplicateCost(density, compactifyCostDiv);
             const canCompactify = Number(entry.copies || 1) > duplicateCost;
             return `
               <button
@@ -236,13 +238,13 @@ function compactifierPickerPopup(runtime, ownedCards) {
   `;
 }
 
-function compactifierStatPopup(runtime, ownedCards) {
+function compactifierStatPopup(runtime, ownedCards, compactifyCostDiv = 1) {
   const entry = compactifierSelectedEntry(runtime, ownedCards);
   if (!entry) {
     return "";
   }
   const density = Math.max(1, Number(entry.card.density || 1));
-  const duplicateCost = compactifyDuplicateCost(density);
+  const duplicateCost = compactifyDuplicateCost(density, compactifyCostDiv);
   const statOptions = [
     { key: "attack", label: "Attack" },
     { key: "defense", label: "Defense" },
@@ -292,7 +294,7 @@ function compactifierStatPopup(runtime, ownedCards) {
   `;
 }
 
-function renderCompactifierPanel(runtime, ownedCards, wormState) {
+function renderCompactifierPanel(runtime, ownedCards, wormState, compactifyCostDiv = 1) {
   if (!wormState.compactifierUnlocked) {
     return `
       <section class="card">
@@ -312,7 +314,7 @@ function renderCompactifierPanel(runtime, ownedCards, wormState) {
         <div class="worm01-compactifier-left">
           <h3>Cape Compactifier</h3>
           <p class="muted">Seat one cape in the Compactifier. If you have enough duplicates, condense them into permanent stat growth.</p>
-          ${compactifierSlotMarkup(runtime, ownedCards)}
+          ${compactifierSlotMarkup(runtime, ownedCards, compactifyCostDiv)}
           <div class="toolbar">
             <button
               type="button"
@@ -482,6 +484,7 @@ function renderCapeShardPopup(runtime, ownedCards, maxShardSlotsPerCape, lootSta
   const canEquipSelected = Boolean(selectedLootItem && selectedLootItem.kind === "worm_enhancement");
   const canSocketSelected = Boolean(selectedLootItem && selectedLootItem.templateId === "worm_shard_slot_token");
   const unlockedSlots = getWormShardSlotCount({ inventory: { loot: lootState } }, cardId, Date.now());
+  const summaryEntries = getWormCapeShardSummaryEntries({ inventory: { loot: lootState } }, cardId, Date.now());
 
   const visibleSlotCount = Math.min(
     maxShardSlotsPerCape,
@@ -554,6 +557,21 @@ function renderCapeShardPopup(runtime, ownedCards, maxShardSlotsPerCape, lootSta
           }),
           ariaLabel: `${entry.card.heroName} shard slot ring`,
         })}
+        <div class="slot-bonus-summary">
+          <span class="slot-bonus-kicker">Slotted Buffs</span>
+          <div class="slot-bonus-grid">
+            ${
+              summaryEntries.length
+                ? summaryEntries.map((summary) => `
+                  <article class="slot-bonus-chip">
+                    <span>${escapeHtml(summary.label)}</span>
+                    <strong>${escapeHtml(summary.value)}</strong>
+                  </article>
+                `).join("")
+                : '<p class="slot-bonus-empty">No active shard bonuses.</p>'
+            }
+          </div>
+        </div>
         <div class="toolbar">
           <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>
           <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="worm01-close-shard-popup">Close</button>
@@ -922,8 +940,8 @@ export function reduceWorm01Runtime(runtime, action) {
   if (action.type === "worm01-sickbay-assign" || action.type === "worm01-sickbay-remove") {
     return {
       ...current,
-      panel: PANELS.sickbay,
       popup: POPUPS.none,
+      lastMessage: safeText(action.message) || current.lastMessage,
     };
   }
 
@@ -1125,14 +1143,22 @@ export function buildWorm01ActionFromElement(element, runtime) {
 
 export function renderWorm01Experience(context) {
   const runtime = normalizeRuntime(context.runtime);
-  const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now());
   const modifiers = prestigeModifiersFromState(context.state);
+  const wormPrestige = modifiers && modifiers.worm && typeof modifiers.worm === "object" ? modifiers.worm : {};
+  const wormOptions = {
+    capeMaxHpMultiplier: Math.max(1, Number(wormPrestige.capeMaxHpMultiplier || 1)),
+    sickbayHealMultiplier: Math.max(1, Number(wormPrestige.sickbayHealMultiplier || 1)),
+    compactifyCostDivider: Math.max(1, Number(wormPrestige.compactifyCostDivider || 1)),
+  };
+  const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now(), wormOptions);
   const jobWeightBase = Number((0.125 * Math.max(1, Number(modifiers.worm.jobWeightBaseMultiplier || 1)) * Math.max(1, Number(getWormHiringWeightModifier(context.state, Date.now()) || 1))).toFixed(4));
-  const maxSickbaySlots = getWormSickbaySlotCount(context.state, Date.now());
+  const specialWindowWeightMultiplier = Math.max(1, Number(wormPrestige.specialWindowWeightMultiplier || 1));
+  const maxSickbaySlots =
+    getWormSickbaySlotCount(context.state, Date.now()) + Math.max(0, Number(wormPrestige.extraSickbaySlots || 0));
   const maxShardSlotsPerCape = 3;
   const maxRarity = 5;
   const lootState = lootInventoryFromState(context.state, Date.now());
-  const ownedCards = wormOwnedCards(wormState, Date.now());
+  const ownedCards = wormOwnedCards(wormState, Date.now(), wormOptions);
   const rewards =
     context && context.state && context.state.inventory && context.state.inventory.rewards && typeof context.state.inventory.rewards === "object"
       ? context.state.inventory.rewards
@@ -1150,17 +1176,27 @@ export function renderWorm01Experience(context) {
   const panelMarkup = panel === PANELS.sickbay
     ? renderSickbayPanel(ownedCards, wormState, maxSickbaySlots)
     : panel === PANELS.compactifier
-      ? renderCompactifierPanel(runtime, ownedCards, wormState)
+      ? renderCompactifierPanel(runtime, ownedCards, wormState, wormOptions.compactifyCostDivider)
     : panel === PANELS.jobs
-      ? renderJobsPanel(runtime, wormState, jobWeightBase, maxRarity, specialWindows, hasTenPullAccess)
+      ? renderJobsPanel(
+        runtime,
+        wormState,
+        jobWeightBase,
+        maxRarity,
+        specialWindows.map((window) => ({
+          ...window,
+          weightBase: Number((Number(window.weightBase || 1) * specialWindowWeightMultiplier).toFixed(4)),
+        })),
+        hasTenPullAccess,
+      )
       : renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPerCape, lootState);
 
   const popupMarkup = runtime.popup === POPUPS.cape
     ? renderCapeShardPopup(runtime, ownedCards, maxShardSlotsPerCape, lootState)
     : runtime.popup === POPUPS.compactPicker
-      ? compactifierPickerPopup(runtime, ownedCards)
+      ? compactifierPickerPopup(runtime, ownedCards, wormOptions.compactifyCostDivider)
       : runtime.popup === POPUPS.compactStat
-        ? compactifierStatPopup(runtime, ownedCards)
+        ? compactifierStatPopup(runtime, ownedCards, wormOptions.compactifyCostDivider)
         : "";
   const pullPopup = pullPopupMarkup(runtime);
 

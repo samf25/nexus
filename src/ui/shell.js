@@ -346,8 +346,7 @@ export function renderShellLayout({
     <div class="space-app-shell">
       <header class="space-header">
         <div class="space-brand">
-          <h1>Nexus</h1>
-          <p>${escapeHtml(String(summary.nodeCount || 0))} nodes | ${escapeHtml(String(summary.sections?.length || 0))} arcs</p>
+          <h1>The Convergence</h1>
         </div>
         <nav class="space-controls">
           ${

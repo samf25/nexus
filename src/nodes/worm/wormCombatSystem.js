@@ -117,6 +117,9 @@ function normalizeCard(card) {
     speed: toStat(source.speed),
     stealth: toStat(source.stealth),
     currentHp: Number.isFinite(Number(source.currentHp)) ? Math.max(0, Math.round(Number(source.currentHp))) : null,
+    maxHpMultiplier: Math.max(1, Number(source.maxHpMultiplier || 1)),
+    damageMultiplier: Math.max(1, Number(source.damageMultiplier || 1)),
+    damageReduction: Math.max(0, Number(source.damageReduction || 0)),
     rarity: Number.isFinite(Number(source.rarity)) ? Number(source.rarity) : 0,
     rarityTier: safeText(source.rarityTier || "common"),
   };
@@ -124,7 +127,7 @@ function normalizeCard(card) {
 
 function buildCombatant(card, teamId, slotIndex) {
   const normalized = normalizeCard(card);
-  const baseHp = Math.max(40, normalized.endurance * 50);
+  const baseHp = Math.max(40, Math.round(normalized.endurance * 50 * normalized.maxHpMultiplier));
   const startingHp = Number.isFinite(normalized.currentHp)
     ? clamp(normalized.currentHp, 0, baseHp)
     : baseHp;
@@ -148,6 +151,8 @@ function buildCombatant(card, teamId, slotIndex) {
     },
     rarity: normalized.rarity,
     rarityTier: normalized.rarityTier,
+    damageMultiplier: normalized.damageMultiplier,
+    damageReduction: normalized.damageReduction,
     maxHp: baseHp,
     hp: startingHp,
     modifiers: emptyModifiers(),
@@ -243,7 +248,8 @@ function effectiveStat(combatant, statKey) {
 }
 
 function applyDamage(combatant, damage) {
-  combatant.hp = Math.max(0, combatant.hp - Math.max(0, Math.round(damage)));
+  const reduction = Math.min(0.8, Math.max(0, Number(combatant.damageReduction || 0)));
+  combatant.hp = Math.max(0, combatant.hp - Math.max(0, Math.round(damage * (1 - reduction))));
 }
 
 function logLine(state, line) {
@@ -735,7 +741,7 @@ function resolveAttack(state, actor, order) {
 
   const baseAttack = Math.max(1, effectiveStat(actor, "attack"));
   const baseDamage = Math.max(1, Math.round(baseAttack * baseAttack));
-  const damage = Math.max(1, Math.round(baseDamage * stealthBoost));
+  const damage = Math.max(1, Math.round(baseDamage * stealthBoost * Math.max(1, Number(actor.damageMultiplier || 1))));
   applyDamage(target, damage);
 
   logLine(

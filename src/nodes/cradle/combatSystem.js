@@ -175,6 +175,10 @@ function upgradeLevelFromState(state, upgradeId) {
 export function cradleTechniqueEffectsFromState(state, stageId = "foundation") {
   const stage = normalizeCombatStage(stageId);
   const scale = stageScaleForTechniques(stage);
+  const prestige = prestigeModifiersFromState(state || {});
+  const prestigeCradle = prestige && prestige.cradle && typeof prestige.cradle === "object"
+    ? prestige.cradle
+    : {};
   const bloodForged = upgradeLevelFromState(state, "blood-forged-iron-body") > 0;
   const soulCloak = upgradeLevelFromState(state, "soul-cloak") > 0;
   const dragonBreath = upgradeLevelFromState(state, "dragon-breath") > 0;
@@ -195,9 +199,18 @@ export function cradleTechniqueEffectsFromState(state, stageId = "foundation") {
     voidDragonsDance,
     twinStarsCombat,
     drossBattlePlanning,
-    ironBodyDamageReduction: bloodForged ? Math.min(0.55, 0.08 * scale) : 0,
-    soulCloakDodgeBonus: soulCloak ? Math.min(0.22, 0.03 * scale) : 0,
-    soulCloakMadraDiscount: soulCloak ? Math.min(0.35, 0.06 * scale) : 0,
+    ironBodyDamageReduction: Math.min(
+      0.8,
+      (bloodForged ? Math.min(0.55, 0.08 * scale) : 0)
+        + Math.max(0, Number(prestigeCradle.combatDamageReduction || 0)),
+    ),
+    soulCloakDodgeBonus: (soulCloak ? Math.min(0.22, 0.03 * scale) : 0)
+      + Math.max(0, Number(prestigeCradle.combatDodgeBonus || 0)),
+    soulCloakMadraDiscount: Math.min(
+      0.8,
+      (soulCloak ? Math.min(0.35, 0.06 * scale) : 0)
+        + Math.max(0, 1 - (1 / Math.max(1, Number(prestigeCradle.techniqueMadraCostDivider || 1)))),
+    ),
     dragonBreathFlatDamage: dragonBreath ? Math.max(4, Math.round(4 + scale * 2.2)) : 0,
     consumeLifeStealRatio: consume ? Math.min(0.35, 0.07 * scale) : 0,
     consumeMadraStealRatio: consume ? Math.min(0.32, 0.06 * scale) : 0,
@@ -212,8 +225,10 @@ export function cradleTechniqueEffectsFromState(state, stageId = "foundation") {
     drossAttackMultiplier: drossBattlePlanning ? Math.min(1.4, 1 + 0.085 * scale) : 1,
     drossDamageReduction: drossBattlePlanning ? Math.min(0.28, 0.05 * scale) : 0,
     drossMadraDiscount: drossBattlePlanning ? Math.min(0.22, 0.04 * scale) : 0,
-    drossEmptyPalmBonus: drossBattlePlanning ? Math.min(0.16, 0.03 * scale) : 0,
-    drossEnemyFumbleChance: drossBattlePlanning ? Math.min(0.22, 0.035 * scale) : 0,
+    drossEmptyPalmBonus: (drossBattlePlanning ? Math.min(0.16, 0.03 * scale) : 0)
+      + Math.max(0, Number(prestigeCradle.emptyPalmBonus || 0)),
+    drossEnemyFumbleChance: (drossBattlePlanning ? Math.min(0.22, 0.035 * scale) : 0)
+      + Math.max(0, Number(prestigeCradle.enemyFumbleChance || 0)),
   };
 }
 

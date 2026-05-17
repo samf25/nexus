@@ -11,7 +11,7 @@ import {
   glyphTemplatePoints,
   qualitativeAccuracyLabel,
 } from "../../systems/arcaneAscension.js";
-import { isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
+import { getArcaneWorkshopSlotSummaryEntries, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "AA03";
@@ -454,6 +454,7 @@ function workshopSlotsMarkup(state, arcane, selectedLootItemId = "") {
         : {},
     };
   });
+  const summaryEntries = getArcaneWorkshopSlotSummaryEntries(state || {}, Date.now());
 
   return `
     <section class="card aa03-altar-card">
@@ -468,6 +469,21 @@ function workshopSlotsMarkup(state, arcane, selectedLootItemId = "") {
         }),
         ariaLabel: "Workshop slot ring",
       })}
+      <div class="slot-bonus-summary">
+        <span class="slot-bonus-kicker">Slotted Buffs</span>
+        <div class="slot-bonus-grid">
+          ${
+            summaryEntries.length
+              ? summaryEntries.map((entry) => `
+                <article class="slot-bonus-chip">
+                  <span>${escapeHtml(entry.label)}</span>
+                  <strong>${escapeHtml(entry.value)}</strong>
+                </article>
+              `).join("")
+              : '<p class="slot-bonus-empty">No active workshop bonuses.</p>'
+          }
+        </div>
+      </div>
       ${selectedItem && !selectedIsSocketable ? `<p class="muted">That selection is a consumable upgrade, not a socketed workshop piece.</p>` : ""}
       <div class="toolbar">
         <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>

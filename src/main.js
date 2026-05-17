@@ -38,7 +38,7 @@ import {
 } from "./systems/deliveryBoard.js";
 import { moveRoom, runRoomAction } from "./systems/dungeonCrawl.js";
 import { reduceWormSystemState } from "./systems/wormDeck.js";
-import { applyPrestigeReset, applyPrestigeUpgradePurchase } from "./systems/prestige.js";
+import { applyPrestigeReset, applyPrestigeUpgradePurchase, prestigeModifiersFromState } from "./systems/prestige.js";
 import {
   applyPracticalGuideRoleReset,
   grantPracticalGuideRoleArtifact,
@@ -902,6 +902,8 @@ function applyRuntimeLootEvents(state, nodeId, runtime) {
   let next = state;
   const dropped = [];
   const droppedEntries = [];
+  const wormPrestige = prestigeModifiersFromState(state || {}).worm || {};
+  const isWormRegion = /^WORM/u.test(String(nodeId || ""));
   for (const event of events) {
     if (event.customDrop && typeof event.customDrop === "object") {
       next = applyLootDrop(next, event.customDrop);
@@ -912,8 +914,8 @@ function applyRuntimeLootEvents(state, nodeId, runtime) {
     const roll = rollRegionalLoot({
       sourceRegion: event.sourceRegion || nodeId,
       triggerType: event.triggerType || nodeId,
-      rarityBias: event.rarityBias,
-      dropChance: event.dropChance,
+      rarityBias: Number(event.rarityBias || 0) + (isWormRegion ? Number(wormPrestige.wormLootRarityBias || 0) : 0),
+      dropChance: Number(event.dropChance || 0) + (isWormRegion ? Number(wormPrestige.wormLootDropChanceBonus || 0) : 0),
       outRegionChance: event.outRegionChance,
       forceOutRegion: event.forceOutRegion,
       now: Date.now(),
@@ -932,6 +934,16 @@ function applyRuntimeLootEvents(state, nodeId, runtime) {
     dropped,
     droppedEntries,
     consumed: true,
+  };
+}
+
+function wormPrestigeOptions(state) {
+  const worm = prestigeModifiersFromState(state || {}).worm || {};
+  return {
+    cloutGainMultiplier: Math.max(1, Number(worm.cloutGainMultiplier || 1)),
+    capeMaxHpMultiplier: Math.max(1, Number(worm.capeMaxHpMultiplier || 1)),
+    sickbayHealMultiplier: Math.max(1, Number(worm.sickbayHealMultiplier || 1)),
+    compactifyCostDivider: Math.max(1, Number(worm.compactifyCostDivider || 1)),
   };
 }
 
@@ -1407,7 +1419,12 @@ function dispatchActiveNodeAction(action) {
           playerResults: Array.isArray(action.playerResults) ? action.playerResults : [],
         }
         : action;
-    const wormSystemResult = reduceWormSystemState(next.systems.worm, wormSystemAction, Date.now());
+    const wormSystemResult = reduceWormSystemState(
+      next.systems.worm,
+      wormSystemAction,
+      Date.now(),
+      wormPrestigeOptions(next),
+    );
     if (wormSystemResult.changed) {
       next = updateSystemState(next, "worm", wormSystemResult.nextState);
       if (wormSystemResult.message) {
@@ -1622,6 +1639,7 @@ function dispatchActiveNodeAction(action) {
               cardId: runtimeAction.sacrificeCardId,
             },
             Date.now(),
+            wormPrestigeOptions(working),
           );
           if (sacrifice.changed) {
             working = updateSystemState(working, "worm", sacrifice.nextState);
@@ -2181,6 +2199,7 @@ function dispatchActiveNodeAction(action) {
           cardId: action.cardId,
         },
         Date.now(),
+        wormPrestigeOptions(next),
       );
       if (sacrificeResult.changed) {
         next = updateSystemState(next, "worm", sacrificeResult.nextState);
@@ -3333,7 +3352,7 @@ function handleNodeKeyDown(event) {
   }
 
   const runtime = readNodeRuntime(appState, context.node, context.experience);
-  const action = context.experience.buildKeyAction(event, runtime);
+  const action = context.experience.buildKeyAction(event, runtime, appState);
   if (!action) {
     return false;
   }

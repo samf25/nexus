@@ -179,6 +179,9 @@ function applyCardBonus(card, bonus) {
   for (const key of keys) {
     next[key] = Math.max(0, Number(card[key] || 0) + Math.max(0, Number(source[key] || 0)));
   }
+  next.maxHpMultiplier = Math.max(1, Number(source.maxHpMultiplier || card.maxHpMultiplier || 1));
+  next.damageMultiplier = Math.max(1, Number(source.damageMultiplier || card.damageMultiplier || 1));
+  next.damageReduction = Math.max(0, Number(source.damageReduction || card.damageReduction || 0));
   return next;
 }
 
