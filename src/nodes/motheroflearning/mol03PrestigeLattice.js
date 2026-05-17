@@ -192,6 +192,7 @@ function perLevelEffectLines(regionId, upgradeId) {
       "field-medicine": ["Potion healing x1.22 per level"],
       "ration-cache": ["Lv1 +1 potion", "Lv2 +10 gold", "Lv3 second potion"],
       "scavenger-instinct": ["+12% bonus loot roll chance per level"],
+      "floor-five-clearance": ["One-time unlock: receive the DCC Floor-5 Key"],
     },
   };
   return (map[region] && map[region][id]) || [];
@@ -246,6 +247,7 @@ function currentLevelSummary(regionId, upgradeId, level) {
     if (id === "field-medicine") return `Potion healing x${format(1 + 0.22 * lv)}`;
     if (id === "ration-cache") return lv >= 3 ? "2 potions and +10 gold" : lv === 2 ? "1 potion and +10 gold" : "1 starting potion";
     if (id === "scavenger-instinct") return `+${format(0.12 * lv * 100)}% bonus loot roll`;
+    if (id === "floor-five-clearance") return "DCC Floor-5 Key claimed";
   }
   return `${lv} levels invested.`;
 }
@@ -358,6 +360,7 @@ function treeModalMarkup(runtime, snapshot) {
   }
   const branches = Array.from(groupedViews(snapshot).entries()).map(([branchId, views]) => ({ branchId, views }));
   const previewId = resolvedPreviewUpgradeId(runtime, snapshot);
+  const stageHeight = Math.max(430, 150 + branches.length * 110);
   return `
     <div class="crd02-tech-modal mol03-tree-modal mol03-tree-modal--${escapeHtml(snapshot.regionId)}" role="dialog" aria-label="${escapeHtml(snapshot.regionDef.label)} prestige tree">
       <section class="crd02-tech-surface mol03-tech-surface">
@@ -367,8 +370,8 @@ function treeModalMarkup(runtime, snapshot) {
         </header>
         <div class="crd02-tech-layout mol03-tech-layout">
           <div class="crd02-tech-tree mol03-tech-tree">
-            <div class="crd02-tech-stage mol03-tech-stage" style="--tech-grid-width:500px; --tech-grid-height:430px;">
-              <svg class="crd02-tech-links" viewBox="0 0 500 430" preserveAspectRatio="none" aria-hidden="true">
+            <div class="crd02-tech-stage mol03-tech-stage" style="--tech-grid-width:500px; --tech-grid-height:${stageHeight}px;">
+              <svg class="crd02-tech-links" viewBox="0 0 500 ${stageHeight}" preserveAspectRatio="none" aria-hidden="true">
                 ${treeLinksMarkup(branches)}
               </svg>
               ${branches.map((branch, branchIndex) => `

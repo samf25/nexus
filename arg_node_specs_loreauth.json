@@ -586,14 +586,14 @@
       ],
       "reward": "Restart Token",
       "surface": "Cyoria Morning Variants is a canon chronology reconstruction page built from the opening month and how repeated mornings diverge across loop states.",
-      "mechanics": "Use canon knowledge of loop-state memory, morning differences, knowledge progression to label each morning by loop state and order them by Zorian’s growing knowledge; then extract from ordered journal tags.",
+      "mechanics": "Use canon knowledge of loop-state memory, morning differences, knowledge progression to label each morning by loop state and order them by Zorian\u2019s growing knowledge; then extract from ordered journal tags.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered journal tags.",
       "build_notes": "Timeline cards and solved ordering should be content-only.",
       "hint_1": "Work out event identity before final ordering.",
       "hint_2": "Use the strongest anchor events to fix the spine of the timeline.",
       "hint_3": "Do not extract until the chronology is clean.",
       "cross_talk": "Turns Mother of Learning knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Cyoria Morning Variants now asks the solver to label each morning by loop state and order them by Zorian’s growing knowledge. Candidate set: baseline restart, Zach-aware loop, aranea-aware loop, combat-prep loop, research loop, escape-focused loop.",
+      "step_detail": "Cyoria Morning Variants now asks the solver to label each morning by loop state and order them by Zorian\u2019s growing knowledge. Candidate set: baseline restart, Zach-aware loop, aranea-aware loop, combat-prep loop, research loop, escape-focused loop.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
       "canon_scope": "the opening month and how repeated mornings diverge across loop states",
@@ -640,7 +640,7 @@
       "writes_state": [
         "inventory.cycle_count"
       ],
-      "reward": "Cycle Count",
+      "reward": "",
       "surface": "Academy Month Calendar is a canon chronology reconstruction page built from the repeating academy month and its fixed versus movable events.",
       "mechanics": "Use canon knowledge of event dates, fixed versus movable structure, month planning to place the canon events onto the restart month and use the legal free windows; then extract from legal free windows.",
       "validation": "Require the correct canonical mapping or state plus extraction from legal free windows.",
@@ -808,7 +808,7 @@
       "writes_state": [
         "inventory.route_thread"
       ],
-      "reward": "Route Thread",
+      "reward": "",
       "surface": "Dispatch Atlas of Izril is a canon geography / route reconstruction page built from major wandering inn destinations, alliances, and route logic around liscor.",
       "mechanics": "Use canon knowledge of who belongs where, Izril geography, door-linked logistics to map parcels to their canonical destinations and solve the delivery route; then extract from intermediate hubs.",
       "validation": "Require the correct canonical mapping or state plus extraction from intermediate hubs.",
@@ -930,7 +930,7 @@
       "writes_state": [
         "inventory.trauma_pair"
       ],
-      "reward": "Trauma Pair",
+      "reward": "",
       "surface": "Trigger Root Causes is a canon roster reconstruction page built from trigger-event irony and structure for major worm capes.",
       "mechanics": "Use canon knowledge of trigger memory, power irony, cape identity to match trigger fragments to the right capes and irony cards; then extract from solved irony pairings.",
       "validation": "Require the correct canonical mapping or state plus extraction from solved irony pairings.",
@@ -991,7 +991,7 @@
         "state.cradle.madra_pool",
         "state.cradle.cycle_loadout"
       ],
-      "reward": "Madra Charges",
+      "reward": "",
       "surface": "The region home page becomes a live Madra Well with current madra, cycling presets, aura intake, and a queue for converting stored madra into charges.",
       "mechanics": "Madra accumulates offline based on core quality, chosen cycling preset, and unlocked aura modifiers. The first milestone is generating 120 total madra and refining three charges; later nodes consume charges but the well always keeps running in the background.",
       "validation": "Mark CRD02 complete once the first three charges are claimed; thereafter it remains interactable and writes continuous state used by later Cradle nodes and a few bosses.",
@@ -1097,7 +1097,7 @@
       "writes_state": [
         "inventory.witness_token"
       ],
-      "reward": "Witness Token",
+      "reward": "",
       "surface": "A 4x4 quantifier grid lists predicates on rows and small finite domains on columns, with draggable witness and counterexample markers.",
       "mechanics": "For each quantified statement, place either a witness object or a counterexample object in the correct cell; the labels on the successful witness placements spell the Witness Token.",
       "validation": "Validation compares every marker placement against the statement truth values.",
@@ -1105,7 +1105,7 @@
       "hint_1": "Translate each sentence into 'for all' or 'there exists' before touching the grid.",
       "hint_2": "A single counterexample is enough to kill a universal statement.",
       "hint_3": "Only the existentially true statements contribute letters.",
-      "cross_talk": "Makes abstract logic concrete and creates a reusable “find the counterexample” habit.",
+      "cross_talk": "Makes abstract logic concrete and creates a reusable \u201cfind the counterexample\u201d habit.",
       "step_detail": "Choose the smallest set of examples that make a collection of universal and existential statements true or false.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "None",
@@ -1143,7 +1143,7 @@
       "writes_state": [
         "inventory.proof_frame"
       ],
-      "reward": "Proof Frame",
+      "reward": "",
       "surface": "A staircase of proof lines appears with draggable statements, assumption bars, and inference badges.",
       "mechanics": "Assemble a valid natural-deduction proof for a target sequent using introduction and elimination rules; the line numbers on the essential assumptions yield the Proof Frame.",
       "validation": "Validation is a full proof-state check including line dependencies, not just final conclusion matching.",
@@ -1189,7 +1189,7 @@
       "writes_state": [
         "inventory.memory_marker"
       ],
-      "reward": "Memory Marker",
+      "reward": "",
       "surface": "Who Remembers? is a canon roster reconstruction page built from who knows about the loop and how they know it.",
       "mechanics": "Use canon knowledge of awareness state, marker logic, informed versus remembering to place the characters into the correct awareness and acquisition categories; then extract from solved diagonal.",
       "validation": "Require the correct canonical mapping or state plus extraction from solved diagonal.",
@@ -1303,7 +1303,7 @@
       "writes_state": [
         "inventory.prime_teeth"
       ],
-      "reward": "Prime Teeth",
+      "reward": "",
       "surface": "A locksmith bench shows five brass locks, each opening only when the supplied number has the required prime-factor profile.",
       "mechanics": "Build factor trees for the candidate numbers, place each number into its compatible lock, and read the prime exponents from the opened teeth to obtain Prime Teeth.",
       "validation": "Validation is the number-to-lock assignment.",
@@ -1350,7 +1350,7 @@
       "writes_state": [
         "inventory.congruence_pair"
       ],
-      "reward": "Congruence Pair",
+      "reward": "",
       "surface": "A gate console presents three incomplete congruence systems and a set of candidate remainders.",
       "mechanics": "Reconstruct the one integer for each system that satisfies all displayed residues, then compare the solutions modulo a larger base; the paired surviving residues form the Congruence Pair.",
       "validation": "Validation checks each reconstructed solution class.",
@@ -1396,7 +1396,7 @@
       "writes_state": [
         "inventory.common_tongue_scrap"
       ],
-      "reward": "Common Tongue Scrap",
+      "reward": "",
       "surface": "Skill Provenance Chalkboard is a canon system mapping page built from signature skills and class lines among inn-adjacent characters.",
       "mechanics": "Use canon knowledge of signature skills, class lines, story importance to the inn to match skill fragments to owners and class lines then order the solved set; then extract from ordered owner initials.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered owner initials.",
@@ -1476,7 +1476,7 @@
     },
     {
       "node_id": "TWI04",
-      "title": "Erin’s Endgame Archive",
+      "title": "Erin\u2019s Endgame Archive",
       "category": "Literary",
       "section": "The Wandering Inn",
       "sheet": "Wandering Inn",
@@ -1500,8 +1500,8 @@
       "writes_state": [
         "inventory.board_code"
       ],
-      "reward": "Board Code",
-      "surface": "Erin’s Endgame Archive is a canon hybrid puzzle page built from erin’s chess relationships and the symbolic role of specific games.",
+      "reward": "",
+      "surface": "Erin\u2019s Endgame Archive is a canon hybrid puzzle page built from erin\u2019s chess relationships and the symbolic role of specific games.",
       "mechanics": "Use canon knowledge of chess-related relationships, context clues, tactical endgame solve to match board snapshots to the right canon contexts and solve the unlocked endgame; then extract from move destinations.",
       "validation": "Require the correct canonical mapping or state plus extraction from move destinations.",
       "build_notes": "Keep the interface accessible; let the lore payload create the specificity.",
@@ -1509,10 +1509,10 @@
       "hint_2": "Use the redundant clue channels; nothing important is hidden in one modality only.",
       "hint_3": "Extract only after the canon mapping is resolved.",
       "cross_talk": "Turns The Wandering Inn knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Erin’s Endgame Archive now asks the solver to match board snapshots to the right canon contexts and solve the unlocked endgame. Candidate set: Olesm, Niers, Bird, strategist circles, inn chess students.",
+      "step_detail": "Erin\u2019s Endgame Archive now asks the solver to match board snapshots to the right canon contexts and solve the unlocked endgame. Candidate set: Olesm, Niers, Bird, strategist circles, inn chess students.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
-      "canon_scope": "Erin’s chess relationships and the symbolic role of specific games",
+      "canon_scope": "Erin\u2019s chess relationships and the symbolic role of specific games",
       "candidate_set": [
         "Olesm",
         "Niers",
@@ -1625,7 +1625,7 @@
       "writes_state": [
         "inventory.harbor_coordinates"
       ],
-      "reward": "Harbor Coordinates",
+      "reward": "",
       "surface": "Brockton Bay Territory Map is a canon geography / route reconstruction page built from brockton bay districts, gangs, and faction control.",
       "mechanics": "Use canon knowledge of district control, faction placement, city-event memory to place factions and event tags into the right city districts and route surveillance; then extract from final surveillance route.",
       "validation": "Require the correct canonical mapping or state plus extraction from final surveillance route.",
@@ -1742,8 +1742,8 @@
       "writes_state": [
         "inventory.buzz_pattern"
       ],
-      "reward": "Buzz Pattern",
-      "surface": "Swarm Priority Channel is a canon hybrid puzzle page built from taylor’s tactical use of specific insect families across major operations.",
+      "reward": "",
+      "surface": "Swarm Priority Channel is a canon hybrid puzzle page built from taylor\u2019s tactical use of specific insect families across major operations.",
       "mechanics": "Use canon knowledge of bug-family use, mission context, swarm tactics to match mission notes to the bug families they imply and decode the surviving traces; then extract from pulse-gap decoding.",
       "validation": "Require the correct canonical mapping or state plus extraction from pulse-gap decoding.",
       "build_notes": "Keep the interface accessible; let the lore payload create the specificity.",
@@ -1754,7 +1754,7 @@
       "step_detail": "Swarm Priority Channel now asks the solver to match mission notes to the bug families they imply and decode the surviving traces. Candidate set: stinging insects, spiders, flies, beetles, moths, cockroaches.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
-      "canon_scope": "Taylor’s tactical use of specific insect families across major operations",
+      "canon_scope": "Taylor\u2019s tactical use of specific insect families across major operations",
       "candidate_set": [
         "stinging insects",
         "spiders",
@@ -1801,7 +1801,7 @@
         "inventory.path_schema",
         "state.cradle.technique_nodes"
       ],
-      "reward": "Path Schema",
+      "reward": "",
       "surface": "A branching technique tree offers six candidate techniques with costs, aura affinities, and synergy tags; only four can be equipped under the current core.",
       "mechanics": "Choose the combination that maximizes coverage across offense, defense, movement, and utility while respecting aura compatibility and the current madra budget. The selected path traces a wheel pattern whose node initials form the Path Schema.",
       "validation": "Validation checks chosen techniques against the unique optimal satisfying build, then writes both the loadout and Path Schema.",
@@ -1849,7 +1849,7 @@
         "inventory.forged_component",
         "state.cradle.inventory"
       ],
-      "reward": "Forged Component",
+      "reward": "",
       "surface": "A workbench shows five ingredients, three tool heads, and recipe scroll fragments obtained from system progress and the desk.",
       "mechanics": "Assemble the one legal recipe whose aura affinities do not clash and whose tool order matches the scroll fragment sequence; crafting it consumes one charge and yields the Forged Component.",
       "validation": "Validation compares ingredient multiset, tool order, and crafted item ID. Success also unlocks a reusable craft-inventory model for later bosses.",
@@ -1897,7 +1897,7 @@
       "writes_state": [
         "inventory.necessity_lens"
       ],
-      "reward": "Necessity Lens",
+      "reward": "",
       "surface": "A graph of lantern-lit rooms represents possible worlds, each room marked with propositions and one memory-state symbol from MoL.",
       "mechanics": "Choose which rooms remain reachable under the memory marker rule, then identify which modal statements are necessary, possible, or impossible; the necessary-room initials form the Necessity Lens.",
       "validation": "Validation checks the reduced world graph plus modal truth classification.",
@@ -1943,7 +1943,7 @@
         "inventory.mnemonic_thread"
       ],
       "reward": "Mnemonic Thread",
-      "surface": "Lessons from Many Loops is a canon roster reconstruction page built from zorian’s teachers, allies, and the disciplines they help him learn.",
+      "surface": "Lessons from Many Loops is a canon roster reconstruction page built from zorian\u2019s teachers, allies, and the disciplines they help him learn.",
       "mechanics": "Use canon knowledge of who teaches what, discipline identity, availability over loops to match lessons to mentors and order them by when they become practical; then extract from ordered lesson set.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered lesson set.",
       "build_notes": "Use a reusable roster/dossier component with data-driven candidates and validation.",
@@ -1954,7 +1954,7 @@
       "step_detail": "Lessons from Many Loops now asks the solver to match lessons to mentors and order them by when they become practical. Candidate set: Xvim, Alanic, aranea mentors, Zach, workshop contacts, golem or shaping experts.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
-      "canon_scope": "Zorian’s teachers, allies, and the disciplines they help him learn",
+      "canon_scope": "Zorian\u2019s teachers, allies, and the disciplines they help him learn",
       "candidate_set": [
         "Xvim",
         "Alanic",
@@ -2232,7 +2232,7 @@
       "writes_state": [
         "inventory.spire_badge"
       ],
-      "reward": "Spire Badge",
+      "reward": "",
       "surface": "Serpent Judgment Archive is a canon tactical or social board page built from judgment rooms, hazards, and attunement-linked room behavior.",
       "mechanics": "Use canon knowledge of Judgment structure, room identity, attunement-friendly choice to reconstruct the canon trial path through the Judgment; then extract from room path outcome.",
       "validation": "Require the correct canonical mapping or state plus extraction from room path outcome.",
@@ -2287,7 +2287,7 @@
       "writes_state": [
         "inventory.mana_pair"
       ],
-      "reward": "Mana Pair",
+      "reward": "",
       "surface": "Attunement Wheel of Kaldwyn is a canon system mapping page built from attunements, mana types, mark locations, and spire sectors.",
       "mechanics": "Use canon knowledge of attunement identity, mana package, mark location to place attunements on the wheel and align the mana ring; then extract from resolved wheel alignment.",
       "validation": "Require the correct canonical mapping or state plus extraction from resolved wheel alignment.",
@@ -2346,7 +2346,7 @@
       "writes_state": [
         "inventory.operation_card"
       ],
-      "reward": "Operation Card",
+      "reward": "",
       "surface": "A banquet table is actually a partially filled Cayley table with named guests representing elements and one distinguished identity seat.",
       "mechanics": "Complete the table using associativity, identity, and inverse clues; the row of the element that commutes with all others yields the Operation Card.",
       "validation": "Validation is the full table.",
@@ -2392,7 +2392,7 @@
       "writes_state": [
         "inventory.orbit_ribbon"
       ],
-      "reward": "Orbit Ribbon",
+      "reward": "",
       "surface": "Animated dancers swap positions under three named moves written in cycle notation.",
       "mechanics": "Compose the moves in the only order that returns one dancer to origin while placing all others into the target pattern; the dancer orbit lengths form the Orbit Ribbon.",
       "validation": "Validation is composition order and final arrangement.",
@@ -2555,7 +2555,7 @@
         "state.dcc.map",
         "state.dcc.inventory"
       ],
-      "reward": "Crawler Badge",
+      "reward": "",
       "surface": "The region opens as a persistent floor-crawl: a room map, visible inventory, stamina, keys, and interactable doors all sit on one page.",
       "mechanics": "For initial completion, clear four tutorial rooms, learn how traps, locked doors, and consumables work, and reach the stairwell exit. The crawl then remains permanently active, with future nodes unlocking new rooms, objects, or rules inside the same system.",
       "validation": "Validation is a canonical set of cleared starter rooms and exit reached, tracked fully in system state.",
@@ -2600,7 +2600,7 @@
       "writes_state": [
         "inventory.affix_table"
       ],
-      "reward": "Affix Table",
+      "reward": "",
       "surface": "Box Drop Inventory is a canon roster reconstruction page built from absurd dcc items, loot boxes, and the crawlers or contexts they fit.",
       "mechanics": "Use canon knowledge of item style, owner or context fit, reward logic to match each item to the crawler or floor context it canonically fits; then extract from leftover box seals.",
       "validation": "Require the correct canonical mapping or state plus extraction from leftover box seals.",
@@ -2656,7 +2656,7 @@
       "writes_state": [
         "inventory.path_thread"
       ],
-      "reward": "Path Thread",
+      "reward": "",
       "surface": "A gallery of folded-surface postcards shows marked point pairs on cylinders, cones, and a torus strip.",
       "mechanics": "Unfold each surface mentally or with a built-in flatten toggle, choose the shortest geodesic between marked points, and read the postcard labels whose chosen paths cross the seam to obtain the Path Thread.",
       "validation": "Validation is the chosen geodesic on each postcard.",
@@ -2702,7 +2702,7 @@
       "writes_state": [
         "inventory.chart_pair"
       ],
-      "reward": "Chart Pair",
+      "reward": "",
       "surface": "Two coordinate charts describe overlapping patches of the same surface, each with landmarks and axis conventions.",
       "mechanics": "Match points across the chart overlap and determine the correct transition map orientation; the paired landmark names form the Chart Pair.",
       "validation": "Validation is the full point correspondence.",
@@ -2710,7 +2710,7 @@
       "hint_1": "Use overlap landmarks first, then axis direction.",
       "hint_2": "One chart is reflected relative to the other.",
       "hint_3": "The matched landmark pairs are the reward.",
-      "cross_talk": "Makes “multiple local views of one object” into an actual puzzle mechanic.",
+      "cross_talk": "Makes \u201cmultiple local views of one object\u201d into an actual puzzle mechanic.",
       "step_detail": "Several local charts cover a curved surface. Match overlap regions and transition maps so the atlas becomes globally consistent.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "None",
@@ -2722,7 +2722,7 @@
     },
     {
       "node_id": "PGE01",
-      "title": "Claimant’s Knife",
+      "title": "Claimant\u2019s Knife",
       "category": "Literary",
       "section": "A Practical Guide to Evil",
       "sheet": "Practical Guide",
@@ -2747,8 +2747,8 @@
       "writes_state": [
         "inventory.story_beat_a"
       ],
-      "reward": "Role Card",
-      "surface": "Claimant’s Knife is a canon dialogue-state reasoning page built from how claimants preserve or destroy a name-shape through their choices.",
+      "reward": "",
+      "surface": "Claimant\u2019s Knife is a canon dialogue-state reasoning page built from how claimants preserve or destroy a name-shape through their choices.",
       "mechanics": "Use canon knowledge of claim pressure, branch evaluation, invariant story shape to explore the claimant scene and identify the invariant story shape across successful branches; then extract from invariant story shape.",
       "validation": "Require the correct canonical mapping or state plus extraction from invariant story shape.",
       "build_notes": "Dialogue availability should come from explicit state flags in content.",
@@ -2756,7 +2756,7 @@
       "hint_2": "A line can sound right but still be canonically impossible because of state.",
       "hint_3": "The hidden extraction appears only on the fully coherent path.",
       "cross_talk": "Turns A Practical Guide to Evil knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Claimant’s Knife now asks the solver to explore the claimant scene and identify the invariant story shape across successful branches. Candidate set: Squire logic, heroic claimant logic, villain claimant logic, mentor interference, rule-of-three pressure, story-shape invariants.",
+      "step_detail": "Claimant\u2019s Knife now asks the solver to explore the claimant scene and identify the invariant story shape across successful branches. Candidate set: Squire logic, heroic claimant logic, villain claimant logic, mentor interference, rule-of-three pressure, story-shape invariants.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
       "canon_scope": "how claimants preserve or destroy a Name-shape through their choices",
@@ -2803,7 +2803,7 @@
       "writes_state": [
         "inventory.role_card"
       ],
-      "reward": "Role Card",
+      "reward": "",
       "surface": "Registry of the Named is a canon document or dossier analysis page built from major named and the pressures, methods, or aspect-shapes that identify them.",
       "mechanics": "Use canon knowledge of Name identity, signature method, role pressure to identify the Named behind the dossiers and sort them by role family; then extract from role-family ordering.",
       "validation": "Require the correct canonical mapping or state plus extraction from role-family ordering.",
@@ -2864,7 +2864,7 @@
       "writes_state": [
         "inventory.evac_grid"
       ],
-      "reward": "Evac Grid",
+      "reward": "",
       "surface": "Evacuation Windows is a canon tactical or social board page built from city crisis response under canon task and movement constraints.",
       "mechanics": "Use canon knowledge of crisis role fit, district risk, response planning to assign capes to emergency tasks and route the response plan; then extract from legal response path.",
       "validation": "Require the correct canonical mapping or state plus extraction from legal response path.",
@@ -2924,7 +2924,7 @@
       "writes_state": [
         "inventory.resonance_thread"
       ],
-      "reward": "Resonance Thread",
+      "reward": "",
       "surface": "Techniques by Resonance is a canon hybrid puzzle page built from signature cradle techniques and the four technique families.",
       "mechanics": "Use canon knowledge of technique owners, family classification, Path behavior to match resonance traces to techniques and families; then extract from family initials in solved order.",
       "validation": "Require the correct canonical mapping or state plus extraction from family initials in solved order.",
@@ -2933,12 +2933,12 @@
       "hint_2": "Use the redundant clue channels; nothing important is hidden in one modality only.",
       "hint_3": "Extract only after the canon mapping is resolved.",
       "cross_talk": "Turns Cradle knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Techniques by Resonance now asks the solver to match resonance traces to techniques and families. Candidate set: Dragon’s Breath, Burning Cloak, Endless Sword, Hollow Domain, shadow techniques, force techniques.",
+      "step_detail": "Techniques by Resonance now asks the solver to match resonance traces to techniques and families. Candidate set: Dragon\u2019s Breath, Burning Cloak, Endless Sword, Hollow Domain, shadow techniques, force techniques.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
       "canon_scope": "signature Cradle techniques and the four technique families",
       "candidate_set": [
-        "Dragon’s Breath",
+        "Dragon\u2019s Breath",
         "Burning Cloak",
         "Endless Sword",
         "Hollow Domain",
@@ -2982,7 +2982,7 @@
         "inventory.mind_thread"
       ],
       "reward": "Mind Thread",
-      "surface": "Alliance Web of Cyoria is a canon relationship graph page built from zorian’s allies and the roles they fill in successful loops.",
+      "surface": "Alliance Web of Cyoria is a canon relationship graph page built from zorian\u2019s allies and the roles they fill in successful loops.",
       "mechanics": "Use canon knowledge of ally role, objective fit, stability of cooperation to assign allies to objectives and untangle the support web; then extract from unused free strand.",
       "validation": "Require the correct canonical mapping or state plus extraction from unused free strand.",
       "build_notes": "Graph edges and node categories should be authored as plain data.",
@@ -2993,7 +2993,7 @@
       "step_detail": "Alliance Web of Cyoria now asks the solver to assign allies to objectives and untangle the support web. Candidate set: Zach, aranea contacts, teachers, craft contacts, family leverage, temporary allies.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
-      "canon_scope": "Zorian’s allies and the roles they fill in successful loops",
+      "canon_scope": "Zorian\u2019s allies and the roles they fill in successful loops",
       "candidate_set": [
         "Zach",
         "aranea contacts",
@@ -3099,7 +3099,7 @@
       "writes_state": [
         "inventory.square_root_lantern"
       ],
-      "reward": "Square Root Lantern",
+      "reward": "",
       "surface": "An orchard grid marks which numbers are quadratic residues under several primes, with one gate-like shape missing.",
       "mechanics": "Use the Prime Teeth clues to identify the relevant primes, shade the residue pattern, and locate the missing lantern position whose coordinates define the Square Root Lantern.",
       "validation": "Validation is the full shaded pattern plus chosen lantern cell.",
@@ -3144,7 +3144,7 @@
       "writes_state": [
         "inventory.blueprint_thread"
       ],
-      "reward": "Blueprint Thread",
+      "reward": "",
       "surface": "Tower Blueprint is a canon geography / route reconstruction page built from spires, academy spaces, and recognizable room functions.",
       "mechanics": "Use canon knowledge of room function, space adjacency, legal traversal to rotate and place the blueprint modules into the correct floor plan; then extract from legal challenge route.",
       "validation": "Require the correct canonical mapping or state plus extraction from legal challenge route.",
@@ -3175,7 +3175,7 @@
     },
     {
       "node_id": "AA04",
-      "title": "Enchanter’s Bench",
+      "title": "Enchanter\u2019s Bench",
       "category": "Literary",
       "section": "Arcane Ascension",
       "sheet": "Arcane Ascension",
@@ -3248,7 +3248,7 @@
       "writes_state": [
         "inventory.mirror_pair"
       ],
-      "reward": "Mirror Pair",
+      "reward": "",
       "surface": "Two different-looking structures are presented side by side: one as a Cayley table and one as a movement graph.",
       "mechanics": "Find the isomorphism between them by matching identity, generators, and adjacency; the paired element labels form the Mirror Pair.",
       "validation": "Validation is the full bijection.",
@@ -3469,7 +3469,7 @@
       "writes_state": [
         "inventory.sponsor_thread"
       ],
-      "reward": "Sponsor Thread",
+      "reward": "",
       "surface": "Achievement Feed is a canon document or dossier analysis page built from achievements, trigger conditions, and reward box logic.",
       "mechanics": "Use canon knowledge of achievement tone, trigger logic, reward fit to reassemble the achievements and order them by how much the AI would enjoy them; then extract from ordered achievement set.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered achievement set.",
@@ -3522,7 +3522,7 @@
       "writes_state": [
         "inventory.trap_thread"
       ],
-      "reward": "Trap Thread",
+      "reward": "",
       "surface": "Room of Remembered Floors is a canon chronology reconstruction page built from major floor gimmicks and set-piece identities.",
       "mechanics": "Use canon knowledge of floor identity, gimmick memory, escalation order to match the gimmicks to the floors and replay the progression; then extract from resolved floor progression.",
       "validation": "Require the correct canonical mapping or state plus extraction from resolved floor progression.",
@@ -3576,7 +3576,7 @@
       "writes_state": [
         "inventory.faction_thread"
       ],
-      "reward": "Faction Thread",
+      "reward": "",
       "surface": "Borough Control Board is a canon tactical or social board page built from borough or floor control, named locations, and safe routes.",
       "mechanics": "Use canon knowledge of zone identity, control logic, route planning to place control markers and safe lines according to the canon floor situation; then extract from remaining safe chain.",
       "validation": "Require the correct canonical mapping or state plus extraction from remaining safe chain.",
@@ -3632,7 +3632,7 @@
       "writes_state": [
         "inventory.curvature_chip"
       ],
-      "reward": "Curvature Chip",
+      "reward": "",
       "surface": "Several polyhedral models list vertex types and angle data, with one missing curvature tally.",
       "mechanics": "Compute angle defects at the marked vertices and identify which model has the required total curvature distribution; the selected model's chip is the Curvature Chip.",
       "validation": "Validation is the computed defect set and chosen model.",
@@ -3741,7 +3741,7 @@
       "writes_state": [
         "inventory.transport_arrow"
       ],
-      "reward": "Transport Arrow",
+      "reward": "",
       "surface": "A courier route on a curved surface asks the player to parallel transport an arrow through several chart patches while following an overland route clue.",
       "mechanics": "Carry the arrow along the route without twisting it relative to the local tangent frame; the final arrow orientation defines the Transport Arrow.",
       "validation": "Validation is the final transported orientation at the destination.",
@@ -3786,7 +3786,7 @@
       "writes_state": [
         "inventory.storyweight_seed"
       ],
-      "reward": "Storyweight Seed",
+      "reward": "",
       "surface": "Story Weight Scales is a canon system mapping page built from narrative weight, reversals, sacrifice, and the kinds of outcomes guide makes heavy.",
       "mechanics": "Use canon knowledge of story weight, witness logic, reversal logic to choose which outcome canonically wins each story-weight contest; then extract from winning symbols.",
       "validation": "Require the correct canonical mapping or state plus extraction from winning symbols.",
@@ -3841,7 +3841,7 @@
       "writes_state": [
         "inventory.formation_thread"
       ],
-      "reward": "Formation Thread",
+      "reward": "",
       "surface": "Legion Drill Book is a canon tactical or social board page built from legion roles, supports, and military placements used in guide battles.",
       "mechanics": "Use canon knowledge of unit role, formation logic, support placement to place the units into the only canon-faithful formation; then extract from front-line march thread.",
       "validation": "Require the correct canonical mapping or state plus extraction from front-line march thread.",
@@ -3898,7 +3898,7 @@
       "writes_state": [
         "inventory.remnant_diagram"
       ],
-      "reward": "Remnant Diagram",
+      "reward": "",
       "surface": "Anatomy of Advancement is a canon system mapping page built from the sacred artist body and the changes attached to key advancement stages.",
       "mechanics": "Use canon knowledge of stage changes, body systems, physical versus spiritual milestones to place advancement effects on the body diagram; then extract from centerline labels.",
       "validation": "Require the correct canonical mapping or state plus extraction from centerline labels.",
@@ -4071,7 +4071,7 @@
       "writes_state": [
         "inventory.vial_key"
       ],
-      "reward": "Vial Key",
+      "reward": "",
       "surface": "Tinker Workbench is a canon system mapping page built from major tinker specialties and how their devices differ.",
       "mechanics": "Use canon knowledge of tinker specialty, device identity, component logic to match devices and components to the right tinker specialties; then extract from leftover serials.",
       "validation": "Require the correct canonical mapping or state plus extraction from leftover serials.",
@@ -4173,7 +4173,7 @@
       "writes_state": [
         "inventory.advancement_thread"
       ],
-      "reward": "Advancement Thread",
+      "reward": "",
       "surface": "Path Constraint Forge is a canon system mapping page built from compatibility rules among paths, madra aspects, and technique families.",
       "mechanics": "Use canon knowledge of path compatibility, technique families, legal build structure to assemble the only canon-coherent builds for the stated goals; then extract from leftover aspect tokens.",
       "validation": "Require the correct canonical mapping or state plus extraction from leftover aspect tokens.",
@@ -4402,7 +4402,7 @@
       "writes_state": [
         "inventory.kitchen_thread"
       ],
-      "reward": "Kitchen Thread",
+      "reward": "",
       "surface": "A safe-room kitchen contains ingredients, sponsor freebies, and recipe cards written in partially translated service slang.",
       "mechanics": "Translate the slang, choose the only recipe that satisfies sponsor bonus conditions, and cook it in the right prep order; the seasoning initials become the Kitchen Thread.",
       "validation": "Validation is recipe choice plus prep sequence.",
@@ -4508,7 +4508,7 @@
       "hint_2": "Each section contributes one axis of the translation matrix.",
       "hint_3": "The completed aligned matrix is the reward.",
       "cross_talk": "A classic satisfying crossover: suddenly several previously opaque texts become solvable.",
-      "step_detail": "Three “language” systems—menu classes, story weights, and investiture spectrum—turn out to share one transformation matrix. Solve it to unlock the Translation Lens.",
+      "step_detail": "Three \u201clanguage\u201d systems\u2014menu classes, story weights, and investiture spectrum\u2014turn out to share one transformation matrix. Solve it to unlock the Translation Lens.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "None",
       "canon_scope": "",
@@ -4547,7 +4547,7 @@
       "writes_state": [
         "inventory.moral_thread"
       ],
-      "reward": "Moral Thread",
+      "reward": "",
       "surface": "Choirs and Below is a canon system mapping page built from choir pressures, villainous counterpressures, and intervention alignment.",
       "mechanics": "Use canon knowledge of pressure alignment, intervention source, binding statements to classify actions and interventions under the right pressures and identify what remains binding; then extract from universally binding statements.",
       "validation": "Require the correct canonical mapping or state plus extraction from universally binding statements.",
@@ -4601,7 +4601,7 @@
       "writes_state": [
         "inventory.dinner_thread"
       ],
-      "reward": "Dinner Thread",
+      "reward": "",
       "surface": "Council at Camp is a canon tactical or social board page built from relationships, betrayals, and strategic seating among major guide players.",
       "mechanics": "Use canon knowledge of relationship history, strategic fit, betrayal risk to seat the council so the table remains strategically and personally coherent; then extract from shield-marked order.",
       "validation": "Require the correct canonical mapping or state plus extraction from shield-marked order.",
@@ -4662,7 +4662,7 @@
       "writes_state": [
         "inventory.revelation_thread"
       ],
-      "reward": "Revelation Thread",
+      "reward": "",
       "surface": "Lord Revelations is a canon document or dossier analysis page built from character motivations and lord-stage breakthroughs.",
       "mechanics": "Use canon knowledge of character arc memory, breakthrough logic, advancement ordering to match paraphrased revelations to the right characters and order them by advancement; then extract from ordered revelation cards.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered revelation cards.",
@@ -4721,14 +4721,14 @@
       ],
       "reward": "Visage Thread",
       "surface": "Cadence Conversation Engine is a canon dialogue-state reasoning page built from what the main cast knows, hides, and prioritizes in key conversations.",
-      "mechanics": "Use canon knowledge of knowledge states, trust, voice and priority to choose the only dialogue path that remains canon-faithful to the cast’s knowledge state; then extract from unlocked hidden lines.",
+      "mechanics": "Use canon knowledge of knowledge states, trust, voice and priority to choose the only dialogue path that remains canon-faithful to the cast\u2019s knowledge state; then extract from unlocked hidden lines.",
       "validation": "Require the correct canonical mapping or state plus extraction from unlocked hidden lines.",
       "build_notes": "Dialogue availability should come from explicit state flags in content.",
       "hint_1": "Track who knows what before choosing lines.",
       "hint_2": "A line can sound right but still be canonically impossible because of state.",
       "hint_3": "The hidden extraction appears only on the fully coherent path.",
       "cross_talk": "Turns Arcane Ascension knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Cadence Conversation Engine now asks the solver to choose the only dialogue path that remains canon-faithful to the cast’s knowledge state. Candidate set: Corin, Sera, Mara, Jin, Keras, authority figures.",
+      "step_detail": "Cadence Conversation Engine now asks the solver to choose the only dialogue path that remains canon-faithful to the cast\u2019s knowledge state. Candidate set: Corin, Sera, Mara, Jin, Keras, authority figures.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
       "canon_scope": "what the main cast knows, hides, and prioritizes in key conversations",
@@ -4986,7 +4986,7 @@
       "writes_state": [
         "inventory.lattice_hook"
       ],
-      "reward": "Lattice Hook",
+      "reward": "",
       "surface": "A subgroup lattice is missing several nodes and containment edges, with symmetry hints coming from Roshar glyphs.",
       "mechanics": "Insert the missing subgroups and edges so the lattice is valid and symmetric in the required way; the hook-shaped chain in the finished lattice yields the Lattice Hook.",
       "validation": "Validation is full lattice structure.",
@@ -5032,7 +5032,7 @@
       "writes_state": [
         "inventory.chat_thread"
       ],
-      "reward": "Chat Thread",
+      "reward": "",
       "surface": "Chat Lag / AI Monologue is a canon hybrid puzzle page built from ai narration, sponsor chatter, and audience reaction patterns.",
       "mechanics": "Use canon knowledge of voice separation, event recognition, escalation order to match reaction clusters to events and order them by escalation; then extract from ordered reaction clusters.",
       "validation": "Require the correct canonical mapping or state plus extraction from ordered reaction clusters.",
@@ -5063,7 +5063,7 @@
     },
     {
       "node_id": "GEO06",
-      "title": "Cartographer’s Manifold",
+      "title": "Cartographer\u2019s Manifold",
       "category": "Math",
       "section": "Curved Atlas",
       "sheet": "Differential Geometry",
@@ -5442,7 +5442,7 @@
     },
     {
       "node_id": "CRD11",
-      "title": "Herald’s Gate: Canon Loadout",
+      "title": "Herald\u2019s Gate: Canon Loadout",
       "category": "Literary",
       "section": "Cradle",
       "sheet": "Cradle",
@@ -5474,8 +5474,8 @@
         "inventory.advancement_seal",
         "inventory.technique_set"
       ],
-      "reward": "Advancement Seal; Technique Set",
-      "surface": "Herald’s Gate: Canon Loadout is a lore synthesis boss page built from cradle paths, techniques, advancement, and revelations synthesized into one duel-preparation boss.",
+      "reward": "",
+      "surface": "Herald\u2019s Gate: Canon Loadout is a lore synthesis boss page built from cradle paths, techniques, advancement, and revelations synthesized into one duel-preparation boss.",
       "mechanics": "Use canon knowledge of all prior Cradle outputs, Path coherence, loadout ordering to assemble one canon-coherent loadout from the earlier Cradle truths; then extract from full locked gate state.",
       "validation": "Require the correct canonical mapping or state plus extraction from full locked gate state.",
       "build_notes": "Build the boss as a dashboard of small reusable panels rather than a bespoke monolith.",
@@ -5483,7 +5483,7 @@
       "hint_2": "If two panels disagree, check the source assumption before forcing a late solve.",
       "hint_3": "The boss pays out only when the whole region state is coherent.",
       "cross_talk": "Turns Cradle knowledge into the actual solve material rather than leaving the page as a themed wrapper.",
-      "step_detail": "Herald’s Gate: Canon Loadout now asks the solver to assemble one canon-coherent loadout from the earlier Cradle truths. Candidate set: regional outputs from earlier nodes.",
+      "step_detail": "Herald\u2019s Gate: Canon Loadout now asks the solver to assemble one canon-coherent loadout from the earlier Cradle truths. Candidate set: regional outputs from earlier nodes.",
       "api_submit": "/api/node/submit",
       "lore_authenticity": "High",
       "canon_scope": "Cradle Paths, techniques, advancement, and revelations synthesized into one duel-preparation boss",
@@ -5526,7 +5526,7 @@
       "writes_state": [
         "inventory.stair_thread"
       ],
-      "reward": "Stair Thread",
+      "reward": "",
       "surface": "Stairwell Windows is a canon system mapping page built from grace periods, stairwell rules, and timing windows on notable floors.",
       "mechanics": "Use canon knowledge of rule-set identity, timing logic, route counting to choose the correct canon rule set and count the legal route families; then extract from counted route family.",
       "validation": "Require the correct canonical mapping or state plus extraction from counted route family.",
@@ -5849,7 +5849,7 @@
       "writes_state": [
         "inventory.contract_thread"
       ],
-      "reward": "Contract Thread",
+      "reward": "",
       "surface": "Sponsor Contract is a canon clause parsing page built from sponsors, guild or party clauses, show obligations, and crawl loopholes.",
       "mechanics": "Use canon knowledge of clause provenance, loophole logic, safe interpretation to assign clauses to the systems they belong to and sign the only safe reading; then extract from safe signature path.",
       "validation": "Require the correct canonical mapping or state plus extraction from safe signature path.",
@@ -6181,7 +6181,7 @@
       "writes_state": [
         "inventory.map_thread"
       ],
-      "reward": "Map Thread",
+      "reward": "",
       "surface": "The Hunting Grounds is a canon geography / route reconstruction page built from sixth floor geography, named locations, and hunter-grace-period logic.",
       "mechanics": "Use canon knowledge of location identity, floor rules, route planning to identify the named locations and solve the route under the correct floor rules; then extract from legal Sixth Floor route.",
       "validation": "Require the correct canonical mapping or state plus extraction from legal Sixth Floor route.",
@@ -6797,7 +6797,7 @@
       "writes_state": [
         "inventory.crawl_seal"
       ],
-      "reward": "Crawl Seal",
+      "reward": "",
       "surface": "Crawler Showcase is a lore synthesis boss page built from items, achievements, floors, contracts, audience, and route rules combined into one crawl boss.",
       "mechanics": "Use canon knowledge of all prior DCC outputs, run coherence, tonal and mechanical fit to assemble one canon-coherent showcase run from the earlier DCC truths; then extract from fully coherent showcase planner.",
       "validation": "Require the correct canonical mapping or state plus extraction from fully coherent showcase planner.",
@@ -6851,7 +6851,7 @@
         "inventory.judge_s_mandate",
         "inventory.judges_mandate"
       ],
-      "reward": "Judge’s Mandate",
+      "reward": "Judge\u2019s Mandate",
       "surface": "A judgment bench weighs catastrophe response, lawful story intervention, and formal proof of necessity.",
       "mechanics": "Use the Crisis Seal to state what must be addressed, the Storyweight Seal to state who may act, and the Proof Stamp to show why the action is justified. The accepted ruling becomes the Judge's Mandate.",
       "validation": "Validation is a coherent ruling triple: threat, actor, justification.",
@@ -7009,7 +7009,7 @@
       "writes_state": [
         "inventory.palimpsest_letters"
       ],
-      "reward": "Palimpsest Letters",
+      "reward": "",
       "surface": "The whole site subtly changes after the Continuity Flame: old pages gain faint marginal letters, hidden layers, and new clickable seams.",
       "mechanics": "Revisit a curated set of earlier nodes and use the imported math tools to determine which new marks are genuine and how they should be ordered. The collected verified marks form the Palimpsest Letters.",
       "validation": "Validation is the set of revisited marks plus their final order.",
@@ -7018,7 +7018,7 @@
       "hint_2": "Each imported math tool validates one family of marginal changes.",
       "hint_3": "The verified ordered letters are the reward.",
       "cross_talk": "A designed victory lap: earlier pages become newly legible rather than simply being reused for padding.",
-      "step_detail": "Revisit twelve earlier pages—one from each major lane—with all major tools unlocked. Hidden second-pass markings now become extractable letters.",
+      "step_detail": "Revisit twelve earlier pages\u2014one from each major lane\u2014with all major tools unlocked. Hidden second-pass markings now become extractable letters.",
       "api_submit": "/api/system/action",
       "lore_authenticity": "None",
       "canon_scope": "",

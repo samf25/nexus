@@ -614,6 +614,7 @@ export function reduceCrd07Runtime(runtime, action, context = {}) {
     const stage = normalizeCombatStage(action.playerStage || "foundation");
     const hasAllArtifacts = Boolean(action.hasR1 && action.hasR2 && action.hasCipher);
     const materialsReady = allMaterialsSocketed(current.materials);
+    const revelationInput = String(action.revelationInput || current.revelationInput || "");
     if (stage !== "truegold" && stage !== "underlord") {
       return {
         ...current,
@@ -632,15 +633,17 @@ export function reduceCrd07Runtime(runtime, action, context = {}) {
         lastMessage: "The revelation fragments are incomplete.",
       };
     }
-    if (normalizeText(current.revelationInput) !== normalizeText(REVELATION_TEXT)) {
+    if (normalizeText(revelationInput) !== normalizeText(REVELATION_TEXT)) {
       return {
         ...current,
+        revelationInput,
         lastMessage: "Your revelation does not settle into truth.",
       };
     }
 
     return {
       ...current,
+      revelationInput,
       solved: true,
       pendingUnderlordAdvance: true,
       lastMessage: "Soulfire ignites. You step into Underlord.",
@@ -747,12 +750,15 @@ export function buildCrd07ActionFromElement(element) {
     };
   }
   if (actionName === "crd07-advance-underlord") {
+    const container = element.closest(".crd07-node");
+    const input = container ? container.querySelector("[data-crd07-revelation-input]") : null;
     return {
       type: "crd07-advance-underlord",
       playerStage: element.getAttribute("data-player-stage") || "foundation",
       hasR1: element.getAttribute("data-has-r1") === "true",
       hasR2: element.getAttribute("data-has-r2") === "true",
       hasCipher: element.getAttribute("data-has-cipher") === "true",
+      revelationInput: input && "value" in input ? String(input.value || "") : "",
       at: Date.now(),
     };
   }
@@ -782,7 +788,6 @@ function homeTabMarkup(runtime, context) {
   const hasCipher = hasReward(state, REVELATION_CIPHER);
   const crd02 = readCrd02Runtime(state);
   const stage = normalizeCombatStage(crd02.cultivationStage || "foundation");
-  const canWriteRevelation = true;
   const canAttempt = stage === "truegold" && hasR1 && hasR2 && hasCipher && allMaterialsSocketed(runtime.materials);
 
   const slots = REQUIRED_MATERIALS.map((material) => {
@@ -810,6 +815,55 @@ function homeTabMarkup(runtime, context) {
     };
   });
 
+  const fragmentPanel = runtime.solved
+    ? `
+      <section class="crd07-ascended-panel">
+        <div class="crd07-ascended-mark">Underlord</div>
+        <h5>Advancement Sealed</h5>
+        <p>The revelation has settled. The fragments burn away, and the valley no longer asks anything of you.</p>
+      </section>
+    `
+    : `
+      <section class="crd07-revelation-panel">
+        <div class="crd07-fragment-head">
+          <p class="crd07-fragment-kicker">Revelation Fragments</p>
+          <p class="crd07-fragment-note">Two fragments. One spoken line.</p>
+        </div>
+        <div class="crd07-fragment-grid">
+          <article class="crd07-fragment-card ${hasR1 ? "is-present" : "is-missing"}">
+            <span class="crd07-fragment-label">Fragment I</span>
+            <p>${escapeHtml(hasR1 ? revelationLine("I rise so I am", hasCipher) : "[MISSING FRAGMENT I]")}</p>
+          </article>
+          <article class="crd07-fragment-card ${hasR2 ? "is-present" : "is-missing"}">
+            <span class="crd07-fragment-label">Fragment II</span>
+            <p>${escapeHtml(hasR2 ? revelationLine("no longer cast aside.", hasCipher) : "[MISSING FRAGMENT II]")}</p>
+          </article>
+        </div>
+        <input
+          type="text"
+          class="crd07-revelation-input"
+          data-crd07-revelation-input
+          value="${escapeHtml(runtime.revelationInput)}"
+          placeholder="Speak your Underlord revelation"
+        />
+        <div class="toolbar" style="margin-top:8px;">
+          <button
+            type="button"
+            data-node-id="${NODE_ID}"
+            data-node-action="crd07-advance-underlord"
+            data-player-stage="${escapeHtml(stage)}"
+            data-has-r1="${hasR1 ? "true" : "false"}"
+            data-has-r2="${hasR2 ? "true" : "false"}"
+            data-has-cipher="${hasCipher ? "true" : "false"}"
+            ${canAttempt ? "" : "disabled"}
+          >
+            Set Revelation and Advance
+          </button>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="crd07-dev-underlord">Dev: Underlord</button>
+        </div>
+      </section>
+    `;
+
   return `
     <section class="crd02-panel">
       <h4>Nightwheel Base</h4>
@@ -825,33 +879,7 @@ function homeTabMarkup(runtime, context) {
       <div class="toolbar">
         <button type="button" data-action="toggle-widget" data-widget="loot">Open Loot Panel</button>
       </div>
-      <p><strong>Revelation Fragments</strong></p>
-      ${hasR1 ? `<p class="muted">${escapeHtml(revelationLine("I rise so I am", hasCipher))}</p>` : ""}
-      ${hasR2 ? `<p class="muted">${escapeHtml(revelationLine("no longer cast aside.", hasCipher))}</p>` : ""}
-      <input
-        type="text"
-        class="crd07-revelation-input"
-        data-crd07-revelation-input
-        value="${escapeHtml(runtime.revelationInput)}"
-        placeholder="Underlord revelation"
-        ${canWriteRevelation ? "" : "disabled"}
-      />
-      <div class="toolbar" style="margin-top:8px;">
-        <button type="button" data-node-id="${NODE_ID}" data-node-action="crd07-set-revelation" ${canWriteRevelation ? "" : "disabled"}>Set Revelation</button>
-        <button
-          type="button"
-          data-node-id="${NODE_ID}"
-          data-node-action="crd07-advance-underlord"
-          data-player-stage="${escapeHtml(stage)}"
-          data-has-r1="${hasR1 ? "true" : "false"}"
-          data-has-r2="${hasR2 ? "true" : "false"}"
-          data-has-cipher="${hasCipher ? "true" : "false"}"
-          ${canAttempt ? "" : "disabled"}
-        >
-          Advance to Underlord
-        </button>
-        <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="crd07-dev-underlord">Dev: Underlord</button>
-      </div>
+      ${fragmentPanel}
     </section>
   `;
 }

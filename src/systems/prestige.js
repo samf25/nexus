@@ -50,8 +50,16 @@ function makeUpgrade({
   prereqs = [],
   regionGate = "",
   shape = "hex",
+  costs: overrideCosts = null,
 } = {}) {
-  const costs = (PRESTIGE_TIER_COSTS[Math.max(1, Math.min(3, Number(tier) || 1))] || PRESTIGE_TIER_COSTS[1]).slice();
+  const fallbackCosts =
+    (PRESTIGE_TIER_COSTS[Math.max(1, Math.min(3, Number(tier) || 1))] || PRESTIGE_TIER_COSTS[1]).slice();
+  const normalizedOverrideCosts = Array.isArray(overrideCosts)
+    ? overrideCosts
+      .map((value) => Math.max(1, Math.floor(Number(value) || 0)))
+      .filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const costs = normalizedOverrideCosts.length ? normalizedOverrideCosts : fallbackCosts;
   return Object.freeze({
     id: String(id || "").trim().toLowerCase(),
     label: String(label || "").trim() || "Unnamed Upgrade",
@@ -73,7 +81,7 @@ function makeUpgrade({
   });
 }
 
-function branchNode({ regionGate = "", branch, tier, id, label, effect, shape, prereqs: extraPrereqs = [] } = {}) {
+function branchNode({ regionGate = "", branch, tier, id, label, effect, shape, prereqs: extraPrereqs = [], costs = null } = {}) {
   const normalizedBranch = String(branch || "").trim().toLowerCase();
   const normalizedTier = Math.max(1, Math.min(3, Math.floor(Number(tier) || 1)));
   const mergedPrereqs = Array.isArray(extraPrereqs) ? extraPrereqs : [];
@@ -86,6 +94,7 @@ function branchNode({ regionGate = "", branch, tier, id, label, effect, shape, p
     prereqs: mergedPrereqs,
     regionGate,
     shape,
+    costs,
   });
 }
 
@@ -410,6 +419,16 @@ const PRESTIGE_UPGRADES = Object.freeze({
       shape: "hex",
       prereqs: [{ id: "ration-cache", level: 2 }, { id: "sponsor-bounty", level: 2 }],
       effect: "Increase the odds that fights yield extra loot rolls.",
+    }),
+    branchNode({
+      id: "floor-five-clearance",
+      label: "Floor Five Clearance",
+      branch: "clearance",
+      tier: 3,
+      shape: "hex",
+      costs: [18],
+      prereqs: [{ id: "floor-reader", level: 2 }, { id: "execution-patterns", level: 2 }],
+      effect: "Claim the DCC Floor-5 Key and open the final external floor gate.",
     }),
   ]),
 });
@@ -1192,6 +1211,7 @@ export function prestigeModifiersFromState(state) {
       startingHealingPotions: dccLevel("ration-cache") >= 3 ? 2 : dccLevel("ration-cache") >= 1 ? 1 : 0,
       startingGoldBonus: dccLevel("ration-cache") >= 2 ? 10 : 0,
       bonusLootRollChance: rounded(0.12 * dccLevel("scavenger-instinct")),
+      floorFiveClearance: dccLevel("floor-five-clearance") >= 1,
     },
   };
 }

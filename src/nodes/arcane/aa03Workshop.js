@@ -5,7 +5,6 @@ import {
   arcaneAttunementFeatures,
   arcaneAttunementRank,
   arcaneSystemFromState,
-  attunementRankOptions,
   attunementSubrankVisualFactor,
   glyphDisplayName,
   glyphTemplatePoints,
@@ -761,21 +760,6 @@ function rankPopupMarkup(arcane) {
   `;
 }
 
-function attunementDebugMarkup() {
-  const options = attunementRankOptions();
-  return `
-    <section class="card aa03-attunement-debug">
-      <h4>Attunement Tester</h4>
-      <div class="toolbar">
-        <select class="select" data-aa03-rank-select>
-          ${options.map((entry) => `<option value="${escapeHtml(entry.key)}">${escapeHtml(entry.label)}</option>`).join("")}
-        </select>
-        <button type="button" data-node-id="${NODE_ID}" data-node-action="aa03-set-attunement-rank">Set Rank</button>
-      </div>
-    </section>
-  `;
-}
-
 function attunementHudMarkup(arcane, attunement, attunementLabel, activeTab) {
   const currentMana = Math.floor(arcane.workshop.manaCurrent);
   const maxMana = Math.max(0, Math.floor(arcane.workshop.manaMax));
@@ -835,7 +819,6 @@ export function renderAa03Experience(context) {
   return `
     <article class="aa03-node" data-node-id="${NODE_ID}">
       ${attunementHudMarkup(arcane, attunement, attunementLabel, activeTab)}
-      ${attunementDebugMarkup()}
       ${body}
       ${rankPopupMarkup(arcane)}
     </article>
@@ -859,16 +842,6 @@ export function buildAa03ActionFromElement(element) {
       type: action,
       glyphKind: safeText(element.getAttribute("data-glyph-kind")).toLowerCase(),
       glyphId: safeText(element.getAttribute("data-glyph-id")).toLowerCase(),
-      at: Date.now(),
-    };
-  }
-  if (action === "aa03-set-attunement-rank") {
-    const root = element.closest(".aa03-node");
-    const select = root ? root.querySelector("[data-aa03-rank-select]") : null;
-    const rankKey = select && "value" in select ? String(select.value || "") : "";
-    return {
-      type: action,
-      rankKey: safeText(rankKey).toLowerCase(),
       at: Date.now(),
     };
   }

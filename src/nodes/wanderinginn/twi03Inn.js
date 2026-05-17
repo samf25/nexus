@@ -8,7 +8,7 @@ import { summarizeTwiInn } from "./twi04ConstructionYard.js";
 const NODE_ID = "TWI03";
 const BASE_QUEST_SLOTS = 3;
 export const TWI03_SPECIAL_REWARD_SEQUENCE = Object.freeze([
-  "DCC Floor-2 Key",
+  "DCC Floor-3 Key",
   "Cape Compactifier",
   "x10 Hiring Access",
   "Wave-III Passkey",
@@ -51,7 +51,7 @@ const CHARACTER_BANDS = Object.freeze([
 const SPECIAL_REWARD_GUESTS = Object.freeze([
   Object.freeze({
     character: "Klbkch",
-    reward: "DCC Floor-2 Key",
+    reward: "DCC Floor-3 Key",
     requirementType: "gold",
     amount: 120,
     repReward: 18,

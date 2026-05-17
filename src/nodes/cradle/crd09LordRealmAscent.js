@@ -1,5 +1,12 @@
 import { escapeHtml } from "../../templates/shared.js";
-import { cycleLength, nearestPulse, patternCadence, pulsePhaseDelaySeconds } from "./rhythmCore.js";
+import {
+  CRD02_MANUAL_RHYTHM_PATTERNS,
+  cycleLength,
+  nearestPulse,
+  patternByIndex,
+  patternCadence,
+  pulsePhaseDelaySeconds,
+} from "./rhythmCore.js";
 
 const NODE_ID = "CRD09";
 const HOLD_MS = 2000;
@@ -13,7 +20,7 @@ const TRACKS = Object.freeze({
     madraCost: 380000,
     soulfireCost: 75,
     rhythmTarget: 10,
-    rhythmPattern: Object.freeze([1, 0.5, 1, 1.5, 0.5, 1, 2]),
+    rhythmPatternIndex: 10,
     revelationI: "Overlord Revelation I",
     revelationII: "Overlord Revelation II",
     revelationCipher: "Overlord Revelation Cipher",
@@ -27,7 +34,7 @@ const TRACKS = Object.freeze({
     madraCost: 900000,
     soulfireCost: 220,
     rhythmTarget: 14,
-    rhythmPattern: Object.freeze([0.5, 0.5, 1, 0.75, 1.25, 0.5, 1.5, 0.5, 1, 2]),
+    rhythmPatternIndex: 11,
     revelationI: "Archlord Revelation I",
     revelationII: "Archlord Revelation II",
     revelationCipher: "Archlord Revelation Cipher",
@@ -102,6 +109,7 @@ function normalizeRuntime(runtime) {
     rhythmStreak: Math.max(0, Math.floor(Number(source.rhythmStreak) || 0)),
     rhythmLastBeatOrdinal: Number.isFinite(Number(source.rhythmLastBeatOrdinal)) ? Number(source.rhythmLastBeatOrdinal) : -1,
     rhythmAttemptsLeft: Math.max(0, Math.floor(Number(source.rhythmAttemptsLeft) || 3)),
+    flashUntil: Math.max(0, Number(source.flashUntil) || 0),
     revelationAttemptsLeft: Math.max(0, Math.floor(Number(source.revelationAttemptsLeft) || 3)),
     revelationValue: safeText(source.revelationValue),
     pendingMadraSpend: Math.max(0, Number(source.pendingMadraSpend) || 0),
@@ -131,6 +139,10 @@ function trackConfig(trackId) {
   return TRACKS.overlord;
 }
 
+function rhythmPatternForTrack(track) {
+  return patternByIndex(CRD02_MANUAL_RHYTHM_PATTERNS, Math.max(0, Number(track && track.rhythmPatternIndex) || 0));
+}
+
 function synchronizedRuntime(runtime, state) {
   const current = normalizeRuntime(runtime);
   const resources = crdResourcesFromState(state || {});
@@ -156,6 +168,7 @@ function synchronizedRuntime(runtime, state) {
       rhythmStreak: 0,
       rhythmLastBeatOrdinal: -1,
       rhythmAttemptsLeft: 3,
+      flashUntil: 0,
       revelationAttemptsLeft: 3,
       revelationValue: "",
       pendingMadraSpend: 0,
@@ -199,6 +212,44 @@ function decodeFragments(state, track) {
   };
 }
 
+function revelationPanelMarkup(runtime, track, decoded) {
+  const stageName = stageLabel(track.stageGranted);
+  const buttonLabel = `Set Revelation and Advance to ${stageName}`;
+  return `
+    <section class="crd02-panel crd09-center-revelation">
+      <h4>${escapeHtml(stageName)} Revelation</h4>
+      <section class="crd07-revelation-panel crd09-revelation-panel">
+        <div class="crd07-fragment-head">
+          <p class="crd07-fragment-kicker">Revelation Fragments</p>
+          <p class="crd07-fragment-note">Two fragments. One spoken line.</p>
+        </div>
+        <div class="crd07-fragment-grid">
+          <article class="crd07-fragment-card ${decoded.left.startsWith("[MISSING") ? "is-missing" : "is-present"}">
+            <span class="crd07-fragment-label">Fragment I</span>
+            <p>${escapeHtml(decoded.left)}</p>
+          </article>
+          <article class="crd07-fragment-card ${decoded.right.startsWith("[MISSING") ? "is-missing" : "is-present"}">
+            <span class="crd07-fragment-label">Fragment II</span>
+            <p>${escapeHtml(decoded.right)}</p>
+          </article>
+        </div>
+        <input
+          type="text"
+          class="crd07-revelation-input"
+          data-crd09-revelation-input
+          placeholder="Speak your revelation"
+          value="${escapeHtml(runtime.revelationValue)}"
+        />
+        <div class="toolbar">
+          <button type="button" data-node-id="${NODE_ID}" data-node-action="crd09-set-revelation">${escapeHtml(buttonLabel)}</button>
+        </div>
+        <p class="muted">${decoded.fullDecoded ? "Cipher complete." : "Cipher missing or fragments incomplete."}</p>
+        <p><strong>Attempts Left:</strong> ${escapeHtml(String(runtime.revelationAttemptsLeft))}</p>
+      </section>
+    </section>
+  `;
+}
+
 function moveToRhythm(runtime) {
   return {
     ...runtime,
@@ -207,6 +258,7 @@ function moveToRhythm(runtime) {
     rhythmStreak: 0,
     rhythmLastBeatOrdinal: -1,
     rhythmAttemptsLeft: 3,
+    flashUntil: 0,
     revelationAttemptsLeft: 3,
     revelationValue: "",
     lastMessage: "Rhythm trial begins.",
@@ -222,6 +274,7 @@ function drainInvestments(runtime, message) {
     rhythmStreak: 0,
     rhythmLastBeatOrdinal: -1,
     rhythmAttemptsLeft: 3,
+    flashUntil: 0,
     revelationAttemptsLeft: 3,
     revelationValue: "",
     lastMessage: message,
@@ -244,6 +297,7 @@ export function initialCrd09Runtime() {
     pendingSoulfireSpend: 0,
     pendingOverlordAdvance: false,
     pendingArchlordAdvance: false,
+    flashUntil: 0,
     solved: false,
     lastMessage: "",
   });
@@ -324,19 +378,22 @@ export function reduceCrd09Runtime(runtime, action, context = {}) {
     if (current.phase !== "rhythm") {
       return current;
     }
+    const at = Number(action.at) || nowMs();
 
     const pattern = {
+      ...rhythmPatternForTrack(track),
       id: `${track.id}-rhythm`,
-      label: `${track.id} trial`,
-      beats: track.rhythmPattern,
     };
 
-    const nearest = nearestPulse(pattern, current.rhythmStartedAt, Number(action.at) || nowMs(), HIT_TOLERANCE_MS);
+    const nearest = nearestPulse(pattern, current.rhythmStartedAt, at, HIT_TOLERANCE_MS);
     if (nearest.beatOrdinal === current.rhythmLastBeatOrdinal) {
       return current;
     }
 
     if (!nearest.onBeat) {
+      if (current.rhythmStreak === 0) {
+        return current;
+      }
       const attemptsLeft = Math.max(0, current.rhythmAttemptsLeft - 1);
       if (attemptsLeft <= 0) {
         return drainInvestments(current, "Rhythm failed. Madra and soulfire drain away.");
@@ -346,7 +403,7 @@ export function reduceCrd09Runtime(runtime, action, context = {}) {
         rhythmAttemptsLeft: attemptsLeft,
         rhythmStreak: 0,
         rhythmLastBeatOrdinal: -1,
-        rhythmStartedAt: nowMs(),
+        flashUntil: 0,
         lastMessage: `Rhythm faltered. Attempts left: ${attemptsLeft}.`,
       };
     }
@@ -358,6 +415,7 @@ export function reduceCrd09Runtime(runtime, action, context = {}) {
         phase: "revelation",
         rhythmStreak: 0,
         rhythmLastBeatOrdinal: -1,
+        flashUntil: at + 260,
         revelationAttemptsLeft: 3,
         revelationValue: "",
         lastMessage: "Rhythm trial conquered. Speak your revelation.",
@@ -368,6 +426,7 @@ export function reduceCrd09Runtime(runtime, action, context = {}) {
       ...current,
       rhythmStreak: streak,
       rhythmLastBeatOrdinal: nearest.beatOrdinal,
+      flashUntil: at + 260,
       lastMessage: `Rhythm chain: ${streak}/${track.rhythmTarget}`,
     };
   }
@@ -504,7 +563,7 @@ function stageLabel(stage) {
 }
 
 function rhythmCycleSeconds(track) {
-  return cycleLength({ beats: track.rhythmPattern });
+  return cycleLength(rhythmPatternForTrack(track));
 }
 
 export function renderCrd09Experience(context) {
@@ -527,29 +586,59 @@ export function renderCrd09Experience(context) {
   const canInvestMadra = resources.madra >= track.madraCost;
   const canInvestSoulfire = resources.soulfire >= track.soulfireCost;
   const stageReady = stageAtLeast(resources.stage, track.stageRequired);
+  const rhythmPattern = rhythmPatternForTrack(track);
   const cycleSeconds = rhythmCycleSeconds(track);
-  const phaseDelay = runtime.phase === "rhythm" ? pulsePhaseDelaySeconds({ beats: track.rhythmPattern }, runtime.rhythmStartedAt) : 0;
+  const phaseDelay = runtime.phase === "rhythm" ? pulsePhaseDelaySeconds(rhythmPattern, runtime.rhythmStartedAt) : 0;
+  const flash = Date.now() < runtime.flashUntil;
+  const pulseClass = `is-pattern-${Math.max(0, Number(rhythmPattern.visualId) || 0)}`;
+  const centerPanel = runtime.phase === "rhythm"
+    ? `
+        <section class="crd02-manual-surface crd09-rhythm-surface" role="dialog" aria-label="Lord rhythm trial">
+          <header><h3>${escapeHtml(stageLabel(track.stageGranted))} Rhythm Trial</h3></header>
+          <div class="crd02-manual-core ${escapeHtml(pulseClass)}" style="--manual-cycle-seconds: ${escapeHtml(cycleSeconds.toFixed(3))}s; animation-delay: ${escapeHtml(phaseDelay.toFixed(3))}s;" aria-hidden="true">
+            <span class="crd01-stream stream-a"></span>
+            <span class="crd01-stream stream-b"></span>
+            <span class="crd01-stream stream-c"></span>
+            ${flash ? `<span class="crd01-hit-flash"></span>` : ""}
+            <span class="crd01-core-shell"></span>
+          </div>
+          <p><strong>Pattern:</strong> ${escapeHtml(rhythmPattern.label || "Unknown Rhythm")}</p>
+          <p><strong>Cadence:</strong> ${escapeHtml(patternCadence(rhythmPattern))}</p>
+          <p><strong>Chain:</strong> ${escapeHtml(String(runtime.rhythmStreak))}/${escapeHtml(String(track.rhythmTarget))}</p>
+          <p><strong>Attempts Left:</strong> ${escapeHtml(String(runtime.rhythmAttemptsLeft))}</p>
+        </section>
+      `
+    : runtime.phase === "revelation"
+      ? revelationPanelMarkup(runtime, track, decoded)
+    : `
+        <section class="crd02-panel crd09-center-focus">
+          <h4>${escapeHtml(stageLabel(track.stageGranted))} Ascent</h4>
+          <p class="muted">Madra and soulfire must answer in the same breath before the rhythm will open.</p>
+        </section>
+      `;
 
   return `
     <article class="crd09-node" data-node-id="${NODE_ID}">
-      <section class="crd02-header">
-        <div>
+      <section class="crd02-header crd09-header">
+        <div class="crd09-header-copy">
           <h3>Scaling The Lord Realm</h3>
-          <p class="muted">Current stage: ${escapeHtml(stageLabel(resources.stage))} | Target: ${escapeHtml(stageLabel(track.stageGranted))}</p>
+          <div class="crd04-combat-meta">
+            <span class="crd04-meta-chip"><strong>Current Stage</strong> ${escapeHtml(stageLabel(resources.stage))}</span>
+            <span class="crd04-meta-chip"><strong>Target Stage</strong> ${escapeHtml(stageLabel(track.stageGranted))}</span>
+          </div>
         </div>
       </section>
-
+      <section class="crd09-shell">
       ${
   !stageReady
     ? `
-            <section class="crd02-panel">
+            <section class="crd02-panel crd09-panel crd09-panel--narrow">
               <p>Reach ${escapeHtml(stageLabel(track.stageRequired))} before attempting this ascent.</p>
             </section>
           `
     : `
-            <section class="crd02-panel">
-              <h4>Investment Spheres</h4>
-              <div class="crd09-invest-grid">
+            <section class="crd02-panel crd09-panel crd09-panel--ritual">
+              <div class="crd09-ritual-layout">
                 <button
                   type="button"
                   class="crd09-invest-sphere hub08-orb-button ${runtime.madraInvested ? "is-filled is-lit" : ""}"
@@ -562,6 +651,7 @@ export function renderCrd09Experience(context) {
                   <span>Madra</span>
                   <small>${escapeHtml(String(track.madraCost))}</small>
                 </button>
+                ${centerPanel}
                 <button
                   type="button"
                   class="crd09-invest-sphere hub08-orb-button ${runtime.soulfireInvested ? "is-filled is-lit" : ""}"
@@ -575,51 +665,12 @@ export function renderCrd09Experience(context) {
                   <small>${escapeHtml(String(track.soulfireCost))}</small>
                 </button>
               </div>
-              <p class="muted">Hold each sphere for ${Math.round(HOLD_MS / 1000)} seconds to invest.</p>
             </section>
           `
 }
 
-      ${
-  runtime.phase === "rhythm"
-    ? `
-            <section class="crd02-manual-surface" role="dialog" aria-label="Lord rhythm trial">
-              <header><h3>${escapeHtml(stageLabel(track.stageGranted))} Rhythm Trial</h3></header>
-              <div class="crd02-manual-core is-pattern-4" style="--manual-cycle-seconds: ${escapeHtml(cycleSeconds.toFixed(3))}s; animation-delay: ${escapeHtml(phaseDelay.toFixed(3))}s;" aria-hidden="true">
-                <span class="crd01-stream stream-a"></span>
-                <span class="crd01-stream stream-b"></span>
-                <span class="crd01-stream stream-c"></span>
-                <span class="crd01-core-shell"></span>
-              </div>
-              <p><strong>Cadence:</strong> ${escapeHtml(patternCadence({ beats: track.rhythmPattern }))}</p>
-              <p><strong>Chain:</strong> ${escapeHtml(String(runtime.rhythmStreak))}/${escapeHtml(String(track.rhythmTarget))}</p>
-              <p><strong>Attempts Left:</strong> ${escapeHtml(String(runtime.rhythmAttemptsLeft))}</p>
-            </section>
-          `
-    : ""
-}
-
-      ${
-  runtime.phase === "revelation"
-    ? `
-            <section class="crd02-tech-modal" role="dialog" aria-label="Revelation trial">
-              <section class="crd02-tech-surface">
-                <header><h3>${escapeHtml(stageLabel(track.stageGranted))} Revelation</h3></header>
-                <p>${escapeHtml(decoded.left)}</p>
-                <p>${escapeHtml(decoded.right)}</p>
-                <p class="muted">${decoded.fullDecoded ? "Cipher complete." : "Cipher missing or fragments incomplete."}</p>
-                <input type="text" data-crd09-revelation-input placeholder="Speak your revelation" value="${escapeHtml(runtime.revelationValue)}" />
-                <div class="toolbar">
-                  <button type="button" data-node-id="${NODE_ID}" data-node-action="crd09-set-revelation">Submit Revelation</button>
-                </div>
-                <p><strong>Attempts Left:</strong> ${escapeHtml(String(runtime.revelationAttemptsLeft))}</p>
-              </section>
-            </section>
-          `
-    : ""
-}
-
-      ${runtime.lastMessage ? `<section class="crd02-panel"><p class="muted">${escapeHtml(runtime.lastMessage)}</p></section>` : ""}
+      ${runtime.lastMessage ? `<section class="crd02-panel crd09-panel crd09-panel--narrow"><p class="muted">${escapeHtml(runtime.lastMessage)}</p></section>` : ""}
+      </section>
     </article>
   `;
 }

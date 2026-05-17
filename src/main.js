@@ -12,6 +12,7 @@ import {
   loadState,
   markNodeSeen,
   markNodeSolved,
+  mergeWithDefaults,
   parseStateFromSaveText,
   resetState,
   saveState,
@@ -77,7 +78,6 @@ import {
   recordWorkshopCraftResult,
   regionGlyphPool,
   resolveWorkshopCraftOutcome,
-  setArcaneAttunementRank,
   setArcaneSelectedGlyph,
   setEnchanterAttunement,
   spendManaCrystals,
@@ -166,7 +166,8 @@ const NEXUS_MATH_SECTION_ORDER = Object.freeze([
   "Symmetry Forge",
   "Curved Atlas",
 ]);
-const MATH_VAULT_PGE_ARTIFACT_PLACEMENTS = Object.freeze({
+const MATH_VAULT_BONUS_ARTIFACT_PLACEMENTS = Object.freeze({
+  GEO01: "DCC Floor-2 Key",
   LOG02: "Westwall Ram",
   NUM02: "Green Wax Seal",
   ALG02: "Sunless Lantern",
@@ -353,7 +354,7 @@ const NODE_REWARD_OVERRIDES = Object.freeze({
   }),
   CRD05: Object.freeze({
     suppressBlueprintReward: true,
-    supplementalRewards: Object.freeze(["Jade Condensation Elixir", "DCC Floor-3 Key", "Leviathan Summoning Amulet"]),
+    supplementalRewards: Object.freeze(["Jade Condensation Elixir", "DCC Floor-4 Key", "Leviathan Summoning Amulet"]),
   }),
   CRD06: Object.freeze({
     suppressBlueprintReward: true,
@@ -740,6 +741,13 @@ function grantSupplementalReward(state, rewardName, node) {
       },
     },
   };
+}
+
+function grantArtifactReward(state, rewardName, sourceNodeId = "SYSTEM", section = "Nexus Hub") {
+  return grantSupplementalReward(state, rewardName, {
+    node_id: sourceNodeId,
+    section,
+  });
 }
 
 function rewardsMap(state) {
@@ -1434,7 +1442,7 @@ function dispatchActiveNodeAction(action) {
       if (node.node_id === "WORM02" && action.type === "worm02-claim-outcome") {
         wormOutcomeCloutAward += Math.max(0, Number(wormSystemResult.meta && wormSystemResult.meta.reward ? wormSystemResult.meta.reward : 0));
         const firstWinDifficulty = String(wormSystemResult.meta && wormSystemResult.meta.firstWinDifficulty ? wormSystemResult.meta.firstWinDifficulty : "");
-        if (firstWinDifficulty && firstWinDifficulty !== "easy" && WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]) {
+        if (firstWinDifficulty && WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]) {
           next = grantSupplementalReward(next, WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty], node);
           wormOutcomeArtifactRewards.push(WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]);
           setBanner(`Recovered ${WORM_ARENA_FIRST_WIN_ARTIFACTS[firstWinDifficulty]}.`);
@@ -2147,15 +2155,6 @@ function dispatchActiveNodeAction(action) {
     if ((node.node_id === "AA03" || node.node_id === "AA02") && runtimeAction.type === "aa03-close-rank-popup") {
       next = clearArcaneRankPopup(next);
     }
-    if (node.node_id === "AA03" && runtimeAction.type === "aa03-set-attunement-rank") {
-      next = setArcaneAttunementRank(next, runtimeAction.rankKey);
-      runtimeAction = {
-        ...runtimeAction,
-        applied: true,
-        message: "Attunement rank adjusted for testing.",
-      };
-      setBanner(runtimeAction.message);
-    }
     next = applyNodeRewardConsumption(next, node, action);
 
     if (node.node_id === "HUB08" && action.type === "hub08-infuse-madra") {
@@ -2237,9 +2236,25 @@ function dispatchActiveNodeAction(action) {
     }
 
     if (node.node_id === "MOL03" && action.type === "mol03-buy-upgrade") {
+      const beforeDccKeyLatticeOwned = Boolean(
+        next &&
+        next.systems &&
+        next.systems.prestige &&
+        next.systems.prestige.regions &&
+        next.systems.prestige.regions.dcc &&
+        next.systems.prestige.regions.dcc.upgrades &&
+        Number(next.systems.prestige.regions.dcc.upgrades["floor-five-clearance"] || 0) > 0,
+      );
       const purchaseResult = applyPrestigeUpgradePurchase(next, action.regionId, action.upgradeId);
       if (purchaseResult.applied) {
         next = purchaseResult.nextState;
+        if (
+          String(action.regionId || "").trim().toLowerCase() === "dcc" &&
+          String(action.upgradeId || "").trim().toLowerCase() === "floor-five-clearance" &&
+          !beforeDccKeyLatticeOwned
+        ) {
+          next = grantSupplementalReward(next, "DCC Floor-5 Key", node);
+        }
       }
       runtimeAction = {
         ...action,
@@ -2815,8 +2830,8 @@ function dispatchActiveNodeAction(action) {
         next = grantSupplementalReward(next, "Suriel's Marble", node);
         bonusReward = `${bonusReward} + Suriel's Marble`;
       }
-      if (MATH_VAULT_PGE_ARTIFACT_PLACEMENTS[node.node_id]) {
-        const artifact = MATH_VAULT_PGE_ARTIFACT_PLACEMENTS[node.node_id];
+      if (MATH_VAULT_BONUS_ARTIFACT_PLACEMENTS[node.node_id]) {
+        const artifact = MATH_VAULT_BONUS_ARTIFACT_PLACEMENTS[node.node_id];
         next = grantSupplementalReward(next, artifact, node);
         bonusReward = `${bonusReward} + ${artifact}`;
       }

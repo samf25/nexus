@@ -341,6 +341,14 @@ function roundMadra(value) {
   return Number(Number(value || 0).toFixed(3));
 }
 
+function formatMadraDisplay(value, decimals = 3) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) {
+    return "0";
+  }
+  return amount.toFixed(decimals).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
 function manualPatternByIndex(patternIndex) {
   return patternByIndex(MANUAL_PATTERNS, patternIndex);
 }
@@ -2174,7 +2182,7 @@ export function renderCrd02Experience(context) {
         <div class="crd02-counter">
           <article class="crd02-madra-card">
             <span>Madra</span>
-            <strong class="crd02-counter-value">${escapeHtml(runtime.madra.toFixed(2))}</strong>
+            <strong class="crd02-counter-value">${escapeHtml(formatMadraDisplay(runtime.madra))}</strong>
           </article>
           <div class="crd02-rate-grid">
             <article class="crd02-rate-chip">
