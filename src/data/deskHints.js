@@ -36,8 +36,8 @@ export const DESK_HINT_OVERRIDES = Object.freeze({
     "When stuck later, return here mentally: the desk exposes node-authored hints, lock reasons, and artifact dependencies.",
   ]),
   HUB07: Object.freeze([
-    "The important phrase is split across UI text that looks like flavor at first.",
-    "Read the same class of fragments in the same order every time; mixing headings, captions, and labels will scramble the phrase.",
+    "The important phrase is split across the first letters of each line.",
+    "You need the String Index to determine the correct order.",
     "The final input is a fog phrase. Normalize spaces and punctuation, but do not change the words you extracted.",
   ]),
   HUB08: Object.freeze([
@@ -47,14 +47,14 @@ export const DESK_HINT_OVERRIDES = Object.freeze({
   ]),
 
   CRD01: Object.freeze([
-    "Follow the pulse instead of clicking as fast as possible.",
+    "Follow the pulse instead of clicking space as fast as possible.",
     "Each successful timing window seeds the next path; missing one usually means waiting for the rhythm to come around again.",
     "If the route feels random, slow down and click only on the bright beat rather than between beats.",
   ]),
   CRD02: Object.freeze([
     "Madra generation is a loop: collect, spend, improve the loop, then collect faster.",
     "Prioritize upgrades that either increase passive flow or make each manual cycle more efficient before buying luxury progress.",
-    "Breakthrough checks are easier after the well is stable; do not spend your last resources right before attempting one.",
+    "Soulfire will be unlocked here after reaching underlord.",
   ]),
   CRD03: Object.freeze([
     "The aura board rewards matching aspect to region, not just filling every slot.",
@@ -62,34 +62,34 @@ export const DESK_HINT_OVERRIDES = Object.freeze({
     "If one aspect refuses to settle, swap it with the most similar-looking wrong placement rather than rebuilding the whole map.",
   ]),
   CRD04: Object.freeze([
-    "This is a survival-and-tempo node: winning cleanly matters more than spending every action aggressively.",
-    "Use defensive or recovery options before your health falls into burst range; the later rounds punish greedy openings.",
     "Treat each fight as a resource puzzle. Save your strongest option for the opponent who can actually stop the run.",
+    "Use defensive or recovery options before your health falls into burst range; the later rounds punish greedy openings.",
+    "Increase your combat strength with loot items (from the dungeon or the workshop), reseting through the memory gate can also provide a boost if you have the right upgrades.",
   ]),
   CRD05: Object.freeze([
     "The duel is about sequencing. Do not throw your finisher before the enemy has committed.",
     "Alternate pressure with control; a turn spent preventing damage is often worth more than a small hit.",
-    "Watch the enemy's state text. The safest attack windows come immediately after you disrupt or exhaust them.",
+    "Increase your combat strength with loot items (from the dungeon or the workshop), reseting through the memory gate can also provide a boost if you have the right upgrades.",
   ]),
   CRD06: Object.freeze([
     "You are not meant to simply out-damage the duel. Build a stable rhythm first.",
     "Use cycling and defensive tools to survive the dangerous turns, then convert the opening into damage.",
-    "When the fight stalls, check whether you are missing a state setup rather than another raw attack.",
+    "Increase your combat strength with loot items (from the dungeon or the workshop), reseting through the memory gate can also provide a boost if you have the right upgrades.",
   ]),
   CRD07: Object.freeze([
     "Nightwheel Valley has two requirements: hunt materials from this node and revelation artifacts from outside this node.",
     "The four local materials are Nightwheel Ember Lotus, Moonwell Pearl, Stormforged Scale, and Dreadbeast Core. The three Underlord revelation artifacts come from Practical Guide endings.",
-    "Get Underlord Revelation I from PGE02, Underlord Revelation II from PGE03, and Underlord Revelation Cipher from PGE04; then enter: I rise so I am no longer cast aside.",
+    "Get Underlord Revelation I from the Siege of the Last Gate, Underlord Revelation II from the Winter Court Knife-Game, and Underlord Revelation Cipher from the Tomb of the Sunless King.",
   ]),
   CRD08: Object.freeze([
     "The tournament is a gauntlet, so preserve health and resources across fights.",
     "Read each opponent's warning text before choosing your opener; the correct response changes from round to round.",
-    "If you can consistently win early rounds but lose late, upgrade survivability or control rather than only increasing damage.",
+    "Increase your combat strength with loot items (from the dungeon or the workshop), reseting through the memory gate can also provide a boost if you have the right upgrades.",
   ]),
   CRD09: Object.freeze([
     "Lord-realm progress depends on preparation outside the immediate click target.",
     "Make sure your advancement state and revelation-style artifacts are caught up before trying to force the ascent.",
-    "The final checks reward a complete path: prior realm, supporting resources, and the correct personal statement all have to agree.",
+    "Get Revelation I from the Siege of the Last Gate, Revelation II from the Winter Court Knife-Game, and Revelation Cipher from the Tomb of the Sunless King.",
   ]),
   CRD10: Object.freeze([
     "This pilgrimage is a route planner. Choices that look like flavor can change what later gates accept.",
