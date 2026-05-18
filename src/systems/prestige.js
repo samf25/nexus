@@ -51,6 +51,8 @@ function makeUpgrade({
   regionGate = "",
   shape = "hex",
   costs: overrideCosts = null,
+  uncapped = false,
+  repeatableCost = null,
 } = {}) {
   const fallbackCosts =
     (PRESTIGE_TIER_COSTS[Math.max(1, Math.min(3, Number(tier) || 1))] || PRESTIGE_TIER_COSTS[1]).slice();
@@ -60,13 +62,22 @@ function makeUpgrade({
       .filter((value) => Number.isFinite(value) && value > 0)
     : [];
   const costs = normalizedOverrideCosts.length ? normalizedOverrideCosts : fallbackCosts;
+  const normalizedRepeatableCost = repeatableCost && typeof repeatableCost === "object"
+    ? {
+      base: Math.max(1, Math.floor(Number(repeatableCost.base) || 1)),
+      growth: Math.max(1.01, Number(repeatableCost.growth) || 1.12),
+    }
+    : null;
+  const isUncapped = Boolean(uncapped);
   return Object.freeze({
     id: String(id || "").trim().toLowerCase(),
     label: String(label || "").trim() || "Unnamed Upgrade",
     branch: String(branch || "").trim().toLowerCase(),
     tier: Math.max(1, Math.min(3, Math.floor(Number(tier) || 1))),
-    maxLevel: costs.length,
+    maxLevel: isUncapped ? Number.POSITIVE_INFINITY : costs.length,
     costs: Object.freeze(costs),
+    uncapped: isUncapped,
+    repeatableCost: normalizedRepeatableCost ? Object.freeze(normalizedRepeatableCost) : null,
     effect: String(effect || "").trim(),
     prereqs: Object.freeze(
       (Array.isArray(prereqs) ? prereqs : []).map((entry) =>
@@ -96,6 +107,54 @@ function branchNode({ regionGate = "", branch, tier, id, label, effect, shape, p
     shape,
     costs,
   });
+}
+
+function endlessNode({
+  regionGate = "",
+  branch,
+  tier = 3,
+  id,
+  label,
+  effect,
+  shape = "star",
+  prereqs = [],
+  baseCost = 20,
+  growth = 1.18,
+} = {}) {
+  return makeUpgrade({
+    id,
+    label,
+    branch,
+    tier,
+    effect,
+    prereqs,
+    regionGate,
+    shape,
+    uncapped: true,
+    repeatableCost: {
+      base: baseCost,
+      growth,
+    },
+  });
+}
+
+function prestigeUpgradeMaxLevel(upgrade) {
+  if (upgrade && upgrade.uncapped) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(1, Math.floor(Number(upgrade && upgrade.maxLevel) || 1));
+}
+
+function prestigeUpgradeCostAtLevel(upgrade, level) {
+  const currentLevel = Math.max(0, Math.floor(Number(level) || 0));
+  if (upgrade && upgrade.uncapped) {
+    const repeatable = upgrade.repeatableCost && typeof upgrade.repeatableCost === "object"
+      ? upgrade.repeatableCost
+      : { base: 20, growth: 1.18 };
+    return Math.max(1, Math.round(repeatable.base * Math.pow(repeatable.growth, currentLevel)));
+  }
+  const costs = Array.isArray(upgrade && upgrade.costs) ? upgrade.costs : [];
+  return Math.max(0, Math.floor(Number(costs[currentLevel]) || 0));
 }
 
 const PRESTIGE_UPGRADES = Object.freeze({
@@ -208,6 +267,17 @@ const PRESTIGE_UPGRADES = Object.freeze({
       prereqs: [{ id: "soulfire-forge", level: 2 }, { id: "battle-memory-array", level: 2 }],
       effect: "Increase passive soulfire output after reaching Underlord.",
     }),
+    endlessNode({
+      id: "unyielding-edge",
+      label: "Unyielding Edge",
+      branch: "apex",
+      tier: 3,
+      shape: "star",
+      prereqs: [{ id: "empty-palm-insight", level: 2 }, { id: "soulfire-furnace", level: 1 }],
+      baseCost: 20,
+      growth: 1.18,
+      effect: "Endless investment. Keep sharpening Cradle combat strength whenever the path grows steeper.",
+    }),
   ]),
   worm: Object.freeze([
     branchNode({
@@ -313,6 +383,17 @@ const PRESTIGE_UPGRADES = Object.freeze({
       shape: "hex",
       prereqs: [{ id: "broker-network", level: 2 }, { id: "threat-drills", level: 1 }],
       effect: "Increase Worm loot rarity when drops do occur.",
+    }),
+    endlessNode({
+      id: "escalation-instinct",
+      label: "Escalation Instinct",
+      branch: "apex",
+      tier: 3,
+      shape: "star",
+      prereqs: [{ id: "high-stakes-sponsors", level: 2 }, { id: "compactifier-routines", level: 1 }],
+      baseCost: 20,
+      growth: 1.18,
+      effect: "Endless investment. Push cape combat strength higher when the city refuses to yield.",
     }),
   ]),
   dcc: Object.freeze([
@@ -430,6 +511,17 @@ const PRESTIGE_UPGRADES = Object.freeze({
       prereqs: [{ id: "floor-reader", level: 2 }, { id: "execution-patterns", level: 2 }],
       effect: "Claim the DCC Floor-5 Key and open the final external floor gate.",
     }),
+    endlessNode({
+      id: "last-ditch-brutality",
+      label: "Last-Ditch Brutality",
+      branch: "apex",
+      tier: 3,
+      shape: "star",
+      prereqs: [{ id: "execution-patterns", level: 2 }, { id: "scavenger-instinct", level: 1 }],
+      baseCost: 20,
+      growth: 1.18,
+      effect: "Endless investment. Add raw crawl combat power when the late floors start to outrun everything else.",
+    }),
   ]),
 });
 
@@ -480,8 +572,10 @@ function normalizeRegionState(regionId, candidate) {
 
   const upgrades = { ...base.upgrades };
   for (const [upgradeId] of Object.entries(upgrades)) {
-    const maxLevel = Math.max(1, Math.floor(Number(regionDefs[upgradeId] && regionDefs[upgradeId].maxLevel) || 1));
-    upgrades[upgradeId] = Math.max(0, Math.min(maxLevel, Math.floor(safeFinite(incomingUpgrades[upgradeId], 0))));
+    const definition = regionDefs[upgradeId];
+    const maxLevel = prestigeUpgradeMaxLevel(definition);
+    const normalizedLevel = Math.max(0, Math.floor(safeFinite(incomingUpgrades[upgradeId], 0)));
+    upgrades[upgradeId] = Number.isFinite(maxLevel) ? Math.min(maxLevel, normalizedLevel) : normalizedLevel;
   }
 
   return {
@@ -546,7 +640,7 @@ function upgradeViewsForRegion(state, regionId, regionState) {
   const upgrades = PRESTIGE_UPGRADES[key] || [];
   return upgrades.map((upgrade) => {
     const level = Math.max(0, Math.floor(Number(regionState && regionState.upgrades ? regionState.upgrades[upgrade.id] : 0) || 0));
-    const maxLevel = Math.max(1, Math.floor(Number(upgrade.maxLevel) || 1));
+    const maxLevel = prestigeUpgradeMaxLevel(upgrade);
     const prereqs = (upgrade.prereqs || []).map((entry) => {
       const currentLevel = Math.max(
         0,
@@ -560,8 +654,8 @@ function upgradeViewsForRegion(state, regionId, regionState) {
       };
     });
     const prereqsMet = prereqs.every((entry) => entry.met);
-    const maxed = level >= maxLevel;
-    const nextCost = !maxed ? Number(upgrade.costs[level] || 0) : null;
+    const maxed = Number.isFinite(maxLevel) ? level >= maxLevel : false;
+    const nextCost = !maxed ? prestigeUpgradeCostAtLevel(upgrade, level) : null;
     const visible = regionGateMet(state, key, upgrade) && (level > 0 || upgrade.tier <= 1 || prereqsMet);
     const purchasable = visible && prereqsMet && !maxed;
     const affordable = purchasable && Number(regionState && regionState.points ? regionState.points : 0) >= Number(nextCost || 0);
@@ -952,6 +1046,19 @@ function applyWormReset(state, _cost) {
 function applyDccReset(state, _cost) {
   const runtime = dccRuntimeFromState(state);
   const sourceMeta = runtime && runtime.meta && typeof runtime.meta === "object" ? runtime.meta : {};
+  const dungeonCrawlSystem =
+    state && state.systems && state.systems.dungeonCrawl && typeof state.systems.dungeonCrawl === "object"
+      ? state.systems.dungeonCrawl
+      : {};
+  const inventoryRoot =
+    state && state.inventory && typeof state.inventory === "object"
+      ? state.inventory
+      : {};
+  const rewardMap =
+    inventoryRoot.rewards && typeof inventoryRoot.rewards === "object"
+      ? inventoryRoot.rewards
+      : {};
+  const hadCheckpoint = Math.max(1, Math.floor(Number(dungeonCrawlSystem.checkpointFloor) || 1)) >= 3;
   const nextRuntime = {
     ...(runtime && typeof runtime === "object" ? runtime : {}),
     run: null,
@@ -975,9 +1082,30 @@ function applyDccReset(state, _cost) {
   return {
     state: {
       ...state,
+      systems: {
+        ...(state.systems || {}),
+        dungeonCrawl: {
+          ...dungeonCrawlSystem,
+          checkpointFloor: 1,
+          checkpointEligible: false,
+        },
+      },
       nodeRuntime: {
         ...(state.nodeRuntime || {}),
         DCC01: nextRuntime,
+      },
+      inventory: {
+        ...inventoryRoot,
+        rewards: hadCheckpoint
+          ? {
+              ...rewardMap,
+              "Checkpoint Pyramid": rewardMap["Checkpoint Pyramid"] || {
+                source: "SYSTEM",
+                section: "Dungeon Crawler Carl",
+                awardedAt: Date.now(),
+              },
+            }
+          : rewardMap,
       },
     },
     applied: true,
@@ -1081,14 +1209,14 @@ export function applyPrestigeUpgradePurchase(state, regionId, upgradeId) {
   const normalized = normalizePrestigeSystemState(state && state.systems ? state.systems.prestige : {});
   const region = normalized.regions[key];
   const level = Math.max(0, Math.floor(Number(region && region.upgrades ? region.upgrades[targetUpgradeId] : 0) || 0));
-  const maxLevel = Math.max(1, Math.floor(Number(upgrade.maxLevel) || 1));
+  const maxLevel = prestigeUpgradeMaxLevel(upgrade);
   const visible = regionGateMet(state, key, upgrade);
   const prereqs = Array.isArray(upgrade.prereqs) ? upgrade.prereqs : [];
   const prereqsMet = prereqs.every((entry) => {
     const currentLevel = Math.max(0, Math.floor(Number(region && region.upgrades ? region.upgrades[entry.id] : 0) || 0));
     return currentLevel >= Math.max(1, Math.floor(Number(entry.level) || 1));
   });
-  const nextCost = level < maxLevel ? Math.max(0, Math.floor(Number(upgrade.costs[level]) || 0)) : 0;
+  const nextCost = !(Number.isFinite(maxLevel) && level >= maxLevel) ? prestigeUpgradeCostAtLevel(upgrade, level) : 0;
 
   if (!visible) {
     return {
@@ -1098,7 +1226,7 @@ export function applyPrestigeUpgradePurchase(state, regionId, upgradeId) {
     };
   }
 
-  if (level >= maxLevel) {
+  if (Number.isFinite(maxLevel) && level >= maxLevel) {
     return {
       nextState: state,
       applied: false,
@@ -1147,7 +1275,9 @@ export function applyPrestigeUpgradePurchase(state, regionId, upgradeId) {
       },
     },
     applied: true,
-    message: `${upgrade.label} advanced to ${nextLevel}/${maxLevel}.`,
+    message: Number.isFinite(maxLevel)
+      ? `${upgrade.label} advanced to ${nextLevel}/${maxLevel}.`
+      : `${upgrade.label} advanced to ${nextLevel}.`,
   };
 }
 
@@ -1161,13 +1291,16 @@ export function prestigeModifiersFromState(state) {
   const wormLevel = (upgradeId) => Math.max(0, Math.floor(Number(worm.upgrades[upgradeId] || 0) || 0));
   const dccLevel = (upgradeId) => Math.max(0, Math.floor(Number(dcc.upgrades[upgradeId] || 0) || 0));
   const rounded = (value) => Number(Number(value || 0).toFixed(3));
+  const cradleEndless = cradleLevel("unyielding-edge");
+  const wormEndless = wormLevel("escalation-instinct");
+  const dccEndless = dccLevel("last-ditch-brutality");
 
   return {
     cradle: {
       startingMadraBonus: cradleLevel("remnant-seed") * 10,
       madraGainMultiplier: rounded(1 + 0.3 * cradleLevel("madra-surge")),
       cyclingCostDivider: rounded(1 + 0.22 * cradleLevel("cycle-economy")),
-      combatAttackMultiplier: rounded(1 + 0.16 * cradleLevel("combat-edge")),
+      combatAttackMultiplier: rounded((1 + 0.16 * cradleLevel("combat-edge")) * (1 + 0.08 * cradleEndless)),
       combatDodgeBonus: rounded(0.035 * cradleLevel("soul-cloak-memory")),
       techniqueMadraCostDivider: rounded(1 + 0.14 * cradleLevel("soul-cloak-memory")),
       emptyPalmBonus: rounded(0.07 * cradleLevel("empty-palm-insight")),
@@ -1184,8 +1317,8 @@ export function prestigeModifiersFromState(state) {
       jobWeightBaseMultiplier: rounded(1 + 0.18 * wormLevel("job-window")),
       specialWindowWeightMultiplier: rounded(1 + 0.22 * wormLevel("special-window-broker")),
       sickbayHealMultiplier: rounded(1 + 0.35 * wormLevel("street-medicine")),
-      capeMaxHpMultiplier: rounded(1 + 0.1 * wormLevel("cape-conditioning")),
-      capeDamageMultiplier: rounded(1 + 0.1 * wormLevel("threat-drills")),
+      capeMaxHpMultiplier: rounded((1 + 0.1 * wormLevel("cape-conditioning")) * (1 + 0.035 * wormEndless)),
+      capeDamageMultiplier: rounded((1 + 0.1 * wormLevel("threat-drills")) * (1 + 0.07 * wormEndless)),
       capeDamageReduction: rounded(0.06 * wormLevel("trauma-plates")),
       extraSickbaySlots: Math.max(0, wormLevel("sickbay-overflow") - 1),
       compactifyCostDivider: rounded(1 + 0.25 * wormLevel("compactifier-routines")),
@@ -1194,8 +1327,8 @@ export function prestigeModifiersFromState(state) {
       wormLootRarityBias: rounded(0.3 * wormLevel("high-stakes-sponsors")),
     },
     dcc: {
-      maxHpBonus: dccLevel("sponsor-might") * 10,
-      attackBonus: dccLevel("sponsor-might"),
+      maxHpBonus: (dccLevel("sponsor-might") * 10) + (dccEndless * 8),
+      attackBonus: dccLevel("sponsor-might") + dccEndless,
       maxStaminaBonus: dccLevel("conditioning-program") * 2,
       damageReduction: rounded(0.06 * dccLevel("crowd-survival")),
       goldGainBonus: rounded(0.16 * dccLevel("sponsor-bounty")),
@@ -1206,7 +1339,7 @@ export function prestigeModifiersFromState(state) {
       extraAbilitySlots: dccLevel("sponsor-arsenal") >= 2 ? 1 : 0,
       startBasicAttackRefinements: dccLevel("sponsor-arsenal") >= 3 ? 1 : 0,
       tomeDropChanceBonus: rounded(0.09 * dccLevel("skill-index")),
-      skillDamageMultiplier: rounded(1 + 0.1 * dccLevel("execution-patterns")),
+      skillDamageMultiplier: rounded((1 + 0.1 * dccLevel("execution-patterns")) * (1 + 0.08 * dccEndless)),
       potionHealingMultiplier: rounded(1 + 0.22 * dccLevel("field-medicine")),
       startingHealingPotions: dccLevel("ration-cache") >= 3 ? 2 : dccLevel("ration-cache") >= 1 ? 1 : 0,
       startingGoldBonus: dccLevel("ration-cache") >= 2 ? 10 : 0,

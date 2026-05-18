@@ -61,7 +61,10 @@ export function renderHub06Experience(context) {
         solvedNow
           ? `
             <section class="hub06-card">
-              <h3>Correspondence Desk</h3>
+              <div class="hub06-head">
+                <span class="hub06-kicker">Anchored Relay</span>
+                <h3>Correspondence Desk</h3>
+              </div>
               <p>The floating desk settles into orbit, ready to receive and return messages.</p>
               <section class="completion-banner" aria-live="polite">
                 <p><strong>CORRESPONDENCE DESK Anchored</strong></p>
@@ -70,9 +73,12 @@ export function renderHub06Experience(context) {
           `
           : `
             <section class="hub06-card">
-              <h3>Correspondence Desk</h3>
+              <div class="hub06-head">
+                <span class="hub06-kicker">Dormant Relay</span>
+                <h3>Correspondence Desk</h3>
+              </div>
               <p>A desk floats alone in the void, lit by a cold constellation glow.</p>
-              <p>Odd. It looks like it could help route messages and guidance through the Nexus.</p>
+              <p>Anchor it and the Nexus gains a standing channel for guidance and extracted hints.</p>
               <button type="button" data-node-id="${NODE_ID}" data-node-action="hub06-anchor-desk">
                 Anchor The Desk
               </button>

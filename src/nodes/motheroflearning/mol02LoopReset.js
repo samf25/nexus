@@ -614,9 +614,14 @@ export function renderMol02Experience(context) {
             <div class="mol-lattice-modal mol02-reset-modal" role="dialog" aria-label="Memory Gate">
               <section class="mol-lattice-surface mol02-reset-surface">
                 <header>
-                  <div>
+                  <div class="mol02-memory-title-row">
                     <h3>Memory Gate</h3>
-                    <p><strong>${escapeHtml(confirmSnapshot && confirmSnapshot.regionDef ? confirmSnapshot.regionDef.label : "Region Reset")}</strong> | ${escapeHtml(String(runtime.challenge.successCount))}/${escapeHtml(String(runtime.challenge.targetSuccesses))} rounds cleared</p>
+                    <div class="mol02-memory-title-chips">
+                      <span class="mol02-memory-region-chip">${escapeHtml(confirmSnapshot && confirmSnapshot.regionDef ? confirmSnapshot.regionDef.label : "Region Reset")}</span>
+                      <span class="mol02-memory-progress-chip">
+                        ${escapeHtml(String(runtime.challenge.successCount))}/${escapeHtml(String(runtime.challenge.targetSuccesses))} rounds cleared
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -627,31 +632,47 @@ export function renderMol02Experience(context) {
                     Cancel
                   </button>
                 </header>
-                ${renderMemoryDisplay(runtime.challenge)}
                 ${
-                  !runtime.challenge.solved && runtime.challenge.phase === "idle"
+                  !runtime.challenge.solved
                     ? `
-                      <div class="toolbar">
-                        <button type="button" data-node-id="${NODE_ID}" data-node-action="mol02-memory-begin">
-                          Begin Sequence
-                        </button>
+                      <div class="mol02-sequence-display-row">
+                        <div class="mol02-sequence-display">
+                          ${renderMemoryDisplay(runtime.challenge)}
+                        </div>
+                        <div class="toolbar">
+                          <button
+                            type="button"
+                            data-node-id="${NODE_ID}"
+                            data-node-action="mol02-memory-begin"
+                            ${runtime.challenge.phase === "idle" ? "" : "disabled"}
+                          >
+                            Begin Sequence
+                          </button>
+                        </div>
+                      </div>
+                      <div class="mol02-sequence-field">
+                        ${renderMemoryField({
+                          nodeId: NODE_ID,
+                          actionName: runtime.challenge.phase === "input" ? "mol02-memory-pick" : "",
+                          game: runtime.challenge,
+                        })}
                       </div>
                     `
                     : ""
                 }
                 ${
-                  !runtime.challenge.solved
-                    ? renderMemoryField({
-                      nodeId: NODE_ID,
-                      actionName: runtime.challenge.phase === "input" ? "mol02-memory-pick" : "",
-                      game: runtime.challenge,
-                    })
+                  runtime.challenge.solved
+                    ? `
+                      <div class="mol02-sequence-display mol02-sequence-display--solved">
+                        ${renderMemoryDisplay(runtime.challenge)}
+                      </div>
+                    `
                     : ""
                 }
                 ${
                   runtime.challenge.solved
                     ? `
-                      <div class="toolbar">
+                      <div class="toolbar mol02-finalize-toolbar">
                         <button
                           type="button"
                           data-node-id="${NODE_ID}"

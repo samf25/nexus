@@ -164,6 +164,7 @@ function perLevelEffectLines(regionId, upgradeId) {
       "soulfire-surge": ["Soulfire gain x1.24 per level"],
       "soulfire-forge": ["Soulfire costs divide by +0.18 per level"],
       "soulfire-furnace": ["Passive soulfire x1.30 per level"],
+      "unyielding-edge": ["Combat strength x1.08 per level", "No level cap"],
     },
     worm: {
       "clout-surge": ["Clout gain x1.18 per level"],
@@ -178,6 +179,7 @@ function perLevelEffectLines(regionId, upgradeId) {
       "shard-lattice": ["Shard effects x1.20 per level"],
       "broker-network": ["+8% Worm loot drop chance per level"],
       "high-stakes-sponsors": ["+0.30 rarity bias per level"],
+      "escalation-instinct": ["Combat strength x1.07 per level", "No level cap"],
     },
     dcc: {
       "sponsor-might": ["+10 max HP per level", "+1 attack per level"],
@@ -193,6 +195,7 @@ function perLevelEffectLines(regionId, upgradeId) {
       "ration-cache": ["Lv1 +1 potion", "Lv2 +10 gold", "Lv3 second potion"],
       "scavenger-instinct": ["+12% bonus loot roll chance per level"],
       "floor-five-clearance": ["One-time unlock: receive the DCC Floor-5 Key"],
+      "last-ditch-brutality": ["Combat strength x1.08 per level", "No level cap"],
     },
   };
   return (map[region] && map[region][id]) || [];
@@ -219,6 +222,7 @@ function currentLevelSummary(regionId, upgradeId, level) {
     if (id === "soulfire-surge") return `Soulfire gain x${format(1 + 0.24 * lv)}`;
     if (id === "soulfire-forge") return `Soulfire costs /${format(1 + 0.18 * lv)}`;
     if (id === "soulfire-furnace") return `Passive soulfire x${format(1 + 0.3 * lv)}`;
+    if (id === "unyielding-edge") return `Combat strength x${format(1 + 0.08 * lv)}`;
   }
   if (region === "worm") {
     if (id === "clout-surge") return `Clout gain x${format(1 + 0.18 * lv)}`;
@@ -233,6 +237,7 @@ function currentLevelSummary(regionId, upgradeId, level) {
     if (id === "shard-lattice") return `Shard effects x${format(1 + 0.2 * lv)}`;
     if (id === "broker-network") return `+${format(0.08 * lv * 100)}% Worm loot chance`;
     if (id === "high-stakes-sponsors") return `+${format(0.3 * lv)} rarity bias`;
+    if (id === "escalation-instinct") return `Combat strength x${format(1 + 0.07 * lv)}`;
   }
   if (region === "dcc") {
     if (id === "sponsor-might") return `+${lv * 10} HP, +${lv} attack`;
@@ -248,6 +253,7 @@ function currentLevelSummary(regionId, upgradeId, level) {
     if (id === "ration-cache") return lv >= 3 ? "2 potions and +10 gold" : lv === 2 ? "1 potion and +10 gold" : "1 starting potion";
     if (id === "scavenger-instinct") return `+${format(0.12 * lv * 100)}% bonus loot roll`;
     if (id === "floor-five-clearance") return "DCC Floor-5 Key claimed";
+    if (id === "last-ditch-brutality") return `Combat strength x${format(1 + 0.08 * lv)}`;
   }
   return `${lv} levels invested.`;
 }
@@ -258,6 +264,10 @@ function nodeStatusLabel(view) {
   if (view.affordable) return "Available";
   if (view.acquired) return "Owned";
   return "Locked";
+}
+
+function maxLevelLabel(view) {
+  return Number.isFinite(Number(view.maxLevel)) ? String(view.maxLevel) : "∞";
 }
 
 function layoutForBranch(branchIndex, tier) {
@@ -301,7 +311,7 @@ function treeNodeMarkup(regionId, branchIndex, view, previewId) {
       data-upgrade-id="${escapeHtml(view.id)}"
       style="left:${position.x}px; top:${position.y}px;"
     >
-      <span class="sr-only">${escapeHtml(view.label)} ${escapeHtml(String(view.level))}/${escapeHtml(String(view.maxLevel))}</span>
+      <span class="sr-only">${escapeHtml(view.label)} ${escapeHtml(String(view.level))}/${escapeHtml(maxLevelLabel(view))}</span>
       <span class="crd02-tech-core" aria-hidden="true"></span>
     </button>
   `;
@@ -326,7 +336,7 @@ function previewDetailMarkup(snapshot, previewId) {
       </header>
       <p class="crd02-tech-effect">${escapeHtml(view.effect || "No effect description.")}</p>
       <p class="crd02-tech-meta-line">
-        <span><strong>Level</strong> ${escapeHtml(String(view.level))}/${escapeHtml(String(view.maxLevel))}</span>
+        <span><strong>Level</strong> ${escapeHtml(String(view.level))}/${escapeHtml(maxLevelLabel(view))}</span>
         <span><strong>Next Cost</strong> ${escapeHtml(nextCostLabel)}</span>
         <span><strong>Status</strong> ${escapeHtml(nodeStatusLabel(view))}</span>
       </p>
@@ -389,7 +399,10 @@ function treeModalMarkup(runtime, snapshot) {
 function selectedSummaryMarkup(region, snapshot) {
   const visible = visibleUpgradeViews(snapshot);
   const totalLevels = visible.reduce((sum, view) => sum + Math.max(0, Number(view.level || 0)), 0);
-  const maxLevels = visible.reduce((sum, view) => sum + Math.max(0, Number(view.maxLevel || 0)), 0);
+  const hasUncapped = visible.some((view) => !Number.isFinite(Number(view.maxLevel)));
+  const maxLevels = hasUncapped
+    ? "∞"
+    : String(visible.reduce((sum, view) => sum + Math.max(0, Number(view.maxLevel || 0)), 0));
   const openableText = snapshot.points > 0 ? `Enough ${region.pointLabel} to keep investing.` : `Bank ${region.pointLabel} through resets.`;
   return `
     <section class="card mol03-summary mol03-summary--${escapeHtml(region.id)}">

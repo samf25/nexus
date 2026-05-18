@@ -15,6 +15,10 @@ import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "WORM03";
 const LEVIATHAN_AMULET = "Leviathan Summoning Amulet";
+const LOADOUT_SLOTS = Object.freeze([
+  { slotId: "slot-1", label: "Slot I" },
+  { slotId: "slot-2", label: "Slot II" },
+]);
 
 const ACTION_LABELS = Object.freeze({
   attack: "Attack",
@@ -55,6 +59,10 @@ function normalizeRuntime(runtime) {
   return {
     summoned: Boolean(source.summoned),
     battle: normalizeBattle(source.battle),
+    playerLoadout: Array.isArray(source.playerLoadout)
+      ? source.playerLoadout.map((cardId) => safeText(cardId)).slice(0, 2)
+      : [],
+    pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === source.pickerSlot) ? source.pickerSlot : "",
     orderPrefs: source.orderPrefs && typeof source.orderPrefs === "object" ? source.orderPrefs : {},
     solved: Boolean(source.solved),
     pendingCloutAward: Math.max(0, Number(source.pendingCloutAward) || 0),
@@ -62,6 +70,15 @@ function normalizeRuntime(runtime) {
     outcomePopup: source.outcomePopup && typeof source.outcomePopup === "object" ? { ...source.outcomePopup } : null,
     lastMessage: safeText(source.lastMessage),
   };
+}
+
+function ensureLoadout(runtime, ownedCardIds) {
+  const uniqueOwned = ownedCardIds.filter((cardId, index, list) => cardId && list.indexOf(cardId) === index);
+  const selected = (runtime.playerLoadout || []).filter((cardId) => uniqueOwned.includes(cardId)).slice(0, 2);
+  while (selected.length < 2) {
+    selected.push("");
+  }
+  return selected.slice(0, 2);
 }
 
 function actionNeedsTarget(actionType) {
@@ -227,6 +244,102 @@ function topPlayerCards(wormState, contextState) {
     );
     return card;
   });
+}
+
+function loadoutEntryById(owned) {
+  const byId = {};
+  for (const entry of owned) {
+    if (!entry || !entry.cardId) {
+      continue;
+    }
+    byId[entry.cardId] = entry;
+  }
+  return byId;
+}
+
+function loadoutMetaMarkup(entry) {
+  const rarity = Number(entry && entry.card && entry.card.rarity);
+  const currentHp = Math.max(0, Math.round(Number(entry && entry.currentHp ? entry.currentHp : 0)));
+  return `
+    <span class="worm02-loadout-slot-meta-line">
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-rarity">Rarity ${escapeHtml(Number.isFinite(rarity) ? rarity.toFixed(1) : "0.0")}</span>
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-hp">HP ${escapeHtml(String(currentHp))}</span>
+    </span>
+  `;
+}
+
+function loadoutSlotMarkup(slot, selectedEntry, pickerOpen, locked) {
+  const hasCard = Boolean(selectedEntry && selectedEntry.card);
+  return `
+    <button
+      type="button"
+      class="worm02-loadout-slot ${hasCard ? "is-filled" : "is-empty"} ${pickerOpen ? "is-active" : ""}"
+      data-node-id="${NODE_ID}"
+      data-node-action="worm03-open-picker"
+      data-slot-id="${escapeHtml(slot.slotId)}"
+      data-worm03-loadout-slot="${escapeHtml(slot.slotId)}"
+      data-card-id="${escapeHtml(hasCard ? selectedEntry.cardId : "")}"
+      data-current-hp="${escapeHtml(hasCard ? String(Math.max(0, Math.round(Number(selectedEntry.currentHp || 0)))) : "0")}"
+      ${locked ? "disabled" : ""}
+      aria-label="${escapeHtml(`Select cape for ${slot.label}`)}"
+    >
+      <span class="worm02-loadout-slot-title">${escapeHtml(slot.label)}</span>
+      ${
+        hasCard
+          ? `
+              <span class="worm02-loadout-slot-name">${escapeHtml(selectedEntry.card.heroName)}</span>
+              ${loadoutMetaMarkup(selectedEntry)}
+            `
+          : `<span class="worm02-loadout-slot-empty">Select Cape</span>`
+      }
+    </button>
+  `;
+}
+
+function pickerCardMarkup(entry, slotId, activeLoadout) {
+  const otherSlotCardId = (activeLoadout || []).find((cardId, index) => {
+    const lookupSlot = LOADOUT_SLOTS[index] ? LOADOUT_SLOTS[index].slotId : "";
+    return lookupSlot !== slotId && cardId;
+  }) || "";
+  const disabled = Boolean(otherSlotCardId && otherSlotCardId === entry.cardId);
+  return `
+    <button
+      type="button"
+      class="worm02-picker-card ${disabled ? "is-disabled" : ""}"
+      data-node-id="${NODE_ID}"
+      data-node-action="worm03-pick-loadout"
+      data-slot-id="${escapeHtml(slotId)}"
+      data-card-id="${escapeHtml(entry.cardId)}"
+      ${disabled ? "disabled" : ""}
+      aria-label="${escapeHtml(`Choose ${entry.card.heroName}`)}"
+    >
+      <strong>${escapeHtml(entry.card.heroName)}</strong>
+      ${loadoutMetaMarkup(entry)}
+    </button>
+  `;
+}
+
+function pickerMarkup(runtime, owned, activeLoadout) {
+  if (!runtime.pickerSlot) {
+    return "";
+  }
+  const slot = LOADOUT_SLOTS.find((entry) => entry.slotId === runtime.pickerSlot);
+  if (!slot) {
+    return "";
+  }
+  return `
+    <section class="worm02-picker-overlay" aria-modal="true" role="dialog">
+      <section class="card worm02-picker-panel">
+        <header class="worm02-picker-header">
+          <h4>Select Cape for ${escapeHtml(slot.label)}</h4>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="worm03-close-picker">Close</button>
+        </header>
+        <div class="worm02-picker-grid">
+          ${owned.map((entry) => pickerCardMarkup(entry, slot.slotId, activeLoadout)).join("")}
+        </div>
+      </section>
+    </section>
+  `;
 }
 
 function teamCardsMarkup(team, role) {
@@ -410,6 +523,46 @@ export function reduceWorm03Runtime(runtime, action, context = {}) {
     return current;
   }
 
+  if (action.type === "worm03-open-picker") {
+    return {
+      ...current,
+      pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "",
+    };
+  }
+
+  if (action.type === "worm03-close-picker") {
+    return {
+      ...current,
+      pickerSlot: "",
+    };
+  }
+
+  if (action.type === "worm03-pick-loadout") {
+    const slot = LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "";
+    const cardId = safeText(action.cardId);
+    if (!slot || !cardId) {
+      return current;
+    }
+    const nextLoadout = Array.isArray(current.playerLoadout) ? current.playerLoadout.slice(0, 2) : [];
+    while (nextLoadout.length < 2) {
+      nextLoadout.push("");
+    }
+    const slotIndex = LOADOUT_SLOTS.findIndex((entry) => entry.slotId === slot);
+    if (slotIndex < 0) {
+      return current;
+    }
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    if (nextLoadout[otherIndex] === cardId) {
+      nextLoadout[otherIndex] = "";
+    }
+    nextLoadout[slotIndex] = cardId;
+    return {
+      ...current,
+      playerLoadout: nextLoadout,
+      pickerSlot: "",
+    };
+  }
+
   if (action.type === "worm03-summon-leviathan") {
     if (current.solved) {
       return {
@@ -434,11 +587,29 @@ export function reduceWorm03Runtime(runtime, action, context = {}) {
     if (!current.summoned || current.solved) {
       return current;
     }
-    const wormState = normalizeWormSystemState(
-      context && context.state && context.state.systems ? context.state.systems.worm : {},
-      Date.now(),
-    );
-    const playerCards = topPlayerCards(wormState, context.state || {});
+    const requestedPlayerCards = Array.isArray(action.playerCards) ? action.playerCards : [];
+    const bonusesByCardId = action.capeBonusesByCardId && typeof action.capeBonusesByCardId === "object"
+      ? action.capeBonusesByCardId
+      : {};
+    const requestedLoadout = requestedPlayerCards.length
+      ? requestedPlayerCards.map((entry) => safeText(entry.cardId)).slice(0, 2)
+      : current.playerLoadout;
+    const playerCards = requestedPlayerCards
+      .map((entry) => {
+        const cardId = safeText(entry && entry.cardId);
+        const card = wormCardById(cardId);
+        if (!card) {
+          return null;
+        }
+        const currentHp = Number(entry && entry.currentHp);
+        const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(context.state || {}, cardId, Date.now());
+        return applyCardBonus({
+          ...card,
+          currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
+        }, bonus);
+      })
+      .filter((card) => card && typeof card === "object")
+      .slice(0, 2);
     if (playerCards.length < 2) {
       return {
         ...current,
@@ -447,6 +618,8 @@ export function reduceWorm03Runtime(runtime, action, context = {}) {
     }
     return {
       ...current,
+      playerLoadout: requestedLoadout,
+      pickerSlot: "",
       battle: createWormBattleState({
         playerCards,
         enemyCards: [LEVIATHAN_CARD],
@@ -483,6 +656,7 @@ export function reduceWorm03Runtime(runtime, action, context = {}) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       outcomePopup: null,
       lastMessage: "You retreat from the flooded district.",
@@ -504,6 +678,7 @@ export function reduceWorm03Runtime(runtime, action, context = {}) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       solved: won || current.solved,
       pendingCloutAward: won ? 220 : 0,
@@ -567,9 +742,40 @@ export function buildWorm03ActionFromElement(element, runtime) {
       at: Date.now(),
     };
   }
+  if (actionName === "worm03-open-picker") {
+    return {
+      type: "worm03-open-picker",
+      slotId: element.getAttribute("data-slot-id") || "",
+      at: Date.now(),
+    };
+  }
+  if (actionName === "worm03-close-picker") {
+    return {
+      type: "worm03-close-picker",
+      at: Date.now(),
+    };
+  }
+  if (actionName === "worm03-pick-loadout") {
+    return {
+      type: "worm03-pick-loadout",
+      slotId: element.getAttribute("data-slot-id") || "",
+      cardId: element.getAttribute("data-card-id") || "",
+      at: Date.now(),
+    };
+  }
   if (actionName === "worm03-start-battle") {
+    const payload = LOADOUT_SLOTS.map((slot) => {
+      const slotEl = surface.querySelector(`[data-worm03-loadout-slot="${slot.slotId}"]`);
+      const cardId = safeText(slotEl && slotEl.getAttribute("data-card-id"));
+      const currentHp = Number(slotEl && slotEl.getAttribute("data-current-hp"));
+      return {
+        cardId,
+        currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : 0,
+      };
+    });
     return {
       type: "worm03-start-battle",
+      playerCards: payload,
       at: Date.now(),
     };
   }
@@ -632,7 +838,10 @@ export function renderWorm03Experience(context) {
   const selectedArtifact = safeText(context.selectedArtifactReward);
   const hasAmulet = selectedArtifact === LEVIATHAN_AMULET;
   const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now());
-  const availableTeam = topPlayerCards(wormState, context.state || {});
+  const owned = wormOwnedCards(wormState, Date.now()).filter((entry) => Number(entry.currentHp || 0) > 0);
+  const loadout = ensureLoadout(runtime, owned.map((entry) => entry.cardId));
+  const selectedById = loadoutEntryById(owned);
+  const loadoutComplete = loadout.every((cardId) => Boolean(cardId));
 
   return `
     <article class="worm03-node" data-node-id="${NODE_ID}">
@@ -642,7 +851,8 @@ export function renderWorm03Experience(context) {
         ${
           runtime.solved
             ? `<p class="muted">Leviathan has been defeated. The bay is yours for now.</p>`
-            : `
+            : !runtime.summoned
+              ? `
               ${renderSlotRing({
     slots: [
       {
@@ -669,20 +879,32 @@ export function renderWorm03Experience(context) {
     ],
     className: "worm03-amulet-slot-ring",
     ariaLabel: "Leviathan summoning socket",
-  })}
-              ${runtime.summoned && !runtime.battle ? `
-                <div class="toolbar">
-                  <button type="button" data-node-id="${NODE_ID}" data-node-action="worm03-start-battle" ${availableTeam.length < 2 ? "disabled" : ""}>
-                    Engage Leviathan (2v1)
-                  </button>
-                </div>
-              ` : ""}
+    })}
             `
+              : !runtime.battle
+                ? `
+                  <section class="worm-boss-prep worm-boss-prep--leviathan">
+                    <div class="worm-boss-prep-head">
+                      <h4>Leviathan Terrorizes Brockton Bay</h4>
+                      <p>Floodwater tears through the boardwalk and the skyline buckles under pressure waves. Choose two capes to intercept him.</p>
+                    </div>
+                    <div class="worm02-loadout-slot-grid">
+                      ${LOADOUT_SLOTS.map((slot, index) => loadoutSlotMarkup(slot, selectedById[loadout[index]], runtime.pickerSlot === slot.slotId, false)).join("")}
+                    </div>
+                    <div class="toolbar worm-boss-prep-actions">
+                      <button type="button" data-node-id="${NODE_ID}" data-node-action="worm03-start-battle" ${loadoutComplete ? "" : "disabled"}>
+                        Engage Leviathan (2v1)
+                      </button>
+                    </div>
+                  </section>
+                `
+                : ""
         }
         ${runtime.lastMessage ? `<p class="muted">${escapeHtml(runtime.lastMessage)}</p>` : ""}
       </section>
       ${battleMarkup(runtime)}
       ${outcomePopupMarkup(runtime)}
+      ${pickerMarkup(runtime, owned, loadout)}
     </article>
   `;
 }

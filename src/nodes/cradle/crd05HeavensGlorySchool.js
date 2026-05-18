@@ -56,6 +56,8 @@ function normalizeRuntime(runtime) {
     turn: Math.max(1, Math.floor(Number(source.turn) || 1)),
     log: Array.isArray(source.log) ? source.log.slice(-10).map((line) => String(line)) : [],
     lastMessage: String(source.lastMessage || ""),
+    rewardPopupOpen: Boolean(source.rewardPopupOpen),
+    rewardSummary: source.rewardSummary && typeof source.rewardSummary === "object" ? { ...source.rewardSummary } : null,
   };
 }
 
@@ -81,8 +83,8 @@ function combatProfileFromState(state) {
   return {
     stage,
     hasEmptyPalm: emptyPalm > 0,
-    meleeBonus: (soulCloak + consume + hollowDomain) * attackMultiplier,
-    dodgeBonus: soulCloak + hollowDomain,
+    meleeBonus: Number(((soulCloak * 0.75 + consume * 1 + hollowDomain * 1.25) * Math.sqrt(attackMultiplier)).toFixed(2)),
+    dodgeBonus: Number((soulCloak * 0.45 + hollowDomain * 0.55).toFixed(2)),
     techEffects: cradleTechniqueEffectsFromState(state || {}, stage),
     maxHp: 118 + ironBody * 24 + (stage === "copper" ? 16 : stage === "iron" ? 34 : 0),
     maxMadra: Math.round((100 + soulCloak * 4 + consume * 5 + hollowDomain * 6) * madraPoolMultiplierForStage(stage)),
@@ -105,6 +107,70 @@ function barMarkup(label, current, max, className = "") {
       <div class="crd04-bar-label">${escapeHtml(label)}</div>
       <div class="crd04-bar-track"><span style="width:${percent.toFixed(2)}%"></span></div>
       <div class="crd04-bar-value">${escapeHtml(String(Math.round(value)))}/${escapeHtml(String(Math.round(safeMax)))}</div>
+    </div>
+  `;
+}
+
+function rewardPopupMarkup(runtime) {
+  if (!runtime.rewardPopupOpen || !runtime.rewardSummary) {
+    return "";
+  }
+  const summary = runtime.rewardSummary;
+  const artifactRewards = Array.isArray(summary.artifactRewards) ? summary.artifactRewards : [];
+  const lootDrops = Array.isArray(summary.lootDrops) ? summary.lootDrops : [];
+  const madraAward = Math.max(0, Number(summary.madraAward || 0));
+  const soulfireAward = Math.max(0, Number(summary.soulfireAward || 0));
+  return `
+    <div class="crd02-tech-modal" role="dialog" aria-label="Combat rewards">
+      <section class="crd02-tech-surface crd-combat-reward-modal">
+        <header>
+          <h3>${escapeHtml(String(summary.title || "Rewards"))}</h3>
+          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="crd05-close-reward-popup">Close</button>
+        </header>
+        ${summary.flavor ? `<p class="muted">${escapeHtml(String(summary.flavor))}</p>` : ""}
+        <div class="crd-combat-reward-grid">
+          ${
+            madraAward > 0 || soulfireAward > 0
+              ? `
+                <article class="crd-combat-reward-card">
+                  <span class="crd-combat-reward-label">Recovered Power</span>
+                  ${madraAward > 0 ? `<strong>+${escapeHtml(String(madraAward))} Madra</strong>` : ""}
+                  ${soulfireAward > 0 ? `<strong>+${escapeHtml(String(soulfireAward))} Soulfire</strong>` : ""}
+                </article>
+              `
+              : ""
+          }
+          ${
+            artifactRewards.length
+              ? `
+                <article class="crd-combat-reward-card">
+                  <span class="crd-combat-reward-label">Artifacts</span>
+                  <div class="crd-combat-reward-stack">
+                    ${artifactRewards.map((entry) => `<div class="crd-combat-reward-row"><strong>${escapeHtml(String(entry))}</strong></div>`).join("")}
+                  </div>
+                </article>
+              `
+              : ""
+          }
+          ${
+            lootDrops.length
+              ? `
+                <article class="crd-combat-reward-card is-loot">
+                  <span class="crd-combat-reward-label">Loot</span>
+                  <div class="crd-combat-reward-stack">
+                    ${lootDrops.map((entry) => `
+                      <div class="crd-combat-reward-row">
+                        <strong>${escapeHtml(String(entry.label || "Loot"))}</strong>
+                        ${entry.details ? `<span class="muted">${escapeHtml(String(entry.details))}</span>` : ""}
+                      </div>
+                    `).join("")}
+                  </div>
+                </article>
+              `
+              : ""
+          }
+        </div>
+      </section>
     </div>
   `;
 }
@@ -372,6 +438,13 @@ export function reduceCrd05Runtime(runtime, action) {
     return startBattle(current, action);
   }
 
+  if (action.type === "crd05-close-reward-popup") {
+    return {
+      ...current,
+      rewardPopupOpen: false,
+    };
+  }
+
   if (action.type !== "crd05-combat" || current.phase !== "battle") {
     return current;
   }
@@ -452,6 +525,12 @@ export function buildCrd05ActionFromElement(element) {
       at: nowMs(),
     };
   }
+  if (actionName === "crd05-close-reward-popup") {
+    return {
+      type: "crd05-close-reward-popup",
+      at: nowMs(),
+    };
+  }
   return null;
 }
 
@@ -518,6 +597,7 @@ export function renderCrd05Experience(context) {
           <h3>The Heaven's Glory School</h3>
           <p>Elder Rahm collapses. The Heaven's Glory vault opens and ancient relics spill into your hands.</p>
         </section>
+        ${rewardPopupMarkup(runtime)}
       </article>
     `;
   }

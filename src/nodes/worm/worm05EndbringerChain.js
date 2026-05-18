@@ -32,6 +32,10 @@ const BEHEMOTH_ANKLET = "Behemoth Summoning Anklet";
 const LEVIATHAN_SIGIL = "Leviathan Core Sigil";
 const SIMURGH_SIGIL = "Simurgh Feather Sigil";
 const BEHEMOTH_SIGIL = "Behemoth Ember Sigil";
+const LOADOUT_SLOTS = Object.freeze([
+  { slotId: "slot-1", label: "Slot I" },
+  { slotId: "slot-2", label: "Slot II" },
+]);
 
 const SIMURGH_CARD = Object.freeze({
   id: "worm-boss-simurgh",
@@ -136,6 +140,111 @@ function topPlayerCards(wormState, contextState) {
       bonus,
     );
   });
+}
+
+function ensureLoadout(runtime, ownedCardIds) {
+  const uniqueOwned = ownedCardIds.filter((cardId, index, list) => cardId && list.indexOf(cardId) === index);
+  const selected = (runtime.playerLoadout || []).filter((cardId) => uniqueOwned.includes(cardId)).slice(0, 2);
+  while (selected.length < 2) {
+    selected.push("");
+  }
+  return selected.slice(0, 2);
+}
+
+function loadoutEntryById(owned) {
+  const byId = {};
+  for (const entry of owned) {
+    if (!entry || !entry.cardId) {
+      continue;
+    }
+    byId[entry.cardId] = entry;
+  }
+  return byId;
+}
+
+function loadoutMetaMarkup(entry) {
+  const rarity = Number(entry && entry.card && entry.card.rarity);
+  const currentHp = Math.max(0, Math.round(Number(entry && entry.currentHp ? entry.currentHp : 0)));
+  return `
+    <span class="worm02-loadout-slot-meta-line">
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-rarity">Rarity ${escapeHtml(Number.isFinite(rarity) ? rarity.toFixed(1) : "0.0")}</span>
+      <span class="worm02-loadout-meta-chip worm02-loadout-meta-chip-hp">HP ${escapeHtml(String(currentHp))}</span>
+    </span>
+  `;
+}
+
+function loadoutSlotMarkup(nodeId, actionName, slot, selectedEntry, pickerOpen, locked) {
+  const hasCard = Boolean(selectedEntry && selectedEntry.card);
+  return `
+    <button
+      type="button"
+      class="worm02-loadout-slot ${hasCard ? "is-filled" : "is-empty"} ${pickerOpen ? "is-active" : ""}"
+      data-node-id="${escapeHtml(nodeId)}"
+      data-node-action="${escapeHtml(actionName)}"
+      data-slot-id="${escapeHtml(slot.slotId)}"
+      data-boss-loadout-slot="${escapeHtml(slot.slotId)}"
+      data-card-id="${escapeHtml(hasCard ? selectedEntry.cardId : "")}"
+      data-current-hp="${escapeHtml(hasCard ? String(Math.max(0, Math.round(Number(selectedEntry.currentHp || 0)))) : "0")}"
+      ${locked ? "disabled" : ""}
+      aria-label="${escapeHtml(`Select cape for ${slot.label}`)}"
+    >
+      <span class="worm02-loadout-slot-title">${escapeHtml(slot.label)}</span>
+      ${
+        hasCard
+          ? `
+              <span class="worm02-loadout-slot-name">${escapeHtml(selectedEntry.card.heroName)}</span>
+              ${loadoutMetaMarkup(selectedEntry)}
+            `
+          : `<span class="worm02-loadout-slot-empty">Select Cape</span>`
+      }
+    </button>
+  `;
+}
+
+function pickerCardMarkup(nodeId, actionName, entry, slotId, activeLoadout) {
+  const otherSlotCardId = (activeLoadout || []).find((cardId, index) => {
+    const lookupSlot = LOADOUT_SLOTS[index] ? LOADOUT_SLOTS[index].slotId : "";
+    return lookupSlot !== slotId && cardId;
+  }) || "";
+  const disabled = Boolean(otherSlotCardId && otherSlotCardId === entry.cardId);
+  return `
+    <button
+      type="button"
+      class="worm02-picker-card ${disabled ? "is-disabled" : ""}"
+      data-node-id="${escapeHtml(nodeId)}"
+      data-node-action="${escapeHtml(actionName)}"
+      data-slot-id="${escapeHtml(slotId)}"
+      data-card-id="${escapeHtml(entry.cardId)}"
+      ${disabled ? "disabled" : ""}
+      aria-label="${escapeHtml(`Choose ${entry.card.heroName}`)}"
+    >
+      <strong>${escapeHtml(entry.card.heroName)}</strong>
+      ${loadoutMetaMarkup(entry)}
+    </button>
+  `;
+}
+
+function pickerMarkup(nodeId, closeAction, pickAction, runtime, owned, activeLoadout) {
+  if (!runtime.pickerSlot) {
+    return "";
+  }
+  const slot = LOADOUT_SLOTS.find((entry) => entry.slotId === runtime.pickerSlot);
+  if (!slot) {
+    return "";
+  }
+  return `
+    <section class="worm02-picker-overlay" aria-modal="true" role="dialog">
+      <section class="card worm02-picker-panel">
+        <header class="worm02-picker-header">
+          <h4>Select Cape for ${escapeHtml(slot.label)}</h4>
+          <button type="button" class="ghost" data-node-id="${escapeHtml(nodeId)}" data-node-action="${escapeHtml(closeAction)}">Close</button>
+        </header>
+        <div class="worm02-picker-grid">
+          ${owned.map((entry) => pickerCardMarkup(nodeId, pickAction, entry, slot.slotId, activeLoadout)).join("")}
+        </div>
+      </section>
+    </section>
+  `;
 }
 
 function normalizePreferenceForActor(combatant, enemyTeam, preference) {
@@ -457,6 +566,10 @@ function normalizeBossRuntime(runtime) {
   return {
     summoned: Boolean(source.summoned),
     battle: normalizeBattle(source.battle),
+    playerLoadout: Array.isArray(source.playerLoadout)
+      ? source.playerLoadout.map((cardId) => safeText(cardId)).slice(0, 2)
+      : [],
+    pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === source.pickerSlot) ? source.pickerSlot : "",
     orderPrefs: source.orderPrefs && typeof source.orderPrefs === "object" ? source.orderPrefs : {},
     solved: Boolean(source.solved),
     pendingCloutAward: Math.max(0, Number(source.pendingCloutAward) || 0),
@@ -467,6 +580,46 @@ function normalizeBossRuntime(runtime) {
 }
 
 function reduceBossRuntime(current, action, context, config) {
+  if (action.type === config.openPickerAction) {
+    return {
+      ...current,
+      pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "",
+    };
+  }
+
+  if (action.type === config.closePickerAction) {
+    return {
+      ...current,
+      pickerSlot: "",
+    };
+  }
+
+  if (action.type === config.pickLoadoutAction) {
+    const slot = LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "";
+    const cardId = safeText(action.cardId);
+    if (!slot || !cardId) {
+      return current;
+    }
+    const nextLoadout = Array.isArray(current.playerLoadout) ? current.playerLoadout.slice(0, 2) : [];
+    while (nextLoadout.length < 2) {
+      nextLoadout.push("");
+    }
+    const slotIndex = LOADOUT_SLOTS.findIndex((entry) => entry.slotId === slot);
+    if (slotIndex < 0) {
+      return current;
+    }
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    if (nextLoadout[otherIndex] === cardId) {
+      nextLoadout[otherIndex] = "";
+    }
+    nextLoadout[slotIndex] = cardId;
+    return {
+      ...current,
+      playerLoadout: nextLoadout,
+      pickerSlot: "",
+    };
+  }
+
   if (action.type === config.closeOutcomeAction) {
     return {
       ...current,
@@ -499,11 +652,29 @@ function reduceBossRuntime(current, action, context, config) {
     if (!current.summoned || current.solved) {
       return current;
     }
-    const wormState = normalizeWormSystemState(
-      context && context.state && context.state.systems ? context.state.systems.worm : {},
-      Date.now(),
-    );
-    const playerCards = topPlayerCards(wormState, context.state || {});
+    const requestedPlayerCards = Array.isArray(action.playerCards) ? action.playerCards : [];
+    const bonusesByCardId = action.capeBonusesByCardId && typeof action.capeBonusesByCardId === "object"
+      ? action.capeBonusesByCardId
+      : {};
+    const requestedLoadout = requestedPlayerCards.length
+      ? requestedPlayerCards.map((entry) => safeText(entry.cardId)).slice(0, 2)
+      : current.playerLoadout;
+    const playerCards = requestedPlayerCards
+      .map((entry) => {
+        const cardId = safeText(entry && entry.cardId);
+        const card = loadWormCardCatalog().find((candidate) => safeText(candidate.id) === cardId);
+        if (!card) {
+          return null;
+        }
+        const currentHp = Number(entry && entry.currentHp);
+        const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(context.state || {}, cardId, Date.now());
+        return applyCardBonus({
+          ...card,
+          currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
+        }, bonus);
+      })
+      .filter((card) => card && typeof card === "object")
+      .slice(0, 2);
     if (playerCards.length < 2) {
       return {
         ...current,
@@ -513,6 +684,8 @@ function reduceBossRuntime(current, action, context, config) {
 
     return {
       ...current,
+      playerLoadout: requestedLoadout,
+      pickerSlot: "",
       battle: createWormBattleState({
         playerCards,
         enemyCards: [config.bossCard],
@@ -549,6 +722,7 @@ function reduceBossRuntime(current, action, context, config) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       outcomePopup: null,
       lastMessage: config.retreatMessage,
@@ -563,6 +737,7 @@ function reduceBossRuntime(current, action, context, config) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       solved: won || current.solved,
       pendingCloutAward: won ? config.cloutReward : 0,
@@ -601,9 +776,40 @@ function buildBossActionFromElement(element, runtime, config) {
       at: Date.now(),
     };
   }
+  if (actionName === config.openPickerAction) {
+    return {
+      type: config.openPickerAction,
+      slotId: element.getAttribute("data-slot-id") || "",
+      at: Date.now(),
+    };
+  }
+  if (actionName === config.closePickerAction) {
+    return {
+      type: config.closePickerAction,
+      at: Date.now(),
+    };
+  }
+  if (actionName === config.pickLoadoutAction) {
+    return {
+      type: config.pickLoadoutAction,
+      slotId: element.getAttribute("data-slot-id") || "",
+      cardId: element.getAttribute("data-card-id") || "",
+      at: Date.now(),
+    };
+  }
   if (actionName === config.startAction) {
+    const payload = LOADOUT_SLOTS.map((slot) => {
+      const slotEl = surface.querySelector(`[data-boss-loadout-slot="${slot.slotId}"]`);
+      const cardId = safeText(slotEl && slotEl.getAttribute("data-card-id"));
+      const currentHp = Number(slotEl && slotEl.getAttribute("data-current-hp"));
+      return {
+        cardId,
+        currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : 0,
+      };
+    });
     return {
       type: config.startAction,
+      playerCards: payload,
       at: Date.now(),
     };
   }
@@ -644,7 +850,10 @@ function renderBossExperience(context, config) {
   const selectedArtifact = safeText(context.selectedArtifactReward);
   const hasArtifactSelected = selectedArtifact === config.artifactName;
   const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now());
-  const availableTeam = topPlayerCards(wormState, context.state || {});
+  const owned = wormOwnedCards(wormState, Date.now()).filter((entry) => Number(entry.currentHp || 0) > 0);
+  const loadout = ensureLoadout(runtime, owned.map((entry) => entry.cardId));
+  const selectedById = loadoutEntryById(owned);
+  const loadoutComplete = loadout.every((cardId) => Boolean(cardId));
 
   return `
     <article class="${config.rootClass}" data-node-id="${config.nodeId}">
@@ -654,7 +863,8 @@ function renderBossExperience(context, config) {
         ${
   runtime.solved
     ? `<p class="muted">${escapeHtml(config.solvedText)}</p>`
-    : `
+    : !runtime.summoned
+      ? `
               ${renderSlotRing({
       slots: [
         {
@@ -682,19 +892,31 @@ function renderBossExperience(context, config) {
       className: "worm03-amulet-slot-ring",
       ariaLabel: `${config.bossName} summon socket`,
     })}
-              ${runtime.summoned && !runtime.battle ? `
-                <div class="toolbar">
-                  <button type="button" data-node-id="${config.nodeId}" data-node-action="${config.startAction}" ${availableTeam.length < 2 ? "disabled" : ""}>
+            `
+      : !runtime.battle
+        ? `
+              <section class="worm-boss-prep worm-boss-prep--endbringer">
+                <div class="worm-boss-prep-head">
+                  <h4>${escapeHtml(config.bossName)} Terrorizes the Region</h4>
+                  <p>${escapeHtml(config.prepText || `Choose two healthy capes to challenge ${config.bossName}.`)}</p>
+                </div>
+                <div class="worm02-loadout-slot-grid">
+                  ${LOADOUT_SLOTS.map((slot, index) => loadoutSlotMarkup(config.nodeId, config.openPickerAction, slot, selectedById[loadout[index]], runtime.pickerSlot === slot.slotId, false)).join("")}
+                </div>
+                <div class="toolbar worm-boss-prep-actions">
+                  <button type="button" data-node-id="${config.nodeId}" data-node-action="${config.startAction}" ${loadoutComplete ? "" : "disabled"}>
                     Engage ${escapeHtml(config.bossName)} (2v1)
                   </button>
                 </div>
-              ` : ""}
+              </section>
             `
+        : ""
 }
         ${runtime.lastMessage ? `<p class="muted">${escapeHtml(runtime.lastMessage)}</p>` : ""}
       </section>
       ${battleMarkup(config.nodeId, runtime, config.bossName, config.resolveAction, config.resetAction, config.claimAction)}
       ${outcomePopupMarkup(config.nodeId, config.closeOutcomeAction, runtime.outcomePopup)}
+      ${pickerMarkup(config.nodeId, config.closePickerAction, config.pickLoadoutAction, runtime, owned, loadout)}
     </article>
   `;
 }
@@ -714,10 +936,14 @@ const WORM05_CONFIG = Object.freeze({
   resetAction: "worm05-reset-battle",
   claimAction: "worm05-claim-outcome",
   closeOutcomeAction: "worm05-close-outcome-popup",
+  openPickerAction: "worm05-open-picker",
+  closePickerAction: "worm05-close-picker",
+  pickLoadoutAction: "worm05-pick-loadout",
   summonMessage: "The Simurgh descends on a screaming wind.",
   startMessage: "Simurgh sweeps into combat range.",
   retreatMessage: "You break line-of-sight and retreat.",
   victoryMessage: "Simurgh breaks apart in a storm of shattered futures.",
+  prepText: "The Simurgh is scissoring through the skyline on a chorus of broken glass. Choose two capes to contest the airspace.",
   cloutReward: 420,
   lootEvents: Object.freeze([
     {
@@ -760,10 +986,14 @@ const WORM07_CONFIG = Object.freeze({
   resetAction: "worm07-reset-battle",
   claimAction: "worm07-claim-outcome",
   closeOutcomeAction: "worm07-close-outcome-popup",
+  openPickerAction: "worm07-open-picker",
+  closePickerAction: "worm07-close-picker",
+  pickLoadoutAction: "worm07-pick-loadout",
   summonMessage: "Behemoth tears up through molten stone.",
   startMessage: "Behemoth begins the endgame clash.",
   retreatMessage: "You fall back from the lava line.",
   victoryMessage: "Behemoth falls, and the earth finally stills.",
+  prepText: "Behemoth is ripping the battlefield apart with heat bloom and seismic force. Choose two capes to hold the line.",
   cloutReward: 640,
   lootEvents: Object.freeze([
     {
@@ -1361,6 +1591,10 @@ function normalizeWorm08Runtime(runtime) {
       behemoth: Boolean(sockets.behemoth),
     },
     battle: normalizeBattle(source.battle),
+    playerLoadout: Array.isArray(source.playerLoadout)
+      ? source.playerLoadout.map((cardId) => safeText(cardId)).slice(0, 2)
+      : [],
+    pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === source.pickerSlot) ? source.pickerSlot : "",
     orderPrefs: source.orderPrefs && typeof source.orderPrefs === "object" ? source.orderPrefs : {},
     solved: Boolean(source.solved),
     pendingCloutAward: Math.max(0, Number(source.pendingCloutAward) || 0),
@@ -1409,6 +1643,46 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     return current;
   }
 
+  if (action.type === "worm08-open-picker") {
+    return {
+      ...current,
+      pickerSlot: LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "",
+    };
+  }
+
+  if (action.type === "worm08-close-picker") {
+    return {
+      ...current,
+      pickerSlot: "",
+    };
+  }
+
+  if (action.type === "worm08-pick-loadout") {
+    const slot = LOADOUT_SLOTS.some((entry) => entry.slotId === action.slotId) ? action.slotId : "";
+    const cardId = safeText(action.cardId);
+    if (!slot || !cardId) {
+      return current;
+    }
+    const nextLoadout = Array.isArray(current.playerLoadout) ? current.playerLoadout.slice(0, 2) : [];
+    while (nextLoadout.length < 2) {
+      nextLoadout.push("");
+    }
+    const slotIndex = LOADOUT_SLOTS.findIndex((entry) => entry.slotId === slot);
+    if (slotIndex < 0) {
+      return current;
+    }
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    if (nextLoadout[otherIndex] === cardId) {
+      nextLoadout[otherIndex] = "";
+    }
+    nextLoadout[slotIndex] = cardId;
+    return {
+      ...current,
+      playerLoadout: nextLoadout,
+      pickerSlot: "",
+    };
+  }
+
   if (action.type === "worm08-socket-sigil") {
     const key = safeText(action.sigilType).toLowerCase();
     if (!["leviathan", "simurgh", "behemoth"].includes(key)) {
@@ -1434,11 +1708,29 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     if (current.solved || current.battle || !canStartScion(current)) {
       return current;
     }
-    const wormState = normalizeWormSystemState(
-      context && context.state && context.state.systems ? context.state.systems.worm : {},
-      Date.now(),
-    );
-    const playerCards = topPlayerCards(wormState, context.state || {});
+    const requestedPlayerCards = Array.isArray(action.playerCards) ? action.playerCards : [];
+    const bonusesByCardId = action.capeBonusesByCardId && typeof action.capeBonusesByCardId === "object"
+      ? action.capeBonusesByCardId
+      : {};
+    const requestedLoadout = requestedPlayerCards.length
+      ? requestedPlayerCards.map((entry) => safeText(entry.cardId)).slice(0, 2)
+      : current.playerLoadout;
+    const playerCards = requestedPlayerCards
+      .map((entry) => {
+        const cardId = safeText(entry && entry.cardId);
+        const card = loadWormCardCatalog().find((candidate) => safeText(candidate.id) === cardId);
+        if (!card) {
+          return null;
+        }
+        const currentHp = Number(entry && entry.currentHp);
+        const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(context.state || {}, cardId, Date.now());
+        return applyCardBonus({
+          ...card,
+          currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
+        }, bonus);
+      })
+      .filter((card) => card && typeof card === "object")
+      .slice(0, 2);
     if (playerCards.length < 2) {
       return {
         ...current,
@@ -1447,6 +1739,8 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     }
     return {
       ...current,
+      playerLoadout: requestedLoadout,
+      pickerSlot: "",
       battle: createWormBattleState({
         playerCards,
         enemyCards: [SCION_CARD],
@@ -1483,6 +1777,7 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       outcomePopup: null,
       lastMessage: "You retreat before total collapse.",
@@ -1504,6 +1799,7 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     return {
       ...current,
       battle: null,
+      pickerSlot: "",
       orderPrefs: {},
       solved: won || current.solved,
       pendingCloutAward: won ? 1600 : 0,
@@ -1568,9 +1864,40 @@ export function buildWorm08ActionFromElement(element, runtime) {
       at: Date.now(),
     };
   }
+  if (actionName === "worm08-open-picker") {
+    return {
+      type: "worm08-open-picker",
+      slotId: element.getAttribute("data-slot-id") || "",
+      at: Date.now(),
+    };
+  }
+  if (actionName === "worm08-close-picker") {
+    return {
+      type: "worm08-close-picker",
+      at: Date.now(),
+    };
+  }
+  if (actionName === "worm08-pick-loadout") {
+    return {
+      type: "worm08-pick-loadout",
+      slotId: element.getAttribute("data-slot-id") || "",
+      cardId: element.getAttribute("data-card-id") || "",
+      at: Date.now(),
+    };
+  }
   if (actionName === "worm08-start-battle") {
+    const payload = LOADOUT_SLOTS.map((slot) => {
+      const slotEl = surface.querySelector(`[data-boss-loadout-slot="${slot.slotId}"]`);
+      const cardId = safeText(slotEl && slotEl.getAttribute("data-card-id"));
+      const currentHp = Number(slotEl && slotEl.getAttribute("data-current-hp"));
+      return {
+        cardId,
+        currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : 0,
+      };
+    });
     return {
       type: "worm08-start-battle",
+      playerCards: payload,
       at: Date.now(),
     };
   }
@@ -1611,6 +1938,11 @@ export function renderWorm08Experience(context) {
   const selectedArtifact = safeText(context.selectedArtifactReward);
   const sockets = sigilMeta();
   const allSocketed = canStartScion(runtime);
+  const wormState = normalizeWormSystemState(context.state.systems.worm, Date.now());
+  const owned = wormOwnedCards(wormState, Date.now()).filter((entry) => Number(entry.currentHp || 0) > 0);
+  const loadout = ensureLoadout(runtime, owned.map((entry) => entry.cardId));
+  const selectedById = loadoutEntryById(owned);
+  const loadoutComplete = loadout.every((cardId) => Boolean(cardId));
 
   const ringSlots = sockets.map((entry) => {
     const filled = Boolean(runtime.sockets[entry.key]);
@@ -1639,21 +1971,39 @@ export function renderWorm08Experience(context) {
       <section class="card">
         <h3>Scion</h3>
         <p>The final light waits above a ruined sky. Three Endbringer sigils must lock before it descends.</p>
-        ${renderSlotRing({
-    slots: ringSlots,
-    className: "worm08-sigil-ring",
-    ariaLabel: "Scion gate sigils",
-    radiusPct: 42,
-  })}
         ${
-  allSocketed && !runtime.solved && !runtime.battle
-    ? `<div class="toolbar"><button type="button" data-node-id="${WORM08_NODE_ID}" data-node-action="worm08-start-battle">Challenge Scion (2v1)</button></div>`
-    : ""
-}
+          !allSocketed
+            ? renderSlotRing({
+                slots: ringSlots,
+                className: "worm08-sigil-ring",
+                ariaLabel: "Scion gate sigils",
+                radiusPct: 42,
+              })
+            : ""
+        }
+        ${
+          allSocketed && !runtime.solved && !runtime.battle
+            ? `
+        <section class="worm-boss-prep worm-boss-prep--scion">
+          <div class="worm-boss-prep-head">
+            <h4>Scion Descends</h4>
+            <p>The golden light is burning through the sky itself. Choose two healthy capes for the last stand.</p>
+          </div>
+          <div class="worm02-loadout-slot-grid">
+            ${LOADOUT_SLOTS.map((slot, index) => loadoutSlotMarkup(WORM08_NODE_ID, "worm08-open-picker", slot, selectedById[loadout[index]], runtime.pickerSlot === slot.slotId, false)).join("")}
+          </div>
+          <div class="toolbar worm-boss-prep-actions">
+            <button type="button" data-node-id="${WORM08_NODE_ID}" data-node-action="worm08-start-battle" ${loadoutComplete ? "" : "disabled"}>Challenge Scion (2v1)</button>
+          </div>
+        </section>
+      `
+            : ""
+        }
         ${runtime.lastMessage ? `<p class="muted">${escapeHtml(runtime.lastMessage)}</p>` : ""}
       </section>
       ${battleMarkup(WORM08_NODE_ID, runtime, "Scion", "worm08-resolve-round", "worm08-reset-battle", "worm08-claim-outcome")}
       ${outcomePopupMarkup(WORM08_NODE_ID, "worm08-close-outcome-popup", runtime.outcomePopup)}
+      ${pickerMarkup(WORM08_NODE_ID, "worm08-close-picker", "worm08-pick-loadout", runtime, owned, loadout)}
     </article>
   `;
 }

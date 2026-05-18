@@ -119,7 +119,7 @@ const COMBAT_UPGRADES = Object.freeze([
   {
     id: "burning-cloak",
     label: "Burning Cloak",
-    baseCost: 18000,
+    baseCost: 40000,
     maxLevel: 1,
     minStage: "lowgold",
     effect: "Flood your channels with speed and force. Improves dodge and amplifies technique impact.",
@@ -131,7 +131,7 @@ const COMBAT_UPGRADES = Object.freeze([
   {
     id: "hollow-domain",
     label: "Hollow Domain",
-    baseCost: 100000,
+    baseCost: 180000,
     maxLevel: 1,
     minStage: "highgold",
     effect: "Suppress hostile techniques and dampen incoming damage when your domain takes hold.",
@@ -140,7 +140,7 @@ const COMBAT_UPGRADES = Object.freeze([
   {
     id: "void-dragons-dance",
     label: "Void Dragon's Dance",
-    baseCost: 240000,
+    baseCost: 600000,
     maxLevel: 1,
     minStage: "underlord",
     soulfireBaseCost: 18,
@@ -154,7 +154,7 @@ const COMBAT_UPGRADES = Object.freeze([
   {
     id: "heart-of-twin-stars-combat",
     label: "Heart of Twin Stars",
-    baseCost: 1000000,
+    baseCost: 1800000,
     maxLevel: 1,
     minStage: "underlord",
     soulfireBaseCost: 28,
@@ -168,7 +168,7 @@ const COMBAT_UPGRADES = Object.freeze([
   {
     id: "dross-battle-planning",
     label: "Dross Battle Planning",
-    baseCost: 2200000,
+    baseCost: 4200000,
     maxLevel: 1,
     minStage: "overlord",
     soulfireBaseCost: 56,
@@ -185,8 +185,8 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "manual-refinement",
     label: "Cycling Resonance",
-    baseCost: 25,
-    growth: 2.2,
+    baseCost: 40,
+    growth: 2.7,
     maxLevel: 4,
     repeatable: true,
     effect: "x2 manual madra per level",
@@ -195,8 +195,8 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "cycle-refinement",
     label: "Twin-Star Compression",
-    baseCost: 180,
-    growth: 2.4,
+    baseCost: 320,
+    growth: 3.1,
     maxLevel: 4,
     repeatable: true,
     effect: "Heart of Twin Stars base: +0.005 per level",
@@ -208,11 +208,11 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "well-reservoir",
     label: "Deep-Well Lining",
-    baseCost: 650,
-    growth: 2.8,
+    baseCost: 1200,
+    growth: 3.35,
     maxLevel: 3,
     repeatable: true,
-    effect: "+35% passive gain per level",
+    effect: "+20% passive gain per level",
     requires: [
       { id: "manual-refinement", minLevel: 1 },
       { id: "blood-forged-iron-body", minLevel: 1 },
@@ -221,7 +221,7 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "core-harmonization",
     label: "Core Harmonization",
-    baseCost: 2200,
+    baseCost: 6000,
     growth: 1,
     maxLevel: 1,
     repeatable: false,
@@ -235,11 +235,11 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "spiral-confluence",
     label: "Spiral Confluence",
-    baseCost: 8200,
-    growth: 3.1,
+    baseCost: 18000,
+    growth: 3.6,
     maxLevel: 3,
     repeatable: true,
-    effect: "+25% passive gain and Heaven/Earth scale",
+    effect: "+14% passive gain and Heaven/Earth scale",
     minStage: "jade",
     requires: [
       { id: "core-harmonization", minLevel: 1 },
@@ -249,7 +249,7 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "skyline-annulus",
     label: "Skyline Annulus",
-    baseCost: 25000,
+    baseCost: 90000,
     growth: 1,
     maxLevel: 1,
     repeatable: false,
@@ -264,11 +264,11 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "cycling-furnace",
     label: "Cycling Furnace",
-    baseCost: 52000,
-    growth: 2.5,
+    baseCost: 220000,
+    growth: 3.2,
     maxLevel: 3,
     repeatable: true,
-    effect: "+20% passive gain per level",
+    effect: "+12% passive gain per level",
     minStage: "highgold",
     requires: [
       { id: "spiral-confluence", minLevel: 1 },
@@ -347,6 +347,17 @@ function formatMadraDisplay(value, decimals = 3) {
     return "0";
   }
   return amount.toFixed(decimals).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+function rateValueToneClass(valueText) {
+  const length = String(valueText || "").trim().length;
+  if (length >= 16) {
+    return "is-condensed";
+  }
+  if (length >= 13) {
+    return "is-compact";
+  }
+  return "";
 }
 
 function manualPatternByIndex(patternIndex) {
@@ -530,9 +541,9 @@ function passiveMadraPerSecond(runtime) {
   const annulus = levelOf(runtime, "skyline-annulus");
   const heavenRate = heavenAndEarthRate(runtime);
 
-  const reservoirMultiplier = 1 + levelOf(runtime, "well-reservoir") * 0.35;
-  const confluenceMultiplier = 1 + confluence * 0.25;
-  const annulusMultiplier = 1 + annulus * 0.15;
+  const reservoirMultiplier = 1 + levelOf(runtime, "well-reservoir") * 0.2;
+  const confluenceMultiplier = 1 + confluence * 0.14;
+  const annulusMultiplier = 1 + annulus * 0.08;
   const stageMultiplier = STAGE_PASSIVE_MULTIPLIER[runtime.cultivationStage] || 1;
   const prestigeMultiplier = Math.max(1, Number(runtime.prestige && runtime.prestige.madraGainMultiplier) || 1);
 
@@ -548,12 +559,12 @@ function passiveMadraPerSecond(runtime) {
 
 function twinStarsCost(level) {
   const lv = Math.max(0, Math.floor(Number(level) || 0));
-  return Math.max(12, Math.round(14 * Math.pow(1.38, lv) + lv * lv * 8));
+  return Math.max(18, Math.round(24 * Math.pow(1.58, lv) + lv * lv * 24));
 }
 
 function heavenEarthCost(level) {
   const lv = Math.max(0, Math.floor(Number(level) || 0));
-  return Math.max(220, Math.round(240 * Math.pow(1.52, lv) + lv * lv * 42));
+  return Math.max(320, Math.round(360 * Math.pow(1.7, lv) + lv * lv * 80));
 }
 
 function cyclingCostWithPrestige(baseCost, runtime) {
@@ -1191,7 +1202,7 @@ export function reduceCrd02Runtime(runtime, action) {
   }
 
   if (action.type === "crd02-buy-soulfire-upgrade") {
-    if (stageIndex(current.cultivationStage) < stageIndex("underlord")) {
+    if (!current.soulfire || !current.soulfire.unlocked) {
       return current;
     }
     const upgradeId = String(action.upgradeId || "");
@@ -2013,6 +2024,13 @@ export function renderCrd02Experience(context) {
   const activeTab = runtime.activeTab === "soul" || runtime.activeTab === "combat" || runtime.activeTab === "soulfire"
     ? runtime.activeTab
     : "well";
+  const twinCurrentRate = Math.pow(heartOfTwinStarsBase(runtime), runtime.cycling.twinStarsLevel) - 1;
+  const twinNextRate = Math.pow(heartOfTwinStarsBase(runtime), runtime.cycling.twinStarsLevel + 1) - 1;
+  const twinUpgradeGain = Math.max(0, twinNextRate - twinCurrentRate);
+  const heavenCurrentRate = heavenAndEarthRate(runtime);
+  const heavenBase = 1.035 + levelOf(runtime, "spiral-confluence") * 0.007 + levelOf(runtime, "skyline-annulus") * 0.006;
+  const heavenNextRate = (Math.pow(heavenBase, runtime.cycling.heavenEarthLevel + 1) - 1) * 7;
+  const heavenUpgradeGain = Math.max(0, heavenNextRate - heavenCurrentRate);
   const wellPanel = canSeeMenus
     ? `
       <section class="crd02-panel">
@@ -2041,7 +2059,7 @@ export function renderCrd02Experience(context) {
             <strong>The Heart of Twin Stars</strong>
             <div class="crd02-cycle-meta">
               <span class="crd02-cycle-chip">Level ${escapeHtml(String(runtime.cycling.twinStarsLevel))}</span>
-              <span class="crd02-cycle-chip is-strong">+${escapeHtml((Math.pow(heartOfTwinStarsBase(runtime), runtime.cycling.twinStarsLevel) - 1).toFixed(3))}/sec</span>
+              <span class="crd02-cycle-chip is-strong">+${escapeHtml(twinUpgradeGain.toFixed(3))}/sec per upgrade</span>
             </div>
           </div>
           <button
@@ -2063,7 +2081,7 @@ export function renderCrd02Experience(context) {
               <span class="crd02-cycle-chip ${crd06Solved ? "is-strong" : "is-locked"}">
                 ${
                   crd06Solved
-                    ? `+${escapeHtml(heavenAndEarthRate(runtime).toFixed(3))}/sec`
+                    ? `+${escapeHtml(heavenUpgradeGain.toFixed(3))}/sec per upgrade`
                     : "Locked until Duel with Jai Long"
                 }
               </span>
@@ -2103,6 +2121,7 @@ export function renderCrd02Experience(context) {
   });
   const currentSoulfire = Math.max(0, Number(runtime.soulfire && runtime.soulfire.amount) || 0);
   const soulfirePerSecond = passiveSoulfirePerSecond(runtime);
+  const soulfirePerSecondLabel = `${soulfirePerSecond.toFixed(3)}/sec`;
   const madraCyclerLevel = Math.max(0, Number(runtime.soulfire && runtime.soulfire.madraCyclerLevel) || 0);
   const soulfireCyclerLevel = Math.max(0, Number(runtime.soulfire && runtime.soulfire.soulfireCyclerLevel) || 0);
   const soulfireCostDivider = Math.max(1, Number(runtime.prestige && runtime.prestige.soulfireCostDivider) || 1);
@@ -2110,41 +2129,63 @@ export function renderCrd02Experience(context) {
   const soulfireCyclerCost = roundMadra((6 * Math.pow(2.5, soulfireCyclerLevel)) / soulfireCostDivider);
   const soulfirePanel = `
     <section class="crd02-panel">
-      <h4>Soulfire</h4>
-      <p><strong>Soulfire:</strong> ${escapeHtml(currentSoulfire.toFixed(2))}</p>
-      <p class="muted">${escapeHtml(soulfirePerSecond.toFixed(3))}/sec passive</p>
-      <div class="crd02-tech-row">
-        <div>
-          <p><strong>Soulfire Furnace</strong></p>
-          <p class="muted">Level ${escapeHtml(String(madraCyclerLevel))} | Costs Madra</p>
-        </div>
-        <button
-          type="button"
-          data-node-id="${NODE_ID}"
-          data-node-action="crd02-buy-soulfire-upgrade"
-          data-upgrade-id="madra-cycler"
-          ${runtime.madra >= madraCyclerCost ? "" : "disabled"}
-        >
-          Upgrade (${escapeHtml(String(madraCyclerCost))} Madra)
-        </button>
+      <div class="crd02-soulfire-rite">
+        <span class="crd02-soulfire-rite-mark">Soulfire</span>
       </div>
-      <div class="crd02-tech-row">
-        <div>
-          <p><strong>Soulfire Condensation Wheel</strong></p>
-          <p class="muted">Level ${escapeHtml(String(soulfireCyclerLevel))} | Costs Soulfire</p>
+      <div class="crd02-soulfire-header">
+        <article class="crd02-madra-card crd02-soulfire-card">
+          <span>Soulfire</span>
+          <strong class="crd02-counter-value">${escapeHtml(currentSoulfire.toFixed(2))}</strong>
+        </article>
+        <div class="crd02-rate-grid crd02-soulfire-rate-grid">
+          <article class="crd02-rate-chip crd02-soulfire-chip">
+            <span>Passive Gain</span>
+            <strong class="${escapeHtml(rateValueToneClass(soulfirePerSecondLabel))}">${escapeHtml(soulfirePerSecondLabel)}</strong>
+          </article>
         </div>
-        <button
-          type="button"
-          data-node-id="${NODE_ID}"
-          data-node-action="crd02-buy-soulfire-upgrade"
-          data-upgrade-id="soulfire-cycler"
-          ${currentSoulfire >= soulfireCyclerCost ? "" : "disabled"}
-        >
-          Upgrade (${escapeHtml(soulfireCyclerCost.toFixed(2))} Soulfire)
-        </button>
+      </div>
+      <div class="crd02-cycle-grid crd02-soulfire-grid">
+        <div class="crd02-tech-row crd02-cycle-card">
+          <div class="crd02-cycle-copy">
+            <strong>Soulfire Furnace</strong>
+            <div class="crd02-cycle-meta">
+              <span class="crd02-cycle-chip">Level ${escapeHtml(String(madraCyclerLevel))}</span>
+              <span class="crd02-cycle-chip">+0.015/sec Soulfire per level</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-node-id="${NODE_ID}"
+            data-node-action="crd02-buy-soulfire-upgrade"
+            data-upgrade-id="madra-cycler"
+            ${runtime.madra >= madraCyclerCost ? "" : "disabled"}
+          >
+            Temper Furnace · ${escapeHtml(String(madraCyclerCost))} Madra
+          </button>
+        </div>
+        <div class="crd02-tech-row crd02-cycle-card">
+          <div class="crd02-cycle-copy">
+            <strong>Soulfire Condensation Wheel</strong>
+            <div class="crd02-cycle-meta">
+              <span class="crd02-cycle-chip">Level ${escapeHtml(String(soulfireCyclerLevel))}</span>
+              <span class="crd02-cycle-chip">+0.020/sec Soulfire per level</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-node-id="${NODE_ID}"
+            data-node-action="crd02-buy-soulfire-upgrade"
+            data-upgrade-id="soulfire-cycler"
+            ${currentSoulfire >= soulfireCyclerCost ? "" : "disabled"}
+          >
+            Refine Wheel · ${escapeHtml(soulfireCyclerCost.toFixed(2))} Soulfire
+          </button>
+        </div>
       </div>
     </section>
   `;
+  const madraPerSecondLabel = `+${mps.toFixed(3)}/sec`;
+  const manualRewardLabel = `+${String(manualReward)}`;
 
   return `
     <article class="crd02-node" data-node-id="${NODE_ID}">
@@ -2187,11 +2228,11 @@ export function renderCrd02Experience(context) {
           <div class="crd02-rate-grid">
             <article class="crd02-rate-chip">
               <span>Passive Gain</span>
-              <strong>+${escapeHtml(mps.toFixed(3))}/sec</strong>
+              <strong class="${escapeHtml(rateValueToneClass(madraPerSecondLabel))}">${escapeHtml(madraPerSecondLabel)}</strong>
             </article>
             <article class="crd02-rate-chip">
               <span>Manual Gain</span>
-              <strong>+${escapeHtml(String(manualReward))}</strong>
+              <strong class="${escapeHtml(rateValueToneClass(manualRewardLabel))}">${escapeHtml(manualRewardLabel)}</strong>
             </article>
           </div>
         </div>

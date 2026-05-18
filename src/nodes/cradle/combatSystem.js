@@ -201,33 +201,33 @@ export function cradleTechniqueEffectsFromState(state, stageId = "foundation") {
     drossBattlePlanning,
     ironBodyDamageReduction: Math.min(
       0.8,
-      (bloodForged ? Math.min(0.55, 0.08 * scale) : 0)
+      (bloodForged ? Math.min(0.42, 0.06 * scale) : 0)
         + Math.max(0, Number(prestigeCradle.combatDamageReduction || 0)),
     ),
-    soulCloakDodgeBonus: (soulCloak ? Math.min(0.22, 0.03 * scale) : 0)
+    soulCloakDodgeBonus: (soulCloak ? Math.min(0.14, 0.022 * scale) : 0)
       + Math.max(0, Number(prestigeCradle.combatDodgeBonus || 0)),
     soulCloakMadraDiscount: Math.min(
       0.8,
-      (soulCloak ? Math.min(0.35, 0.06 * scale) : 0)
+      (soulCloak ? Math.min(0.24, 0.045 * scale) : 0)
         + Math.max(0, 1 - (1 / Math.max(1, Number(prestigeCradle.techniqueMadraCostDivider || 1)))),
     ),
-    dragonBreathFlatDamage: dragonBreath ? Math.max(4, Math.round(4 + scale * 2.2)) : 0,
-    consumeLifeStealRatio: consume ? Math.min(0.35, 0.07 * scale) : 0,
-    consumeMadraStealRatio: consume ? Math.min(0.32, 0.06 * scale) : 0,
-    burningCloakDodgeBonus: burningCloak ? Math.min(0.2, 0.028 * scale) : 0,
-    burningCloakMadraDiscount: burningCloak ? Math.min(0.3, 0.045 * scale) : 0,
-    burningCloakDamageMultiplier: burningCloak ? Math.min(1.5, 1 + 0.1 * scale) : 1,
-    hollowDomainDamageReduction: hollowDomain ? Math.min(0.42, 0.06 * scale) : 0,
-    hollowDomainSuppressChance: hollowDomain ? Math.min(0.5, 0.12 * scale) : 0,
-    voidDragonsDanceDamageMultiplier: voidDragonsDance ? Math.min(1.65, 1 + 0.13 * scale) : 1,
-    twinStarsCombatDamageMultiplier: twinStarsCombat ? Math.min(1.5, 1 + 0.09 * scale) : 1,
-    twinStarsCombatMadraOnHit: twinStarsCombat ? Math.max(1, Math.round(1 + 1.3 * scale)) : 0,
-    drossAttackMultiplier: drossBattlePlanning ? Math.min(1.4, 1 + 0.085 * scale) : 1,
-    drossDamageReduction: drossBattlePlanning ? Math.min(0.28, 0.05 * scale) : 0,
-    drossMadraDiscount: drossBattlePlanning ? Math.min(0.22, 0.04 * scale) : 0,
-    drossEmptyPalmBonus: (drossBattlePlanning ? Math.min(0.16, 0.03 * scale) : 0)
+    dragonBreathFlatDamage: dragonBreath ? Math.max(3, Math.round(2 + scale * 1.5)) : 0,
+    consumeLifeStealRatio: consume ? Math.min(0.24, 0.05 * scale) : 0,
+    consumeMadraStealRatio: consume ? Math.min(0.2, 0.045 * scale) : 0,
+    burningCloakDodgeBonus: burningCloak ? Math.min(0.12, 0.02 * scale) : 0,
+    burningCloakMadraDiscount: burningCloak ? Math.min(0.18, 0.032 * scale) : 0,
+    burningCloakDamageMultiplier: burningCloak ? Math.min(1.28, 1 + 0.06 * scale) : 1,
+    hollowDomainDamageReduction: hollowDomain ? Math.min(0.24, 0.04 * scale) : 0,
+    hollowDomainSuppressChance: hollowDomain ? Math.min(0.32, 0.08 * scale) : 0,
+    voidDragonsDanceDamageMultiplier: voidDragonsDance ? Math.min(1.36, 1 + 0.08 * scale) : 1,
+    twinStarsCombatDamageMultiplier: twinStarsCombat ? Math.min(1.24, 1 + 0.055 * scale) : 1,
+    twinStarsCombatMadraOnHit: twinStarsCombat ? Math.max(1, Math.round(1 + 0.8 * scale)) : 0,
+    drossAttackMultiplier: drossBattlePlanning ? Math.min(1.2, 1 + 0.05 * scale) : 1,
+    drossDamageReduction: drossBattlePlanning ? Math.min(0.16, 0.03 * scale) : 0,
+    drossMadraDiscount: drossBattlePlanning ? Math.min(0.12, 0.025 * scale) : 0,
+    drossEmptyPalmBonus: (drossBattlePlanning ? Math.min(0.09, 0.02 * scale) : 0)
       + Math.max(0, Number(prestigeCradle.emptyPalmBonus || 0)),
-    drossEnemyFumbleChance: (drossBattlePlanning ? Math.min(0.22, 0.035 * scale) : 0)
+    drossEnemyFumbleChance: (drossBattlePlanning ? Math.min(0.12, 0.025 * scale) : 0)
       + Math.max(0, Number(prestigeCradle.enemyFumbleChance || 0)),
   };
 }

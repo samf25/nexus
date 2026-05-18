@@ -820,7 +820,7 @@ function homeTabMarkup(runtime, context) {
       <section class="crd07-ascended-panel">
         <div class="crd07-ascended-mark">Underlord</div>
         <h5>Advancement Sealed</h5>
-        <p>The revelation has settled. The fragments burn away, and the valley no longer asks anything of you.</p>
+        <p>The revelation has settled. The fragments burn away, and you advance.</p>
       </section>
     `
     : `

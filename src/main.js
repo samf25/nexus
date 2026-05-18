@@ -142,6 +142,9 @@ let selectedLootItemId = "";
 let selectedLootRegion = "crd";
 let artifactListScrollTop = 0;
 let pendingArtifactListScrollRestore = false;
+let crd02TechTreeScrollTop = 0;
+let crd02TechTreeScrollLeft = 0;
+let pendingCrd02TechTreeScrollRestore = false;
 let nexusRingSelectionIndex = 0;
 let nexusItemSelectionByRing = [];
 let lastNexusRings = [];
@@ -196,6 +199,20 @@ function preserveArtifactListScrollIfOpen() {
     artifactListScrollTop = Number(artifactList.scrollTop || 0);
     pendingArtifactListScrollRestore = true;
   }
+}
+
+function preserveCrd02TechTreeScrollIfOpen() {
+  const techTree = root.querySelector(".crd02-tech-tree");
+  if (!techTree) {
+    return;
+  }
+  if ("scrollTop" in techTree) {
+    crd02TechTreeScrollTop = Number(techTree.scrollTop || 0);
+  }
+  if ("scrollLeft" in techTree) {
+    crd02TechTreeScrollLeft = Number(techTree.scrollLeft || 0);
+  }
+  pendingCrd02TechTreeScrollRestore = true;
 }
 
 const WORM_ARENA_FIRST_WIN_ARTIFACTS = Object.freeze({
@@ -845,6 +862,21 @@ function solveRewardLabel(node) {
   return node && node.reward ? node.reward : "(none)";
 }
 
+function solveRewardArtifacts(node) {
+  const nodeId = node && node.node_id ? node.node_id : "";
+  const policy = NODE_REWARD_OVERRIDES[nodeId];
+  if (policy) {
+    const supplemental = Array.isArray(policy.supplementalRewards) ? policy.supplementalRewards : [];
+    if (supplemental.length) {
+      return supplemental.slice();
+    }
+    if (policy.suppressBlueprintReward) {
+      return [];
+    }
+  }
+  return node && node.reward ? [node.reward] : [];
+}
+
 function applyNodeSolveSystemOverrides(state, node) {
   const sourceState = state && typeof state === "object" ? state : {};
   const nodeId = node && node.node_id ? node.node_id : "";
@@ -1355,6 +1387,33 @@ function buildDeskNodePool(unlockedNodeIds) {
   ).slice(0, 80);
 }
 
+function sectionNodesForDisplay(section) {
+  const nodes = blueprintIndex.sectionNodes.get(section) || [];
+  if (String(section || "") !== "Nexus Hub") {
+    return nodes;
+  }
+
+  const preferredHubOrder = new Map([
+    ["HUB06", 0],
+    ["HUB01", 1],
+    ["HUB02", 2],
+    ["HUB03", 3],
+    ["HUB04", 4],
+    ["HUB05", 5],
+    ["HUB07", 6],
+    ["HUB08", 7],
+  ]);
+
+  return nodes.slice().sort((left, right) => {
+    const rankLeft = preferredHubOrder.has(left.node_id) ? preferredHubOrder.get(left.node_id) : 999;
+    const rankRight = preferredHubOrder.has(right.node_id) ? preferredHubOrder.get(right.node_id) : 999;
+    if (rankLeft !== rankRight) {
+      return rankLeft - rankRight;
+    }
+    return String(left.node_id).localeCompare(String(right.node_id));
+  });
+}
+
 function currentActiveNodeContext() {
   if (!activeNodeContext) {
     return null;
@@ -1397,6 +1456,9 @@ function dispatchActiveNodeAction(action) {
     let wormOutcomeCloutAward = 0;
     let wormOutcomeLootDrops = [];
     let wormOutcomeArtifactRewards = [];
+    let cradleOutcomeMadraAward = 0;
+    let cradleOutcomeSoulfireAward = 0;
+    let cradleOutcomeLootDrops = [];
     if (node.node_id === "WORM02" && (action.type === "worm02-start-normal" || action.type === "worm02-start-boss")) {
       const payload = Array.isArray(action.playerCards) ? action.playerCards : [];
       const bonuses = {};
@@ -1476,7 +1538,8 @@ function dispatchActiveNodeAction(action) {
       node.node_id === "DCC01" &&
       action.type === "dcc-apply-checkpoint-pyramid" &&
       action.ready === true &&
-      action.floor3Unlocked === true
+      action.floor3Unlocked === true &&
+      action.checkpointEligible === true
     ) {
       const currentDccSystem =
         next && next.systems && next.systems.dungeonCrawl && typeof next.systems.dungeonCrawl === "object"
@@ -1485,7 +1548,9 @@ function dispatchActiveNodeAction(action) {
       next = updateSystemState(next, "dungeonCrawl", {
         ...currentDccSystem,
         checkpointFloor: 3,
+        checkpointEligible: false,
       });
+      next = consumeReward(next, "Checkpoint Pyramid", "DCC01");
     }
 
     if (node.node_id === "CRD02" && runtimeAction.type === "crd02-equip-soul-slot") {
@@ -1581,6 +1646,33 @@ function dispatchActiveNodeAction(action) {
         message: result.message,
       };
       setBanner(result.message);
+    }
+
+    if (node.node_id === "WORM02" && action.type === "worm02-reset-battle") {
+      const currentWorm02Runtime = readNodeRuntime(next, node, experience);
+      const battle = currentWorm02Runtime && currentWorm02Runtime.battle && typeof currentWorm02Runtime.battle === "object"
+        ? currentWorm02Runtime.battle
+        : null;
+      const playerResults = battle && Array.isArray(battle.playerTeam)
+        ? battle.playerTeam.map((combatant) => ({
+            cardId: String(combatant && combatant.cardId ? combatant.cardId : ""),
+            hp: Math.max(0, Number(combatant && combatant.hp ? combatant.hp : 0)),
+          }))
+        : [];
+      if (playerResults.length) {
+        const result = reduceWormSystemState(
+          next.systems.worm,
+          {
+            type: "worm-apply-battle-results",
+            playerResults,
+          },
+          Date.now(),
+          wormPrestigeOptions(next),
+        );
+        if (result.changed) {
+          next = updateSystemState(next, "worm", result.nextState);
+        }
+      }
     }
 
     if (node.node_id === "TWI03" && runtimeAction.type === "twi03-fulfill-quest") {
@@ -2282,8 +2374,28 @@ function dispatchActiveNodeAction(action) {
 
     let runtime = readNodeRuntime(next, node, experience);
 
+    if (node.node_id === "DCC01") {
+      const activeFloor = Math.max(0, Math.floor(Number(runtime && runtime.run && runtime.run.floor) || 0));
+      if (activeFloor >= 3) {
+        const currentDccSystem =
+          next && next.systems && next.systems.dungeonCrawl && typeof next.systems.dungeonCrawl === "object"
+            ? next.systems.dungeonCrawl
+            : {};
+        if (!currentDccSystem.checkpointEligible) {
+          next = updateSystemState(next, "dungeonCrawl", {
+            ...currentDccSystem,
+            checkpointEligible: true,
+          });
+          runtime = readNodeRuntime(next, node, experience);
+        }
+      }
+    }
+
     if ((node.node_id === "CRD07" || node.node_id === "CRD08") && Number(runtime && runtime.pendingMadraAward) > 0) {
       const award = Math.max(0, Number(runtime.pendingMadraAward) || 0);
+      if (node.node_id === "CRD08") {
+        cradleOutcomeMadraAward += award;
+      }
       next = updateNodeRuntime(
         next,
         "CRD02",
@@ -2312,6 +2424,9 @@ function dispatchActiveNodeAction(action) {
 
     if ((node.node_id === "CRD07" || node.node_id === "CRD08") && Number(runtime && runtime.pendingSoulfireAward) > 0) {
       const award = Math.max(0, Number(runtime.pendingSoulfireAward) || 0);
+      if (node.node_id === "CRD08") {
+        cradleOutcomeSoulfireAward += award;
+      }
       next = updateNodeRuntime(
         next,
         "CRD02",
@@ -2705,6 +2820,16 @@ function dispatchActiveNodeAction(action) {
     if (lootResolution.consumed) {
       next = lootResolution.state;
       wormOutcomeLootDrops = lootResolution.dropped.slice();
+      if (node.node_id === "CRD08") {
+        cradleOutcomeLootDrops = Array.isArray(lootResolution.droppedEntries)
+          ? lootResolution.droppedEntries.map((entry) => ({
+            label: String(entry && entry.label ? entry.label : "Loot"),
+            rarity: String(entry && entry.rarity ? entry.rarity : ""),
+            region: String(entry && entry.region ? entry.region : ""),
+            details: String(entry && entry.details ? entry.details : ""),
+          }))
+          : [];
+      }
       next = updateNodeRuntime(
         next,
         node.node_id,
@@ -2826,6 +2951,7 @@ function dispatchActiveNodeAction(action) {
       next = applyNodeSolveSystemOverrides(markNodeSolvedWithOverrides(next, node), node);
       next = applyPostSolveArtifactCleanup(next, node);
       let bonusReward = "";
+      const solveArtifacts = solveRewardArtifacts(node);
       if (node.node_id === "CRD04") {
         next = grantSupplementalReward(next, "Suriel's Marble", node);
         bonusReward = `${bonusReward} + Suriel's Marble`;
@@ -2834,6 +2960,36 @@ function dispatchActiveNodeAction(action) {
         const artifact = MATH_VAULT_BONUS_ARTIFACT_PLACEMENTS[node.node_id];
         next = grantSupplementalReward(next, artifact, node);
         bonusReward = `${bonusReward} + ${artifact}`;
+      }
+
+      if (node.node_id === "CRD05" || node.node_id === "CRD06" || node.node_id === "CRD08") {
+        const titleByNodeId = {
+          CRD05: "Vault Claimed",
+          CRD06: "Duel Won",
+          CRD08: "Tournament Rewards",
+        };
+        const flavorByNodeId = {
+          CRD05: "Elder Rahm collapses and the Heaven's Glory vault yields its relics.",
+          CRD06: "Eithan departs laughing, leaving you with techniques, artifacts, and a new direction.",
+          CRD08: "The Uncrowned gauntlet breaks before you, and the tournament's spoils are gathered in full.",
+        };
+        next = updateNodeRuntime(
+          next,
+          node.node_id,
+          (currentRuntime) => ({
+            ...(currentRuntime && typeof currentRuntime === "object" ? currentRuntime : {}),
+            rewardPopupOpen: true,
+            rewardSummary: {
+              title: titleByNodeId[node.node_id] || "Rewards",
+              flavor: flavorByNodeId[node.node_id] || "",
+              artifactRewards: solveArtifacts.slice(),
+              lootDrops: cradleOutcomeLootDrops.slice(),
+              madraAward: cradleOutcomeMadraAward,
+              soulfireAward: cradleOutcomeSoulfireAward,
+            },
+          }),
+          () => experience.initialState({ node, state: next }),
+        );
       }
 
       setBanner(`${node.node_id} solved. Reward added: ${solveRewardLabel(node)}${bonusReward}.`);
@@ -3357,12 +3513,17 @@ function handleNodeKeyDown(event) {
     return false;
   }
 
+  const isEditableTarget =
+    event.target instanceof Element &&
+    ((event.target instanceof HTMLElement && event.target.isContentEditable) ||
+      event.target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']"));
+
   const isRhythmNode =
     context.node.node_id === "CRD01" ||
     context.node.node_id === "CRD02" ||
     context.node.node_id === "FIN01";
   const isSpace = event.code === "Space" || event.key === " ";
-  if (isRhythmNode && isSpace) {
+  if (isRhythmNode && isSpace && !isEditableTarget) {
     event.preventDefault();
   }
 
@@ -3560,7 +3721,7 @@ function contentForRoute(route, unlockedNodeIds, solvedSet, sectionProgress) {
         };
       }
     }
-    const nodes = blueprintIndex.sectionNodes.get(section) || [];
+    const nodes = sectionNodesForDisplay(section);
     lastSectionNodes = nodes;
     if (lastRenderedSectionRoute !== route) {
       const rememberedNodeId = lastSectionFocusBySection[section];
@@ -3673,6 +3834,7 @@ function renderApp(route = getCurrentRoute()) {
   if (!blueprintIndex) {
     return;
   }
+  preserveCrd02TechTreeScrollIfOpen();
   if (hub08OrbHoldSession.pointerId !== null) {
     clearHub08OrbHoldSession();
   }
@@ -3774,6 +3936,19 @@ function renderApp(route = getCurrentRoute()) {
       artifactList.scrollTop = Math.max(0, Number(artifactListScrollTop) || 0);
     }
     pendingArtifactListScrollRestore = false;
+  }
+
+  if (pendingCrd02TechTreeScrollRestore) {
+    const techTree = root.querySelector(".crd02-tech-tree");
+    if (techTree) {
+      if ("scrollTop" in techTree) {
+        techTree.scrollTop = Math.max(0, Number(crd02TechTreeScrollTop) || 0);
+      }
+      if ("scrollLeft" in techTree) {
+        techTree.scrollLeft = Math.max(0, Number(crd02TechTreeScrollLeft) || 0);
+      }
+    }
+    pendingCrd02TechTreeScrollRestore = false;
   }
 
   root.querySelectorAll("[data-aa03-canvas='true']").forEach((element) => {

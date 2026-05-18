@@ -774,13 +774,13 @@ function weightedPick(rand, values) {
 
 function mapSizeForFloor(floor) {
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
-  return BASE_MAP_SIZE + Math.min(10, Math.floor(depth * 1.6));
+  return BASE_MAP_SIZE + Math.min(14, Math.floor(depth * 2.2));
 }
 
 function roomCountForFloor(floor, size) {
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
   const cap = Math.max(BASE_FLOOR_ROOMS, (size * size) - 4);
-  return Math.min(cap, BASE_FLOOR_ROOMS + depth * 7);
+  return Math.min(cap, BASE_FLOOR_ROOMS + depth * 10);
 }
 
 function withDefaultMeta(meta) {
@@ -851,6 +851,7 @@ function dccProgressFromState(state) {
     floor4Unlocked: Boolean(source.floor4Unlocked),
     floor5Unlocked: Boolean(source.floor5Unlocked),
     checkpointFloor: Math.max(1, Math.floor(Number(source.checkpointFloor) || 1)),
+    checkpointEligible: Boolean(source.checkpointEligible),
   };
 }
 
@@ -1842,15 +1843,15 @@ function makeEnemy(rand, roomType, floor = 1) {
       : (randomPick(rand, MINOR_ENEMIES) || MINOR_ENEMIES[0]);
   const depth = Math.max(0, Math.floor(Number(floor) || 1) - 1);
   const hpScale = roomType === "boss"
-    ? 1 + (depth * 0.38)
+    ? 1 + (depth * 0.55)
     : roomType === "miniBoss"
-      ? 1 + (depth * 0.28)
-      : 1 + (depth * 0.22);
+      ? 1 + (depth * 0.4)
+      : 1 + (depth * 0.3);
   const attackScale = roomType === "boss"
-    ? 1 + (depth * 0.24)
+    ? 1 + (depth * 0.34)
     : roomType === "miniBoss"
-      ? 1 + (depth * 0.18)
-      : 1 + (depth * 0.15);
+      ? 1 + (depth * 0.26)
+      : 1 + (depth * 0.22);
   const scaledHp = Math.max(1, Math.round(template.hp * hpScale));
   const scaledAttack = Math.max(1, Math.round(template.attack * attackScale));
   const scaledRange = Math.max(
@@ -1888,19 +1889,19 @@ function combatEnemyCountForRoom(roomType, floor, rand) {
   if (roomType === "boss") {
     return 1;
   }
-  if (depth < 3) {
+  if (depth < 2) {
     return 1;
   }
   if (roomType === "miniBoss") {
-    if (depth >= 5 && rand() < 0.45) {
+    if (depth >= 4 && rand() < 0.55) {
       return 2;
     }
-    return rand() < 0.3 ? 2 : 1;
+    return rand() < 0.42 ? 2 : 1;
   }
-  if (depth >= 5 && rand() < 0.38) {
+  if (depth >= 4 && rand() < 0.48) {
     return 3;
   }
-  return rand() < 0.62 ? 2 : 1;
+  return rand() < 0.76 ? 2 : 1;
 }
 
 function activeCombatEnemies(combat) {
@@ -3546,6 +3547,12 @@ function reduceDccRuntime(runtime, action, context = {}) {
         lastMessage: "You must unlock Floor 3 before setting this checkpoint.",
       };
     }
+    if (action.checkpointEligible !== true) {
+      return {
+        ...current,
+        lastMessage: "Reach Floor 3 in this crawl before anchoring a checkpoint.",
+      };
+    }
     return {
       ...current,
       lastMessage: "Checkpoint stabilized at Floor 3.",
@@ -3861,7 +3868,6 @@ function combatMarkup(run) {
   return `
     <section class="card dcc-combat">
       <h4>Abilities</h4>
-      ${enemies.length ? "" : `<p class="muted">No active enemy in this room.</p>`}
       <div class="dcc-ability-grid">
         ${abilityButtons.map((entry) => `
           <button
@@ -4501,8 +4507,8 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
   const hasCheckpointPyramid = Boolean(rewards["Checkpoint Pyramid"]);
   const artifact = safeText(selectedArtifact);
   const pyramidSelected = artifact === "Checkpoint Pyramid";
-  const canSetCheckpoint = pyramidSelected && progress.floor3Unlocked;
-  const showCheckpointButton = hasCheckpointPyramid && progress.floor3Unlocked;
+  const canSetCheckpoint = pyramidSelected && progress.floor3Unlocked && progress.checkpointEligible;
+  const showCheckpointButton = hasCheckpointPyramid;
   return `
     <section class="card dcc-outside">
       <div class="dcc-outside-head">
@@ -4525,6 +4531,8 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
                 data-artifact="${escapeHtml(artifact)}"
                 data-ready="${canSetCheckpoint ? "true" : "false"}"
                 data-floor3-unlocked="${progress.floor3Unlocked ? "true" : "false"}"
+                data-checkpoint-eligible="${progress.checkpointEligible ? "true" : "false"}"
+                ${canSetCheckpoint ? "" : "disabled"}
               >
                 Set Checkpoint: Floor 3
               </button>
@@ -4711,6 +4719,7 @@ function actionFromElement(element) {
       artifact: element.getAttribute("data-artifact") || "",
       ready: element.getAttribute("data-ready") === "true",
       floor3Unlocked: element.getAttribute("data-floor3-unlocked") === "true",
+      checkpointEligible: element.getAttribute("data-checkpoint-eligible") === "true",
       ...common,
     };
   }

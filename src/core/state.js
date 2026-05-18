@@ -29,6 +29,7 @@ function defaultSystemState() {
       inventory: [],
       floor3Unlocked: false,
       checkpointFloor: 1,
+      checkpointEligible: false,
     },
     worm: {
       clout: 20,
