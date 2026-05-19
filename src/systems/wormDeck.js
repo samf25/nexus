@@ -1,10 +1,10 @@
 import { loadWormCardCatalog, wormCardById } from "../nodes/worm/wormData.js";
 
 const STARTER_CAPE_NAMES = Object.freeze(["Chubster", "Chuckles", "Cinderhands", "Glace"]);
-const BASIC_HIRE_COST = 12;
+const BASIC_HIRE_COST = 10;
 const BASIC_WINDOW_MAX_RARITY = 5;
 const BASIC_WINDOW_WEIGHT_BASE = 0.125;
-const SICKBAY_HEAL_FRACTION_PER_MINUTE = 0.25;
+const SICKBAY_HEAL_FRACTION_PER_MINUTE = 0.4;
 const SPECIAL_HIRING_WINDOWS = Object.freeze([
   Object.freeze({
     id: "dcc-floor3-window",
@@ -98,6 +98,22 @@ function normalizeSickbayCardIds(deck, candidateCardIds) {
   return unique;
 }
 
+function normalizeFavoriteCardIds(deck, candidateCardIds) {
+  const raw = Array.isArray(candidateCardIds) ? candidateCardIds : [candidateCardIds];
+  const unique = [];
+  for (const candidate of raw) {
+    const cardId = String(candidate || "").trim();
+    if (!cardId || unique.includes(cardId)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(deck, cardId)) {
+      continue;
+    }
+    unique.push(cardId);
+  }
+  return unique;
+}
+
 function healedHpForEntry(entry, card, now, options = {}) {
   const maxHp = maxHpForCard(card, options);
   const baseHp = clamp(Math.round(safeNumber(entry.currentHp, maxHp)), 0, maxHp);
@@ -167,6 +183,7 @@ export function defaultWormSystemState() {
     clout: 20,
     startersConfirmed: false,
     starterCardIds: [],
+    favoriteCardIds: [],
     deck: {},
     sickbayCardIds: [],
     tenPullUnlocked: false,
@@ -188,6 +205,7 @@ export function normalizeWormSystemState(candidate, now = nowMs(), options = {})
   const starterCardIds = Array.isArray(source.starterCardIds)
     ? source.starterCardIds.map((cardId) => String(cardId || "").trim()).filter((cardId) => cardId)
     : [];
+  const favoriteCardIds = normalizeFavoriteCardIds(deck, source.favoriteCardIds);
   const baseSickbayList = Array.isArray(source.sickbayCardIds)
     ? source.sickbayCardIds
     : source.sickbayCardId
@@ -198,6 +216,7 @@ export function normalizeWormSystemState(candidate, now = nowMs(), options = {})
     clout: Math.max(0, Number(safeNumber(source.clout, 20).toFixed(2))),
     startersConfirmed: Boolean(source.startersConfirmed),
     starterCardIds,
+    favoriteCardIds,
     deck,
     sickbayCardIds: normalizeSickbayCardIds(deck, baseSickbayList),
     tenPullUnlocked: Boolean(source.tenPullUnlocked),
@@ -385,6 +404,11 @@ function ownedDeckEntries(state, now = nowMs(), options = {}) {
   }
 
   entries.sort((left, right) => {
+    const leftFavorite = Array.isArray(normalized.favoriteCardIds) && normalized.favoriteCardIds.includes(left.cardId);
+    const rightFavorite = Array.isArray(normalized.favoriteCardIds) && normalized.favoriteCardIds.includes(right.cardId);
+    if (leftFavorite !== rightFavorite) {
+      return leftFavorite ? -1 : 1;
+    }
     if (right.card.rarity !== left.card.rarity) {
       return right.card.rarity - left.card.rarity;
     }
@@ -832,6 +856,30 @@ export function reduceWormSystemState(systemState, action, now = nowMs(), option
     };
   }
 
+  if (action.type === "worm01-toggle-favorite") {
+    const cardId = String(action.cardId || "").trim();
+    if (!cardId || !Object.prototype.hasOwnProperty.call(current.deck, cardId)) {
+      return { nextState: current, changed: false, message: "That cape is not in your deck.", meta: {} };
+    }
+    const currentFavorites = Array.isArray(current.favoriteCardIds) ? current.favoriteCardIds.slice() : [];
+    const existingIndex = currentFavorites.indexOf(cardId);
+    const card = wormCardById(cardId);
+    const nextFavorites = existingIndex >= 0
+      ? currentFavorites.filter((entry) => entry !== cardId)
+      : [...currentFavorites, cardId];
+    return {
+      nextState: {
+        ...current,
+        favoriteCardIds: nextFavorites,
+      },
+      changed: true,
+      message: existingIndex >= 0
+        ? `${card?.heroName || "Cape"} removed from favorites.`
+        : `${card?.heroName || "Cape"} starred.`,
+      meta: { cardId, favorite: existingIndex < 0 },
+    };
+  }
+
   if (action.type === "worm01-unlock-compactifier") {
     if (current.compactifierUnlocked) {
       return { nextState: current, changed: false, message: "The Cape Compactifier is already installed.", meta: {} };
@@ -862,11 +910,11 @@ export function reduceWormSystemState(systemState, action, now = nowMs(), option
     const entry = current.deck[cardId];
     const density = capeDensityForCard(current, cardId);
     const duplicateCost = duplicateCostForDensity(density, options);
-    if (Math.max(1, Math.floor(safeNumber(entry.copies, 1))) <= duplicateCost) {
+    if (Math.max(1, Math.floor(safeNumber(entry.copies, 1))) < duplicateCost) {
       return {
         nextState: current,
         changed: false,
-        message: `Not enough duplicate copies. Density ${density} requires ${duplicateCost} duplicates.`,
+        message: `Not enough copies. Density ${density} requires ${duplicateCost} total copies.`,
         meta: {},
       };
     }

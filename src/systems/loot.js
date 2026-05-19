@@ -2000,6 +2000,51 @@ export function getWormHiringWeightModifier(state, now = Date.now()) {
   return multiplier;
 }
 
+export function getWormActiveHiringBoosts(state, now = Date.now()) {
+  const loot = lootInventoryFromState(state, now);
+  const active = (Array.isArray(loot.activeEffects) ? loot.activeEffects : [])
+    .filter((entry) => entry && entry.expiresAt > now);
+  const grouped = new Map();
+
+  active.forEach((entry) => {
+    const key = safeText(entry.sourceItemId) || safeText(entry.id);
+    const effectKey = safeText(entry.key);
+    let appliesTo = "";
+    let summary = safeText(entry.sourceSummary);
+
+    if (effectKey === "worm_basic_window_weight_mult") {
+      appliesTo = "basic";
+      summary = summary || `Basic window favor x${Number(entry.value || 1).toFixed(2)}`;
+    }
+
+    if (!appliesTo) {
+      return;
+    }
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        label: safeText(entry.sourceLabel) || "Hiring Favor",
+        summary,
+        appliesTo,
+        expiresAt: Math.max(0, Number(entry.expiresAt) || 0),
+      });
+    } else {
+      const existing = grouped.get(key);
+      existing.expiresAt = Math.max(existing.expiresAt, Math.max(0, Number(entry.expiresAt) || 0));
+      if (!existing.summary && summary) {
+        existing.summary = summary;
+      }
+    }
+  });
+
+  return Array.from(grouped.values())
+    .map((entry) => ({
+      ...entry,
+      remainingMs: Math.max(0, entry.expiresAt - now),
+    }))
+    .sort((left, right) => left.remainingMs - right.remainingMs);
+}
+
 export function getWormShardSlotCount(state, cardIdOrNow = "", now = Date.now()) {
   const oldStyleNow = Number.isFinite(Number(cardIdOrNow)) && safeText(cardIdOrNow) !== "";
   const resolvedNow = oldStyleNow ? Number(cardIdOrNow) : now;
