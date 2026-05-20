@@ -691,20 +691,20 @@ export function renderAa02Experience(context) {
       <section class="card">
         <h3>Climber's Court</h3>
     
-        <div class="court-chip-row" aria-label="Climber's Court status">
-          <span class="court-chip">
-            <span class="court-chip-label">Attunement</span>
-            <span class="court-chip-value">${escapeHtml(attunementLabel)}</span>
+        <div class="aa02-court-chip-row" aria-label="Climber's Court status">
+          <span class="aa02-court-chip">
+            <span class="aa02-court-chip-label">Attunement</span>
+            <span class="aa02-court-chip-value">${escapeHtml(attunementLabel)}</span>
           </span>
     
-          <span class="court-chip">
-            <span class="court-chip-label">Mana Crystals</span>
-            <span class="court-chip-value">${escapeHtml(String(arcane.manaCrystals))}</span>
+          <span class="aa02-court-chip">
+            <span class="aa02-court-chip-label">Mana Crystals</span>
+            <span class="aa02-court-chip-value">${escapeHtml(String(arcane.manaCrystals))}</span>
           </span>
     
-          <span class="court-chip">
-            <span class="court-chip-label">Total Spent</span>
-            <span class="court-chip-value">${escapeHtml(String(arcane.totalSpentAtCourt))}</span>
+          <span class="aa02-court-chip">
+            <span class="aa02-court-chip-label">Total Spent</span>
+            <span class="aa02-court-chip-value">${escapeHtml(String(arcane.totalSpentAtCourt))}</span>
           </span>
         </div>
     
