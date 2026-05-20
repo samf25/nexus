@@ -690,15 +690,31 @@ export function renderAa02Experience(context) {
     <article class="aa02-node" data-node-id="${NODE_ID}">
       <section class="card">
         <h3>Climber's Court</h3>
-        <p><strong>Attunement:</strong> ${escapeHtml(attunementLabel)}</p>
-        <p><strong>Mana Crystals:</strong> ${escapeHtml(String(arcane.manaCrystals))}</p>
-        <p><strong>Total Spent at Court:</strong> ${escapeHtml(String(arcane.totalSpentAtCourt))}</p>
+    
+        <div class="court-chip-row" aria-label="Climber's Court status">
+          <span class="court-chip">
+            <span class="court-chip-label">Attunement</span>
+            <span class="court-chip-value">${escapeHtml(attunementLabel)}</span>
+          </span>
+    
+          <span class="court-chip">
+            <span class="court-chip-label">Mana Crystals</span>
+            <span class="court-chip-value">${escapeHtml(String(arcane.manaCrystals))}</span>
+          </span>
+    
+          <span class="court-chip">
+            <span class="court-chip-label">Total Spent</span>
+            <span class="court-chip-value">${escapeHtml(String(arcane.totalSpentAtCourt))}</span>
+          </span>
+        </div>
+    
         <div class="toolbar">
           ${tabButton("shop", activeTab === "shop", "Shop")}
           ${tabButton("auction", activeTab === "auction", "Auction")}
           ${tabButton("tome", activeTab === "tome", "Tome of Glyphs")}
         </div>
       </section>
+    
       ${body}
       ${activeTab !== "tome" ? statusMarkup(runtime) : ""}
       ${rankPopupMarkup(arcane)}
