@@ -1938,23 +1938,35 @@ function manualModalMarkup(runtime, manualReward) {
   `;
 }
 
+function manualPatternIsNormalVariant(pattern) {
+  const label = String(pattern && pattern.label ? pattern.label : "").trim();
+  if (!label) {
+    return true;
+  }
+  return !/\((?:rush|rushed|drawn)\)/iu.test(label);
+}
+
 function manualPatternFamilyViews(runtime) {
   const families = new Map();
   for (let index = 0; index < MANUAL_PATTERNS.length; index += 1) {
     const key = manualPatternSkillKey(index);
     const pattern = manualPatternByIndex(index);
+    const cadence = patternCadence(pattern);
     if (!families.has(key)) {
       families.set(key, {
         key,
         index,
         label: manualPatternSkillBaseLabel(index),
-        cadences: [],
+        normalIndex: index,
+        normalCadence: cadence,
       });
+      continue;
     }
+
     const family = families.get(key);
-    const cadence = patternCadence(pattern);
-    if (cadence && !family.cadences.includes(cadence)) {
-      family.cadences.push(cadence);
+    if (manualPatternIsNormalVariant(pattern)) {
+      family.normalIndex = index;
+      family.normalCadence = cadence || family.normalCadence;
     }
   }
   return Array.from(families.values()).map((family) => ({
@@ -1966,7 +1978,7 @@ function manualPatternFamilyViews(runtime) {
 function cyclingGrimoireMarkup(runtime) {
   const cards = manualPatternFamilyViews(runtime).map((family) => {
     const skill = family.skill;
-    const cadence = family.cadences.length ? family.cadences.join(" / ") : patternLabel(family.index);
+    const cadence = family.normalCadence || patternLabel(family.normalIndex || family.index);
     const nextLevel = skill.level + 1;
     return `
       <article class="crd02-tech-row crd02-cycle-card crd02-grimoire-card is-${escapeHtml(skill.theme)}" style="${escapeHtml(manualPatternSkillStyle(skill.level))}">
