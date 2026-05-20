@@ -185,7 +185,7 @@ const WELL_UPGRADES = Object.freeze([
   {
     id: "manual-refinement",
     label: "Cycling Resonance",
-    baseCost: 40,
+    baseCost: 30,
     growth: 2.7,
     maxLevel: 4,
     repeatable: true,
