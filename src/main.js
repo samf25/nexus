@@ -426,7 +426,7 @@ const NODE_REWARD_OVERRIDES = Object.freeze({
     supplementalRewards: Object.freeze(["Ivory Truce Fork"]),
   }),
   LOG01: Object.freeze({
-    suppressBlueprintReward: true,
+    suppressBlueprintReward: false,
     supplementalRewards: Object.freeze([]),
   }),
   LOG02: Object.freeze({
@@ -442,7 +442,7 @@ const NODE_REWARD_OVERRIDES = Object.freeze({
     supplementalRewards: Object.freeze([]),
   }),
   NUM01: Object.freeze({
-    suppressBlueprintReward: true,
+    suppressBlueprintReward: false,
     supplementalRewards: Object.freeze([]),
   }),
   NUM02: Object.freeze({
