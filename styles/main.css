@@ -4332,6 +4332,10 @@ a:hover {
   animation: crd01-pulse-4 4s linear infinite;
 }
 
+.crd01-core.is-pattern-5 {
+  animation: crd01-pulse-5 1.5s linear infinite;
+}
+
 .crd01-core.is-complete {
   animation: none;
 }
@@ -5409,6 +5413,10 @@ a:hover {
 
 .crd02-manual-core.is-pattern-4 {
   animation-name: crd01-pulse-4;
+}
+
+.crd02-manual-core.is-pattern-5 {
+  animation-name: crd01-pulse-5;
 }
 
 .crd09-invest-grid {
@@ -9991,6 +9999,23 @@ button.aa03-glyph-card:focus-visible {
   62.5%,
   88% {
     transform: scale(0.96);
+  }
+}
+
+@keyframes crd01-pulse-5 {
+  0%,
+  33.333%,
+  100% {
+    transform: scale(1.03);
+    box-shadow:
+      0 0 24px #cfe6ff78,
+      0 0 56px #9cb9ff50,
+      inset 0 0 28px #f5fcff75;
+  }
+
+  16.667%,
+  66.667% {
+    transform: scale(0.97);
   }
 }
 
