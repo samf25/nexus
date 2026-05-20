@@ -92,9 +92,9 @@ const ATTUNEMENT_TIER_COLORS = Object.freeze({
   sapphire: "#77b9ff",
 });
 const QUARTZ_GROWTH_DIVISOR = 20;
-const CARNELIAN_GROWTH_DIVISOR = 20;
-const SUNSTONE_GROWTH_DIVISOR = 5;
-const CITRINE_GROWTH_DIVISOR = 3;
+const CARNELIAN_GROWTH_DIVISOR = 15;
+const SUNSTONE_GROWTH_DIVISOR = 10;
+const CITRINE_GROWTH_DIVISOR = 5;
 const EMERALD_GROWTH_DIVISOR = 2;
 const SAPPHIRE_GROWTH_DIVISOR = 1;
 const QUARTZ_B_MANA = 25;
@@ -471,9 +471,26 @@ export function arcaneAttunementRank(arcaneState) {
 
 export function arcaneWorkshopGrowthDivisor(arcaneState) {
   const rank = arcaneAttunementRank(arcaneState);
+  if (rank.tierIndex >= attunementTierIndex("sapphire")) {
+    return SAPPHIRE_GROWTH_DIVISOR;
+  }
+
+  if (rank.tierIndex >= attunementTierIndex("emerald")) {
+    return EMERALD_GROWTH_DIVISOR;
+  }
+
+  if (rank.tierIndex >= attunementTierIndex("citrine")) {
+    return CITRINE_GROWTH_DIVISOR;
+  }
+
   if (rank.tierIndex >= attunementTierIndex("sunstone")) {
     return SUNSTONE_GROWTH_DIVISOR;
   }
+
+  if (rank.tierIndex >= attunementTierIndex("carnelian")) {
+    return CARNELIAN_GROWTH_DIVISOR;
+  }
+
   return QUARTZ_GROWTH_DIVISOR;
 }
 
