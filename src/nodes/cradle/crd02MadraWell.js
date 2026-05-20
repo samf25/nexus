@@ -1987,7 +1987,7 @@ function cyclingGrimoireMarkup(runtime) {
             <strong>${escapeHtml(family.label)}</strong>
           </div>
           <div class="crd02-cycle-meta">
-            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Level ${escapeHtml(String(skill.level))}</span>
+            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Lv ${escapeHtml(String(skill.level))}</span>
             <span class="crd02-cycle-chip"><strong>Cadence:</strong>&nbsp;${escapeHtml(cadence)}</span>
             <span class="crd02-cycle-chip is-strong"><strong>Bonus:</strong>&nbsp;x${escapeHtml(skill.bonus.toFixed(2))}</span>
           </div>
