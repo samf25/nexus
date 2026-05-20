@@ -42,6 +42,12 @@ const CRD01_BASE_PATTERNS = Object.freeze([
     beats: Object.freeze([0.5, 0.5, 1, 1, 1]),
     visualId: 4,
   }),
+  freezePattern({
+    id: "falling-rain",
+    label: "Falling Rain",
+    beats: Object.freeze([0.5,1]),
+    visualId: 5,
+  }),
 ]);
 
 export const CRD01_RHYTHM_PATTERNS = CRD01_BASE_PATTERNS;
@@ -52,6 +58,7 @@ export const CRD02_MANUAL_RHYTHM_PATTERNS = Object.freeze([
   CRD01_BASE_PATTERNS[2],
   CRD01_BASE_PATTERNS[3],
   CRD01_BASE_PATTERNS[4],
+  CRD01_BASE_PATTERNS[5],
   freezePattern({
     id: "split-current-rush",
     label: "Split Current (Rush)",
@@ -93,6 +100,18 @@ export const CRD02_MANUAL_RHYTHM_PATTERNS = Object.freeze([
     label: "Fanged Turn (Drawn)",
     beats: scaleBeats([1, 0.5, 1, 1.5], 1.18),
     visualId: 2,
+  }),
+  freezePattern({
+    id: "falling-rain-rush",
+    label: "Falling Rain (Rush)",
+    beats: scaleBeats([0.5, 1], 0.8),
+    visualId: 5,
+  }),
+  freezePattern({
+    id: "falling-rain-drawn",
+    label: "Falling Rain (Drawn)",
+    beats: scaleBeats([0.5, 1], 1.2),
+    visualId: 5,
   }),
 ]);
 
