@@ -1985,12 +1985,11 @@ function cyclingGrimoireMarkup(runtime) {
         <div class="crd02-cycle-copy">
           <div class="crd02-header-title-row">
             <strong>${escapeHtml(family.label)}</strong>
-            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Lv ${escapeHtml(String(skill.level))}</span>
+            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Level ${escapeHtml(String(skill.level))}</span>
           </div>
           <div class="crd02-cycle-meta">
             <span class="crd02-cycle-chip"><strong>Cadence:</strong>&nbsp;${escapeHtml(cadence)}</span>
             <span class="crd02-cycle-chip is-strong"><strong>Bonus:</strong>&nbsp;x${escapeHtml(skill.bonus.toFixed(2))}</span>
-            <span class="crd02-cycle-chip"><strong>XP:</strong>&nbsp;${escapeHtml(String(skill.xp))}/${escapeHtml(String(skill.nextThreshold))}</span>
           </div>
           <div class="crd02-grimoire-xp">
             <div class="crd02-grimoire-xp-track" style="height:8px;width:100%;overflow:hidden;border-radius:999px;background:rgba(148,163,184,0.16);" aria-hidden="true">
@@ -2009,7 +2008,6 @@ function cyclingGrimoireMarkup(runtime) {
         <h4>Cycling Grimoire</h4>
         <span class="crd02-cycle-chip">Pattern mastery</span>
       </div>
-      <p class="muted">Manual cycle completions grant XP to the completed pattern family. Rushed, Normal, and Drawn variants share one skill track.</p>
       <div class="crd02-cycle-grid crd02-grimoire-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:stretch;">
         ${cards}
       </div>
