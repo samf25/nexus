@@ -1985,9 +1985,9 @@ function cyclingGrimoireMarkup(runtime) {
         <div class="crd02-cycle-copy">
           <div class="crd02-header-title-row">
             <strong>${escapeHtml(family.label)}</strong>
-            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Level ${escapeHtml(String(skill.level))}</span>
           </div>
           <div class="crd02-cycle-meta">
+            <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Level ${escapeHtml(String(skill.level))}</span>
             <span class="crd02-cycle-chip"><strong>Cadence:</strong>&nbsp;${escapeHtml(cadence)}</span>
             <span class="crd02-cycle-chip is-strong"><strong>Bonus:</strong>&nbsp;x${escapeHtml(skill.bonus.toFixed(2))}</span>
           </div>
@@ -2008,6 +2008,7 @@ function cyclingGrimoireMarkup(runtime) {
         <h4>Cycling Grimoire</h4>
         <span class="crd02-cycle-chip">Pattern mastery</span>
       </div>
+      <div style="margin-top: 8px;"></div>
       <div class="crd02-cycle-grid crd02-grimoire-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:stretch;">
         ${cards}
       </div>
