@@ -390,21 +390,69 @@ function defaultUpgradeLevels() {
   return Object.fromEntries(ALL_UPGRADES.map((upgrade) => [upgrade.id, 0]));
 }
 
+function manualPatternSkillBaseLabel(patternIndex) {
+  const index = normalizePatternIndex(patternIndex, MANUAL_PATTERNS.length - 1);
+  const pattern = manualPatternByIndex(index);
+  const rawLabel = String(
+    (pattern && (pattern.skillLabel || pattern.familyLabel || pattern.groupLabel || pattern.baseLabel || pattern.label))
+      || `Pattern ${index + 1}`,
+  ).trim();
+  const baseLabel = rawLabel
+    .replace(/\s*\((?:rush|rushed|normal|drawn)\)\s*/giu, " ")
+    .replace(/^\s*(?:rush|rushed|normal|drawn)[\s:–—-]+/iu, "")
+    .replace(/[\s:–—-]+(?:rush|rushed|normal|drawn)\s*$/iu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return baseLabel || rawLabel || "Unknown Rhythm";
+}
+
+function manualPatternSkillKeyFromLabel(label) {
+  const rawLabel = String(label || "").trim();
+  const baseLabel = rawLabel
+    .replace(/\s*\((?:rush|rushed|normal|drawn)\)\s*/giu, " ")
+    .replace(/^\s*(?:rush|rushed|normal|drawn)[\s:–—-]+/iu, "")
+    .replace(/[\s:–—-]+(?:rush|rushed|normal|drawn)\s*$/iu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  const key = normalizeText(baseLabel || rawLabel)
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
+  return key || "unknown-rhythm";
+}
+
+function manualPatternSkillKey(patternIndex) {
+  return manualPatternSkillKeyFromLabel(manualPatternSkillBaseLabel(patternIndex));
+}
+
 function defaultManualPatternSkills() {
-  return Object.fromEntries(MANUAL_PATTERNS.map((_pattern, index) => [String(index), { xp: 0 }]));
+  const entries = {};
+  for (let index = 0; index < MANUAL_PATTERNS.length; index += 1) {
+    const key = manualPatternSkillKey(index);
+    if (!entries[key]) {
+      entries[key] = { xp: 0 };
+    }
+  }
+  return entries;
 }
 
 function normalizeManualPatternSkills(candidate) {
   const base = defaultManualPatternSkills();
   const incoming = candidate && typeof candidate === "object" ? candidate : {};
-  for (const [patternIndex, entry] of Object.entries(incoming)) {
-    const index = Math.max(0, Math.floor(Number(patternIndex) || 0));
-    if (!Object.prototype.hasOwnProperty.call(base, String(index))) {
+  for (const [rawKey, entry] of Object.entries(incoming)) {
+    const rawXp = entry && typeof entry === "object" ? entry.xp : entry;
+    const xp = Math.max(0, Math.floor(Number(rawXp) || 0));
+    if (xp <= 0) {
       continue;
     }
-    const rawXp = entry && typeof entry === "object" ? entry.xp : entry;
-    base[String(index)] = {
-      xp: Math.max(0, Math.floor(Number(rawXp) || 0)),
+
+    const numericKey = String(rawKey || "").trim();
+    const numericIndex = /^\d+$/u.test(numericKey) ? Math.max(0, Math.floor(Number(numericKey) || 0)) : null;
+    const key = numericIndex == null ? manualPatternSkillKeyFromLabel(rawKey) : manualPatternSkillKey(numericIndex);
+    if (!Object.prototype.hasOwnProperty.call(base, key)) {
+      continue;
+    }
+    base[key] = {
+      xp: Math.max(0, Math.floor(Number(base[key].xp) || 0) + xp),
     };
   }
   return base;
@@ -559,12 +607,14 @@ function manualPatternSkillLevelFromXp(xp) {
 }
 
 function manualPatternSkillEntry(runtime, patternIndex) {
-  const index = normalizePatternIndex(patternIndex, MANUAL_PATTERNS.length - 1);
+  const key = manualPatternSkillKey(patternIndex);
   const skills = runtime && runtime.manualPatternSkills && typeof runtime.manualPatternSkills === "object"
-    ? runtime.manualPatternSkills
+    ? normalizeManualPatternSkills(runtime.manualPatternSkills)
     : defaultManualPatternSkills();
-  const entry = skills[String(index)] && typeof skills[String(index)] === "object" ? skills[String(index)] : {};
+  const entry = skills[key] && typeof skills[key] === "object" ? skills[key] : {};
   return {
+    key,
+    label: manualPatternSkillBaseLabel(patternIndex),
     xp: Math.max(0, Math.floor(Number(entry.xp) || 0)),
   };
 }
@@ -628,6 +678,8 @@ function manualPatternSkillView(runtime, patternIndex) {
   const xpForNext = Math.max(1, nextThreshold - currentThreshold);
   return {
     index,
+    key: entry.key,
+    label: entry.label,
     xp: entry.xp,
     level,
     bonus: manualPatternSkillBonus(level),
@@ -641,12 +693,12 @@ function manualPatternSkillView(runtime, patternIndex) {
 }
 
 function awardManualPatternSkillXp(runtime, patternIndex, amount = 1) {
-  const index = normalizePatternIndex(patternIndex, MANUAL_PATTERNS.length - 1);
+  const key = manualPatternSkillKey(patternIndex);
   const currentSkills = normalizeManualPatternSkills(runtime && runtime.manualPatternSkills);
-  const currentEntry = currentSkills[String(index)] || { xp: 0 };
+  const currentEntry = currentSkills[key] || { xp: 0 };
   return {
     ...currentSkills,
-    [String(index)]: {
+    [key]: {
       xp: Math.max(0, Math.floor(Number(currentEntry.xp) || 0) + Math.max(0, Math.floor(Number(amount) || 0))),
     },
   };
@@ -1222,7 +1274,7 @@ export function reduceCrd02Runtime(runtime, action) {
       const nextManualPatternSkills = awardManualPatternSkillXp(current, patternIndex, 1);
       const afterSkill = manualPatternSkillView({ ...current, manualPatternSkills: nextManualPatternSkills }, patternIndex);
       const levelMessage = afterSkill.level > beforeSkill.level
-        ? ` ${patternName(patternIndex)} reached Level ${afterSkill.level}.`
+        ? ` ${manualPatternSkillBaseLabel(patternIndex)} reached Level ${afterSkill.level}.`
         : "";
       const next = {
         ...current,
@@ -1876,34 +1928,57 @@ function manualModalMarkup(runtime, manualReward) {
           ${flash ? `<span class="crd01-hit-flash"></span>` : ""}
           <span class="crd01-core-shell"></span>
         </div>
-        <div class="crd02-cycle-meta crd02-manual-chip-row">
-          <span class="crd02-cycle-chip"><strong>Pattern</strong> ${escapeHtml(patternName(patternIndex))}</span>
-          <span class="crd02-cycle-chip"><strong>Cadence</strong> ${escapeHtml(patternLabel(patternIndex))}</span>
-          <span class="crd02-cycle-chip"><strong>Streak</strong> ${escapeHtml(String(runtime.manual.streak))}/${MANUAL_STREAK_TARGET}</span>
-          <span class="crd02-cycle-chip is-strong"><strong>Skill</strong> Lv ${escapeHtml(String(skill.level))} · x${escapeHtml(skill.bonus.toFixed(2))}</span>
+        <div class="crd02-cycle-meta crd02-manual-chip-row" style="justify-content:center;text-align:center;gap:0.75rem;margin-top:1.15rem;">
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;"><strong>Pattern:</strong><span>${escapeHtml(manualPatternSkillBaseLabel(patternIndex))} (Lv ${escapeHtml(String(skill.level))})</span></span>
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;"><strong>Cadence:</strong><span>${escapeHtml(patternLabel(patternIndex))}</span></span>
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;"><strong>Streak:</strong><span>${escapeHtml(String(runtime.manual.streak))}/${MANUAL_STREAK_TARGET}</span></span>
         </div>
       </section>
     </div>
   `;
 }
 
-function cyclingGrimoireMarkup(runtime) {
-  const cards = MANUAL_PATTERNS.map((pattern, index) => {
-    const skill = manualPatternSkillView(runtime, index);
+function manualPatternFamilyViews(runtime) {
+  const families = new Map();
+  for (let index = 0; index < MANUAL_PATTERNS.length; index += 1) {
+    const key = manualPatternSkillKey(index);
+    const pattern = manualPatternByIndex(index);
+    if (!families.has(key)) {
+      families.set(key, {
+        key,
+        index,
+        label: manualPatternSkillBaseLabel(index),
+        cadences: [],
+      });
+    }
+    const family = families.get(key);
     const cadence = patternCadence(pattern);
-    const label = pattern.label || `Pattern ${index + 1}`;
+    if (cadence && !family.cadences.includes(cadence)) {
+      family.cadences.push(cadence);
+    }
+  }
+  return Array.from(families.values()).map((family) => ({
+    ...family,
+    skill: manualPatternSkillView(runtime, family.index),
+  }));
+}
+
+function cyclingGrimoireMarkup(runtime) {
+  const cards = manualPatternFamilyViews(runtime).map((family) => {
+    const skill = family.skill;
+    const cadence = family.cadences.length ? family.cadences.join(" / ") : patternLabel(family.index);
     const nextLevel = skill.level + 1;
     return `
       <article class="crd02-tech-row crd02-cycle-card crd02-grimoire-card is-${escapeHtml(skill.theme)}" style="${escapeHtml(manualPatternSkillStyle(skill.level))}">
         <div class="crd02-cycle-copy">
           <div class="crd02-header-title-row">
-            <strong>${escapeHtml(label)}</strong>
+            <strong>${escapeHtml(family.label)}</strong>
             <span class="crd02-stage-badge is-${escapeHtml(skill.theme)}">Lv ${escapeHtml(String(skill.level))}</span>
           </div>
           <div class="crd02-cycle-meta">
-            <span class="crd02-cycle-chip">Cadence: ${escapeHtml(cadence)}</span>
-            <span class="crd02-cycle-chip is-strong">Bonus x${escapeHtml(skill.bonus.toFixed(2))}</span>
-            <span class="crd02-cycle-chip">XP ${escapeHtml(String(skill.xp))}/${escapeHtml(String(skill.nextThreshold))}</span>
+            <span class="crd02-cycle-chip"><strong>Cadence:</strong>&nbsp;${escapeHtml(cadence)}</span>
+            <span class="crd02-cycle-chip is-strong"><strong>Bonus:</strong>&nbsp;x${escapeHtml(skill.bonus.toFixed(2))}</span>
+            <span class="crd02-cycle-chip"><strong>XP:</strong>&nbsp;${escapeHtml(String(skill.xp))}/${escapeHtml(String(skill.nextThreshold))}</span>
           </div>
           <div class="crd02-grimoire-xp">
             <div class="crd02-grimoire-xp-track" style="height:8px;width:100%;overflow:hidden;border-radius:999px;background:rgba(148,163,184,0.16);" aria-hidden="true">
@@ -1922,8 +1997,8 @@ function cyclingGrimoireMarkup(runtime) {
         <h4>Cycling Grimoire</h4>
         <span class="crd02-cycle-chip">Pattern mastery</span>
       </div>
-      <p class="muted">Manual cycle completions grant XP to the completed pattern. Higher pattern levels slightly multiply that pattern's manual madra gain.</p>
-      <div class="crd02-cycle-grid crd02-grimoire-grid">
+      <p class="muted">Manual cycle completions grant XP to the completed pattern family. Rushed, Normal, and Drawn variants share one skill track.</p>
+      <div class="crd02-cycle-grid crd02-grimoire-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:stretch;">
         ${cards}
       </div>
     </section>
