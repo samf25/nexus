@@ -353,7 +353,7 @@ export function defaultArcaneSystemState(now = Date.now()) {
     workshop: {
       manaCurrent: 0,
       manaMax: 0,
-      manaRegenPerHour: 100,
+      manaRegenPerHour: 0,
       lastManaTickAt: Math.floor(safeFinite(now, Date.now())),
       totalManaSpent: 0,
       equipSlotCount: 2,
@@ -419,7 +419,7 @@ export function normalizeArcaneSystemState(candidate, now = Date.now()) {
     workshop: {
       manaCurrent: clamp(safeFinite(workshop.manaCurrent, manaMax), 0, manaMax),
       manaMax,
-      manaRegenPerHour: Math.max(20, Math.floor(safeFinite(workshop.manaRegenPerHour, 100))),
+      manaRegenPerHour: Math.floor(manaMax * 4),
       lastManaTickAt: Math.max(0, Math.floor(safeFinite(workshop.lastManaTickAt, now))),
       totalManaSpent: Math.max(0, Math.floor(safeFinite(workshop.totalManaSpent, 0))),
       equipSlotCount,
