@@ -1011,7 +1011,10 @@ export function validateCrd02Runtime(runtime) {
 
 export function reduceCrd02Runtime(runtime, action) {
   const now = Number(action && action.at) || nowMs();
-  let current = synchronizeCrd02Runtime(runtime, { now });
+  let current = synchronizeCrd02Runtime(runtime, {
+    now,
+    state: context && context.state ? context.state : null,
+  });
 
   if (!action || typeof action !== "object") {
     return current;
