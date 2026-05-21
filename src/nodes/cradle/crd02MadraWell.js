@@ -2468,13 +2468,18 @@ export function renderCrd02Experience(context) {
           <div class="crd02-stage-row">
             ${
               activeCradleBoosts.length
-                ? activeCradleBoosts.map((boost) => `
-                  <span class="crd02-stage-boost">
-                    ${escapeHtml(boost.label)}
-                    ${boost.summary ? ` · ${escapeHtml(boost.summary)}` : ""}
-                    · ${escapeHtml(formatDurationRemaining(boost.remainingMs))}
-                  </span>
-                `).join("")
+                ? `
+                  <div class="crd02-cycle-meta" style="gap:0.4rem;flex-wrap:wrap;">
+                    ${activeCradleBoosts.map((boost) => `
+                      <span class="crd02-cycle-chip is-strong" title="${escapeHtml(boost.summary || "Temporary cradle boost")}">
+                        ${escapeHtml(boost.label)}
+                        <small style="margin-left:0.25rem;opacity:0.78;">
+                          ${escapeHtml(formatDurationRemaining(boost.remainingMs))}
+                        </small>
+                      </span>
+                    `).join("")}
+                  </div>
+                `
                 : ""
             }
           </div>
