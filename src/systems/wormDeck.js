@@ -147,7 +147,10 @@ function snapshotSickbayHealing(state, now, options = {}) {
     }
 
     const healedHp = healedHpForEntry(entry, card, now, options);
-    const maxHp = maxHpForCard(card, options);
+    const maxHp = Math.max(
+      maxHpForCard(card, options),
+      Math.round(safeNumber(entry && entry.sickbayMaxHp, 0)),
+    );
     const fullyHealed = healedHp >= maxHp;
     nextDeck[sickbayCardId] = {
       ...entry,
