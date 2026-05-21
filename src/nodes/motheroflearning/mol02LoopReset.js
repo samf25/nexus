@@ -19,7 +19,7 @@ import {
 } from "./memoryGameCore.js";
 
 const NODE_ID = "MOL02";
-const RESET_CHALLENGE_TARGET = 5;
+const RESET_CHALLENGE_BASE_TARGET = 5;
 const PRESTIGE_REGIONS = prestigeRegionDefinitions().filter(
   (region) => region.id === "cradle" || region.id === "worm" || region.id === "dcc",
 );
@@ -68,6 +68,14 @@ function resetRegionSnapshot(state, regionId) {
     upgrades: {},
     currentRole,
   };
+}
+
+function resetChallengeTargetForSnapshot(snapshot) {
+  const resets = Math.max(
+    0,
+    Math.floor(Number(snapshot && snapshot.resets) || 0),
+  );
+  return Math.max(1, RESET_CHALLENGE_BASE_TARGET - resets);
 }
 
 function normalizeRuntime(candidate) {
@@ -211,7 +219,7 @@ export function reduceMol02Runtime(runtime, action) {
       ...current,
       confirmRegionId: action.regionId,
       challenge: createMemoryGameRuntime({
-        targetSuccesses: RESET_CHALLENGE_TARGET,
+        targetSuccesses: Math.max(1, Math.floor(Number(action.resetTarget) || RESET_CHALLENGE_BASE_TARGET)),
         roll: Math.random(),
       }),
       lastMessage: "Press Begin Sequence to start the reset trial.",
@@ -313,6 +321,10 @@ export function buildMol02ActionFromElement(element) {
       type: "mol02-start-challenge",
       regionId: element.getAttribute("data-region-id") || "",
       affordable: element.getAttribute("data-affordable") === "true",
+      resetTarget: Math.max(
+        1,
+        Math.floor(Number(element.getAttribute("data-reset-target")) || RESET_CHALLENGE_BASE_TARGET),
+      ),
       at: Date.now(),
     };
   }
@@ -394,6 +406,7 @@ export function buildMol02KeyAction(event, runtime, state = null) {
         type: "mol02-start-challenge",
         regionId: current.confirmRegionId,
         affordable: Boolean(confirmSnapshot && confirmSnapshot.affordable),
+        resetTarget: resetChallengeTargetForSnapshot(confirmSnapshot),
         at: Date.now(),
       };
     }
@@ -507,6 +520,9 @@ export function renderMol02Experience(context) {
   const confirmSnapshot = runtime.confirmRegionId
     ? resetRegionSnapshot(context.state, runtime.confirmRegionId)
     : null;
+  const confirmResetTarget = confirmSnapshot
+    ? resetChallengeTargetForSnapshot(confirmSnapshot)
+    : RESET_CHALLENGE_BASE_TARGET;
   const resetPulse = runtime.resetPulseUntil > now;
 
   return `
@@ -577,6 +593,7 @@ export function renderMol02Experience(context) {
                           data-node-action="mol02-start-challenge"
                           data-region-id="${escapeHtml(runtime.confirmRegionId)}"
                           data-affordable="true"
+                          data-reset-target="${escapeHtml(String(confirmResetTarget))}"
                         >
                           Begin Reset Trial
                         </button>
