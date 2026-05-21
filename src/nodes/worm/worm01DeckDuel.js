@@ -400,6 +400,42 @@ function renderCompactifierPanel(runtime, ownedCards, wormState, compactifyCostD
   `;
 }
 
+function applyCapeLootBonusesToOwnedCards(ownedCards, wormState, lootState) {
+  return (Array.isArray(ownedCards) ? ownedCards : []).map((entry) => {
+    const statBonuses = getWormCapeLootBonuses(
+      { systems: { worm: wormState }, inventory: { loot: lootState } },
+      entry.cardId,
+      Date.now(),
+    );
+
+    const boostedCard = {
+      ...entry.card,
+      attack: Math.max(0, Number(entry.card.attack || 0) + Math.max(0, Number(statBonuses.attack || 0))),
+      defense: Math.max(0, Number(entry.card.defense || 0) + Math.max(0, Number(statBonuses.defense || 0))),
+      endurance: Math.max(0, Number(entry.card.endurance || 0) + Math.max(0, Number(statBonuses.endurance || 0))),
+      info: Math.max(0, Number(entry.card.info || 0) + Math.max(0, Number(statBonuses.info || 0))),
+      manipulation: Math.max(0, Number(entry.card.manipulation || 0) + Math.max(0, Number(statBonuses.manipulation || 0))),
+      range: Math.max(0, Number(entry.card.range || 0) + Math.max(0, Number(statBonuses.range || 0))),
+      speed: Math.max(0, Number(entry.card.speed || 0) + Math.max(0, Number(statBonuses.speed || 0))),
+      stealth: Math.max(0, Number(entry.card.stealth || 0) + Math.max(0, Number(statBonuses.stealth || 0))),
+    };
+
+    const boostedMaxHp = Math.max(40, Math.round(Number(boostedCard.endurance || 0) * 50));
+    const boostedCurrentHp = Math.min(
+      Math.max(0, Math.round(Number(entry.currentHp || 0))),
+      boostedMaxHp,
+    );
+
+    return {
+      ...entry,
+      card: boostedCard,
+      maxHp: boostedMaxHp,
+      currentHp: boostedCurrentHp,
+      shardBonuses: statBonuses,
+    };
+  });
+}
+
 function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPerCape, lootState) {
   if (!ownedCards.length) {
     return `<section class="card"><p>No capes in deck.</p></section>`;
@@ -421,7 +457,11 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
       const capeShardSlots = Array.isArray(shardSlotsByCape[entry.cardId]) ? shardSlotsByCape[entry.cardId] : [];
       const capeShardSlotCount = getWormShardSlotCount({ systems: { worm: wormState }, inventory: { loot: lootState } }, entry.cardId, Date.now());
       const filledShardCount = capeShardSlots.slice(0, capeShardSlotCount).filter(Boolean).length;
-      const statBonuses = getWormCapeLootBonuses({ systems: { worm: wormState }, inventory: { loot: lootState } }, entry.cardId, Date.now());
+      const statBonuses = entry.shardBonuses || getWormCapeLootBonuses(
+        { systems: { worm: wormState }, inventory: { loot: lootState } },
+        entry.cardId,
+        Date.now(),
+      );
       const shardButton = `
         <button
           type="button"
@@ -1262,7 +1302,8 @@ export function renderWorm01Experience(context) {
   const maxRarity = 5;
   const lootState = lootInventoryFromState(context.state, Date.now());
   const activeHiringBoosts = getWormActiveHiringBoosts(context.state, Date.now());
-  const ownedCards = wormOwnedCards(wormState, Date.now(), wormOptions);
+  const baseOwnedCards = wormOwnedCards(wormState, Date.now(), wormOptions);
+  const ownedCards = applyCapeLootBonusesToOwnedCards(baseOwnedCards, wormState, lootState);
   const rewards =
     context && context.state && context.state.inventory && context.state.inventory.rewards && typeof context.state.inventory.rewards === "object"
       ? context.state.inventory.rewards
