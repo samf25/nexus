@@ -1009,7 +1009,7 @@ export function validateCrd02Runtime(runtime) {
   return solveState(normalizeRuntime(runtime));
 }
 
-export function reduceCrd02Runtime(runtime, action) {
+export function reduceCrd02Runtime(runtime, action, context = {}) {
   const now = Number(action && action.at) || nowMs();
   let current = synchronizeCrd02Runtime(runtime, {
     now,
