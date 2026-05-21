@@ -602,10 +602,24 @@ export function renderCrd09Experience(context) {
             ${flash ? `<span class="crd01-hit-flash"></span>` : ""}
             <span class="crd01-core-shell"></span>
           </div>
-          <p><strong>Pattern:</strong> ${escapeHtml(rhythmPattern.label || "Unknown Rhythm")}</p>
-          <p><strong>Cadence:</strong> ${escapeHtml(patternCadence(rhythmPattern))}</p>
-          <p><strong>Chain:</strong> ${escapeHtml(String(runtime.rhythmStreak))}/${escapeHtml(String(track.rhythmTarget))}</p>
-          <p><strong>Attempts Left:</strong> ${escapeHtml(String(runtime.rhythmAttemptsLeft))}</p>
+          <div class="crd02-cycle-meta crd02-manual-chip-row" style="justify-content:center;text-align:center;gap:0.75rem;margin-top:1.15rem;">
+            <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+              <strong>Pattern:</strong>
+              <span>${escapeHtml(rhythmPattern.label || "Unknown Rhythm")}</span>
+            </span>
+            <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+              <strong>Cadence:</strong>
+              <span>${escapeHtml(patternCadence(rhythmPattern))}</span>
+            </span>
+            <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+              <strong>Chain:</strong>
+              <span>${escapeHtml(String(runtime.rhythmStreak))}/${escapeHtml(String(track.rhythmTarget))}</span>
+            </span>
+            <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+              <strong>Attempts:</strong>
+              <span>${escapeHtml(String(runtime.rhythmAttemptsLeft))}</span>
+            </span>
+          </div>
         </section>
       `
     : runtime.phase === "revelation"
