@@ -460,16 +460,13 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
         entry.cardId,
         Date.now(),
       );
-      const effectiveEndurance = Math.max(
-        0,
-        Number(entry.card.endurance || 0) + Math.max(0, Number(statBonuses.endurance || 0)),
-      );
+      const effectiveEndurance = Math.max(0, Number(entry.card.endurance || 0));
       const effectiveMaxHp = Math.max(40, Math.round(effectiveEndurance * 50));
       const effectiveCurrentHp = Math.min(
         Math.max(0, Math.round(Number(entry.currentHp || 0))),
         effectiveMaxHp,
       );
-      const canSickbay = effectiveCurrentHp < entry.maxHp;
+      const canSickbay = effectiveCurrentHp < effectiveMaxHp;
       const canAssignSickbay = canSickbay && (inSickbay || occupiedSickbaySlots < maxSickbaySlots);
       const shardButton = `
         <button
