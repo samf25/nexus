@@ -357,7 +357,7 @@ export function synchronizeAa02Runtime(runtime, context = {}) {
   const revealQueue = shouldClearReveal || shouldAutoClearReveal ? [] : current.revealQueue;
   const revealTickValue = revealQueue.length ? revealTick : 0;
   const revealStartedAt = revealQueue.length ? current.revealStartedAt : 0;
-  if (current.shopHourKey === hourKey && current.shopOffers.length) {
+  if (current.shopHourKey === hourKey) {
     if (revealTickValue !== current.revealTick || revealQueue !== current.revealQueue) {
       return {
         ...current,
@@ -409,13 +409,18 @@ export function reduceAa02Runtime(runtime, action) {
   }
 
   if (action.type === "aa02-buy-offer") {
+    const boughtOfferId = safeText(action.offerId);
+  
     return {
       ...current,
+      shopOffers: action.applied && boughtOfferId
+        ? current.shopOffers.filter((offer) => safeText(offer && offer.id) !== boughtOfferId)
+        : current.shopOffers,
       solved: current.solved || Boolean(action.applied),
       lastMessage: safeText(action.message) || (action.applied ? "Purchase completed." : "Purchase failed."),
     };
   }
-
+  
   if (action.type === "aa02-sell-selected") {
     return {
       ...current,
