@@ -442,14 +442,30 @@ function rarityIndex(rarity) {
   return index >= 0 ? index : 0;
 }
 
+const FRACTIONAL_FLAT_EFFECT_KEYS = new Set([
+  "aa_mana_regen_pct",
+  "aa_mana_growth_pct",
+  "aa_rarity_bias_flat",
+  "aa_sell_bonus_pct",
+  "aa_buy_discount_pct",
+]);
+
 function scaledEffect(effect, rarity) {
   const tier = rarityIndex(rarity);
+  const key = safeText(effect && effect.key);
   const base = safeFinite(effect && effect.base, 0);
   const perTier = safeFinite(effect && effect.perTier, 0);
+  const raw = base + (perTier * tier);
+
   if (safeText(effect && effect.type).toLowerCase() === "mult") {
-    return Number((base + (perTier * tier)).toFixed(4));
+    return Number(raw.toFixed(4));
   }
-  return Math.round(base + (perTier * tier));
+
+  if (FRACTIONAL_FLAT_EFFECT_KEYS.has(key)) {
+    return Number(raw.toFixed(4));
+  }
+
+  return Math.round(raw);
 }
 
 function wormShardDescriptor(statKey) {
@@ -2099,7 +2115,10 @@ export function getArcaneLootModifiers(state, now = Date.now()) {
 
   const result = {
     accuracyFlat: Math.max(0, safeFinite(arcane.bonuses.accuracyFlat, 0)),
-    manaRegenPct: Math.max(0, safeFinite(arcane.bonuses.manaRegenPct, 0)),
+    // Do not seed this from arcane.bonuses.manaRegenPct.
+    // withArcaneTick uses manaRegenPct as a transient tick input, so reading it here
+    // causes socketed mana regen to become a saved baseline and double-count.
+    manaRegenPct: 0,
     buyDiscountPct: clamp(safeFinite(arcane.bonuses.buyDiscountPct, 0), 0, 0.5),
     sellBonusPct: clamp(safeFinite(arcane.bonuses.sellBonusPct, 0), 0, 1),
     manaGrowthPct: 0,
