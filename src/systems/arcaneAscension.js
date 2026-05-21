@@ -1140,6 +1140,19 @@ export function enhancementDescriptor(enhancementGlyph) {
   return table[key] || { key: "aa_accuracy_flat", type: "flat", base: 2 };
 }
 
+function preCitrineNonJunkAssist(rank) {
+  const tierIndex = Math.max(0, Math.floor(safeFinite(rank && rank.tierIndex, 0)));
+  const citrineIndex = attunementTierIndex("citrine");
+
+  if (tierIndex >= citrineIndex) {
+    return 0;
+  }
+
+  // Quartz: +7.0% non-junk, Carnelian: +5.5%, Sunstone: +4.0%.
+  // The assist disappears once Citrine trace overlays unlock.
+  return 0.04 + ((citrineIndex - tierIndex - 1) * 0.015);
+}
+
 export function resolveWorkshopCraftOutcome({
   regionGlyph,
   enhancementGlyph,
@@ -1205,9 +1218,18 @@ export function resolveWorkshopCraftOutcome({
   const spendTier = minimumRarity || "common";
   const commonGate = Math.max(1, thresholdCommon || 1);
   const subCommonRatio = minimumRarity ? 1 : clamp(invested / commonGate, 0, 1);
+  const nonJunkAssist = preCitrineNonJunkAssist(rank);
   const junkChance = minimumRarity
     ? 0
-    : clamp(0.985 - (trueAccuracy * 0.12) - (subCommonRatio * 0.82) + earlyCraftPenalty, 0.12, 0.995);
+    : clamp(
+      0.985
+        - (trueAccuracy * 0.12)
+        - (subCommonRatio * 0.82)
+        + earlyCraftPenalty
+        - nonJunkAssist,
+      0.12,
+      0.995,
+    );
   const rarityBiasBase = spendTier === "legendary"
     ? 1.5
     : spendTier === "epic"
