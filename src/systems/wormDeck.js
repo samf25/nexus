@@ -66,6 +66,7 @@ function normalizeDeckEntry(entry, card, options = {}) {
     copies,
     currentHp,
     sickbaySince,
+    sickbayMaxHp: Math.max(0, Math.round(safeNumber(source.sickbayMaxHp, 0))),
   };
 }
 
@@ -115,7 +116,10 @@ function normalizeFavoriteCardIds(deck, candidateCardIds) {
 }
 
 function healedHpForEntry(entry, card, now, options = {}) {
-  const maxHp = maxHpForCard(card, options);
+  const maxHp = Math.max(
+    maxHpForCard(card, options),
+    Math.round(safeNumber(entry && entry.sickbayMaxHp, 0)),
+  );
   const baseHp = clamp(Math.round(safeNumber(entry.currentHp, maxHp)), 0, maxHp);
   const sickbaySince = Number.isFinite(entry.sickbaySince) ? Math.max(0, Number(entry.sickbaySince)) : 0;
   if (!sickbaySince || baseHp >= maxHp) {
@@ -149,6 +153,7 @@ function snapshotSickbayHealing(state, now, options = {}) {
       ...entry,
       currentHp: healedHp,
       sickbaySince: fullyHealed ? 0 : now,
+      sickbayMaxHp: fullyHealed ? 0 : entry.sickbayMaxHp,
     };
     if (!fullyHealed) {
       nextSickbayCardIds.push(sickbayCardId);
@@ -772,9 +777,16 @@ export function reduceWormSystemState(systemState, action, now = nowMs(), option
       return { nextState: current, changed: false, message: "Unknown cape selected.", meta: {} };
     }
 
-    const maxHp = maxHpForCard(card, options);
+    const baseMaxHp = maxHpForCard(card, options);
+    const maxHp = Math.max(
+      baseMaxHp,
+      Math.round(safeNumber(action.maxHp, baseMaxHp)),
+    );
     const entry = current.deck[cardId];
-    const hpNow = inSickbay(current, cardId) ? healedHpForEntry(entry, card, now, options) : entry.currentHp;
+    const hpNow = inSickbay(current, cardId)
+      ? healedHpForEntry(entry, card, now, options)
+      : clamp(Math.round(safeNumber(action.currentHp, entry.currentHp)), 0, maxHp);
+    
     if (hpNow >= maxHp) {
       return { nextState: current, changed: false, message: `${card.heroName} is already at full health.`, meta: {} };
     }
@@ -789,6 +801,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs(), option
         ...entry,
         currentHp: hpNow,
         sickbaySince: now,
+        sickbayMaxHp: maxHp,
       },
     };
 
