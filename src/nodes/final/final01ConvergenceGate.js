@@ -4,6 +4,7 @@ import { renderRegionSymbol } from "../../core/symbology.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 import {
   CRD02_MANUAL_RHYTHM_PATTERNS,
+  cycleLength,
   nearestPulse,
   patternByIndex,
   patternCadence,
@@ -2388,6 +2389,12 @@ function rhythmMarkup(runtime) {
   const pattern = patternByIndex(CRD02_MANUAL_RHYTHM_PATTERNS, runtime.rhythm.patternIndex);
   const phaseDelay = pulsePhaseDelaySeconds(pattern, runtime.rhythm.startedAt);
   const showHitFlash = runtime.rhythm.feedback === "hit" && Date.now() < runtime.rhythm.feedbackUntil;
+  const cycleSeconds = cycleLength(pattern);
+  const pulseClass = `is-pattern-${Math.max(0, Number(pattern.visualId) || 0)}`;
+  const coreStyle = runtime.rhythm.active
+    ? `--manual-cycle-seconds: ${escapeHtml(cycleSeconds.toFixed(3))}s; animation-delay: ${escapeHtml(phaseDelay.toFixed(3))}s;`
+    : `--manual-cycle-seconds: ${escapeHtml(cycleSeconds.toFixed(3))}s; animation-play-state: paused;`;
+
   const progressPercent = Math.round(
     Math.min(
       1,
@@ -2397,15 +2404,15 @@ function rhythmMarkup(runtime) {
       ) / Math.max(1, FINAL_RHYTHM_PATTERN_INDICES.length),
     ) * 100,
   );
+
   return `
     <section class="card final01-card">
       <h3>Phase C: Rhythm Trial</h3>
-      <p><strong>Pattern:</strong> ${escapeHtml(pattern.label)} (${runtime.rhythm.patternStep + 1}/${FINAL_RHYTHM_PATTERN_INDICES.length})</p>
-      <p><strong>Cadence:</strong> ${escapeHtml(patternCadence(pattern))}</p>
-      <section class="crd01-stage">
+
+      <section class="crd02-manual-surface final01-rhythm-surface">
         <div
-          class="crd01-core is-pattern-${escapeHtml(String(pattern.visualId || 0))}"
-          style="${runtime.rhythm.active ? `animation-delay: -${escapeHtml(phaseDelay.toFixed(3))}s;` : "animation-play-state: paused;"}"
+          class="crd02-manual-core ${escapeHtml(pulseClass)}"
+          style="${coreStyle}"
           aria-hidden="true"
         >
           <span class="crd01-stream stream-a"></span>
@@ -2414,11 +2421,27 @@ function rhythmMarkup(runtime) {
           ${showHitFlash ? `<span class="crd01-hit-flash"></span>` : ""}
           <span class="crd01-core-shell"></span>
         </div>
+
+        <div class="crd02-cycle-meta crd02-manual-chip-row" style="justify-content:center;text-align:center;gap:0.75rem;margin-top:1.15rem;">
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+            <strong>Pattern:</strong>
+            <span>${escapeHtml(pattern.label || "Unknown Rhythm")} (${escapeHtml(String(runtime.rhythm.patternStep + 1))}/${escapeHtml(String(FINAL_RHYTHM_PATTERN_INDICES.length))})</span>
+          </span>
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+            <strong>Cadence:</strong>
+            <span>${escapeHtml(patternCadence(pattern))}</span>
+          </span>
+          <span class="crd02-cycle-chip crd02-manual-info-chip" style="display:inline-flex;align-items:center;justify-content:center;gap:0.35rem;">
+            <strong>Streak:</strong>
+            <span>${escapeHtml(String(runtime.rhythm.streak))}/${escapeHtml(String(FINAL_RHYTHM_STREAK_TARGET))}</span>
+          </span>
+        </div>
       </section>
+
       <div class="toolbar">
         <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-rhythm-start">Begin Cycling</button>
       </div>
-      <p><strong>Current Streak:</strong> ${runtime.rhythm.streak}/${FINAL_RHYTHM_STREAK_TARGET}</p>
+
       <div class="progress-bar"><span style="width:${progressPercent}%"></span></div>
     </section>
   `;
