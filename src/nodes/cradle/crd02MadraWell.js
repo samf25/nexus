@@ -2321,24 +2321,6 @@ export function renderCrd02Experience(context) {
     ? `
       <section class="crd02-panel">
         <h4>Cycling Techniques</h4>
-        ${
-          activeCradleBoosts.length
-            ? `
-              <section class="crd02-boost-strip">
-                <h5>Active Drafts</h5>
-                <div class="crd02-boost-list">
-                  ${activeCradleBoosts.map((boost) => `
-                    <article class="crd02-boost-chip">
-                      <strong>${escapeHtml(boost.label)}</strong>
-                      <span>${escapeHtml(boost.summary || "Temporary cradle boost")}</span>
-                      <small>${escapeHtml(formatDurationRemaining(boost.remainingMs))} remaining</small>
-                    </article>
-                  `).join("")}
-                </div>
-              </section>
-            `
-            : ""
-        }
         <div class="crd02-cycle-grid">
         <div class="crd02-tech-row crd02-cycle-card">
           <div class="crd02-cycle-copy">
@@ -2486,13 +2468,13 @@ export function renderCrd02Experience(context) {
           <div class="crd02-stage-row">
             ${
               activeCradleBoosts.length
-                ? `
+                ? activeCradleBoosts.map((boost) => `
                   <span class="crd02-stage-boost">
-                    ${escapeHtml(activeCradleBoosts[0].label)}
-                    ${activeCradleBoosts[0].summary ? ` · ${escapeHtml(activeCradleBoosts[0].summary)}` : ""}
-                    · ${escapeHtml(formatDurationRemaining(activeCradleBoosts[0].remainingMs))}
+                    ${escapeHtml(boost.label)}
+                    ${boost.summary ? ` · ${escapeHtml(boost.summary)}` : ""}
+                    · ${escapeHtml(formatDurationRemaining(boost.remainingMs))}
                   </span>
-                `
+                `).join("")
                 : ""
             }
           </div>
