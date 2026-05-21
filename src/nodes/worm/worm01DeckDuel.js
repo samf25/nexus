@@ -451,9 +451,7 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
       ${ownedCards
     .map((entry) => {
       const isFavorite = Array.isArray(wormState.favoriteCardIds) && wormState.favoriteCardIds.includes(entry.cardId);
-      const canSickbay = entry.currentHp < entry.maxHp;
       const inSickbay = Array.isArray(wormState.sickbayCardIds) && wormState.sickbayCardIds.includes(entry.cardId);
-      const canAssignSickbay = canSickbay && (inSickbay || occupiedSickbaySlots < maxSickbaySlots);
       const capeShardSlots = Array.isArray(shardSlotsByCape[entry.cardId]) ? shardSlotsByCape[entry.cardId] : [];
       const capeShardSlotCount = getWormShardSlotCount({ systems: { worm: wormState }, inventory: { loot: lootState } }, entry.cardId, Date.now());
       const filledShardCount = capeShardSlots.slice(0, capeShardSlotCount).filter(Boolean).length;
@@ -462,6 +460,17 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
         entry.cardId,
         Date.now(),
       );
+      const effectiveEndurance = Math.max(
+        0,
+        Number(entry.card.endurance || 0) + Math.max(0, Number(statBonuses.endurance || 0)),
+      );
+      const effectiveMaxHp = Math.max(40, Math.round(effectiveEndurance * 50));
+      const effectiveCurrentHp = Math.min(
+        Math.max(0, Math.round(Number(entry.currentHp || 0))),
+        effectiveMaxHp,
+      );
+      const canSickbay = effectiveCurrentHp < entry.maxHp;
+      const canAssignSickbay = canSickbay && (inSickbay || occupiedSickbaySlots < maxSickbaySlots);
       const shardButton = `
         <button
           type="button"
@@ -512,6 +521,8 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
               data-node-id="${NODE_ID}"
               data-node-action="worm01-sickbay-assign"
               data-card-id="${escapeHtml(entry.cardId)}"
+              data-current-hp="${escapeHtml(String(effectiveCurrentHp))}"
+              data-max-hp="${escapeHtml(String(effectiveMaxHp))}"
               data-max-slots="${escapeHtml(String(maxSickbaySlots))}"
               title="${escapeHtml(canAssignSickbay ? "Send to Sickbay" : `Sickbay full (${occupiedSickbaySlots}/${maxSickbaySlots})`)}"
               aria-label="${escapeHtml(`Send ${entry.card.heroName} to Sickbay`)}"
@@ -552,7 +563,7 @@ function renderDeckPanel(ownedCards, wormState, maxSickbaySlots, maxShardSlotsPe
               stealth: entry.card.stealth,
             },
             modifiers: {},
-            modifiers: statBonuses,
+            modifiers: {},
             debuffs: {},
             guardCharges: 0,
             speedReady: false,
@@ -1191,6 +1202,8 @@ export function buildWorm01ActionFromElement(element, runtime) {
     return {
       type: "worm01-sickbay-assign",
       cardId: element.getAttribute("data-card-id") || "",
+      currentHp: Number(element.getAttribute("data-current-hp") || 0),
+      maxHp: Number(element.getAttribute("data-max-hp") || 0),
       maxSickbaySlots: Number(element.getAttribute("data-max-slots") || 1),
     };
   }
