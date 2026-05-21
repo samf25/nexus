@@ -2319,7 +2319,7 @@ export function estimateLootShopPrice(item, economyContext = {}) {
     aa_upgrade: 1.9,
     aa_focus: 2.2,
     aa_focus_matrix: 2.5,
-    aa_junk: 0.0,
+    aa_junk: 0.00001,
   };
   const base = 12;
   const rarityMult = rarityScale[normalized.rarity] || 1;
