@@ -20,7 +20,7 @@ import {
 } from "./combatSystem.js";
 
 const NODE_ID = "CRD04";
-const COOLDOWN_MS = 60 * 60 * 1000;
+const COOLDOWN_MS = 10 * 60 * 1000;
 const TOURNAMENT_PASS = "Seven-Year Festival Tournament Pass";
 
 const OPPONENTS = Object.freeze([
