@@ -59,14 +59,18 @@ function clamp(value, min, max) {
 function normalizeDeckEntry(entry, card, options = {}) {
   const maxHp = maxHpForCard(card, options);
   const source = entry && typeof entry === "object" ? entry : {};
+  const sickbayMaxHp = Math.max(0, Math.round(safeNumber(source.sickbayMaxHp, 0)));
+  const effectiveMaxHp = Math.max(maxHp, sickbayMaxHp);
+
   const copies = Math.max(1, Math.floor(safeNumber(source.copies, 1)));
-  const currentHp = clamp(Math.round(safeNumber(source.currentHp, maxHp)), 0, maxHp);
+  const currentHp = clamp(Math.round(safeNumber(source.currentHp, effectiveMaxHp)), 0, effectiveMaxHp);
   const sickbaySince = Number.isFinite(source.sickbaySince) ? Math.max(0, Number(source.sickbaySince)) : 0;
+
   return {
     copies,
     currentHp,
     sickbaySince,
-    sickbayMaxHp: Math.max(0, Math.round(safeNumber(source.sickbayMaxHp, 0))),
+    sickbayMaxHp,
   };
 }
 
