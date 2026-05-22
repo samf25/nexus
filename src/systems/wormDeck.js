@@ -160,7 +160,7 @@ function snapshotSickbayHealing(state, now, options = {}) {
       ...entry,
       currentHp: healedHp,
       sickbaySince: fullyHealed ? 0 : now,
-      sickbayMaxHp: fullyHealed ? 0 : entry.sickbayMaxHp,
+      sickbayMaxHp: entry.sickbayMaxHp,
     };
     if (!fullyHealed) {
       nextSickbayCardIds.push(sickbayCardId);
@@ -846,6 +846,7 @@ export function reduceWormSystemState(systemState, action, now = nowMs(), option
         ...entry,
         currentHp: healedHpForEntry(entry, card, now, options),
         sickbaySince: 0,
+        sickbayMaxHp: entry.sickbayMaxHp,
       };
     }
 
