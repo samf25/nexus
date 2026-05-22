@@ -138,8 +138,8 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_mana_capacitor",
       label: "Aether Capacitor",
-      kind: "aa_focus_matrix",
-      stackable: false,
+      kind: "aa_upgrade",
+      stackable: true,
       weight: 3.6,
       effects: Object.freeze([
         Object.freeze({ key: "aa_mana_max_flat", type: "flat", base: 10, perTier: 8 }),
@@ -168,7 +168,7 @@ const LOOT_TABLES = Object.freeze({
     Object.freeze({
       templateId: "aa_workshop_slot_token",
       label: "Auxiliary Workshop Armature",
-      kind: "aa_upgrade",
+      kind: "slot_expansion",
       stackable: true,
       weight: 0.6,
       effects: Object.freeze([
@@ -237,6 +237,11 @@ function titleCaseFromSnake(value) {
     .filter(Boolean)
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+}
+
+function hasLootEffectKey(item, key) {
+  const effects = Array.isArray(item && item.effects) ? item.effects : [];
+  return effects.some((effect) => safeText(effect && effect.key) === key);
 }
 
 function dccAbilityDisplayName(abilityId) {
@@ -358,14 +363,21 @@ export function isDirectUseLootItem(item) {
   const source = item && typeof item === "object" ? item : {};
   const kind = safeText(source.kind).toLowerCase();
   const durationMs = Math.max(0, Math.floor(safeFinite(source.durationMs, 0)));
+
   if (kind === "consumable_boost" && durationMs > 0) {
     return true;
   }
   if (safeText(source.templateId) === "worm_shard_slot_token") {
     return false;
   }
-  if (kind === "aa_upgrade") {
-    return safeText(source.templateId) === "aa_workshop_slot_token";
+  if (
+    normalizeRegion(source.region) === "aa"
+    && (
+      hasLootEffectKey(source, "aa_mana_max_flat")
+      || hasLootEffectKey(source, "aa_extra_workshop_slot")
+    )
+  ) {
+    return true;
   }
   return kind === "slot_expansion";
 }
@@ -383,9 +395,14 @@ export function isManualSocketLootItem(item, region = "") {
     return source.kind === "dcc_armor";
   }
   if (regionKey === "aa") {
+    if (
+      hasLootEffectKey(source, "aa_mana_max_flat")
+      || hasLootEffectKey(source, "aa_extra_workshop_slot")
+    ) {
+      return false;
+    }
     return source.kind === "aa_focus"
-      || source.kind === "aa_focus_matrix"
-      || (source.kind === "aa_upgrade" && safeText(source.templateId) !== "aa_workshop_slot_token");
+      || source.kind === "aa_focus_matrix";
   }
   return false;
 }
@@ -1344,6 +1361,65 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
     nextLoot.activeEffects = [...nextLoot.activeEffects, ...activated];
     nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
     message = "Basic Window favor invoked.";
+  } else if (
+    item.region === "aa"
+    && (
+      hasLootEffectKey(item, "aa_mana_max_flat")
+      || hasLootEffectKey(item, "aa_extra_workshop_slot")
+    )
+  ) {
+    const arcane = normalizeArcaneSystemState(
+      sourceState && sourceState.systems ? sourceState.systems.arcane : {},
+      now,
+    );
+    const effects = effectListFromItem(item);
+  
+    const manaMaxFlat = effects
+      .filter((effect) => effect.key === "aa_mana_max_flat")
+      .reduce((sum, effect) => sum + Math.max(0, Math.floor(safeFinite(effect.value, 0))), 0);
+  
+    const workshopSlots = effects
+      .filter((effect) => effect.key === "aa_extra_workshop_slot")
+      .reduce((sum, effect) => sum + Math.max(0, Math.floor(safeFinite(effect.value, 0))), 0);
+  
+    if (!manaMaxFlat && !workshopSlots) {
+      return {
+        nextState: sourceState,
+        changed: false,
+        message: "This Arcane Ascension upgrade has no usable effect.",
+      };
+    }
+  
+    const nextManaMax = Math.max(
+      arcane.attunements.enchanter ? 25 : 0,
+      arcane.workshop.manaMax + manaMaxFlat,
+    );
+  
+    const nextArcane = normalizeArcaneSystemState({
+      ...arcane,
+      workshop: {
+        ...arcane.workshop,
+        equipSlotCount: clamp(arcane.workshop.equipSlotCount + workshopSlots, 2, 6),
+        manaMax: nextManaMax,
+        manaCurrent: clamp(arcane.workshop.manaCurrent + manaMaxFlat, 0, nextManaMax),
+      },
+    }, now);
+  
+    nextLoot.items = decrementOrRemoveItem(nextLoot.items, itemId);
+  
+    return {
+      nextState: {
+        ...withLootState(sourceState, nextLoot),
+        systems: {
+          ...(sourceState.systems || {}),
+          arcane: nextArcane,
+        },
+      },
+      changed: true,
+      message: workshopSlots
+        ? "Arcane workshop slot capacity increased."
+        : "Arcane mana capacity increased.",
+    };
   } else if (item.kind === "slot_expansion") {
     const effects = effectListFromItem(item);
     let handled = false;
@@ -1601,11 +1677,13 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
   }
 
   if (regionKey === "aa") {
-    const aaEquippable = item.region === "aa" && (
-      item.kind === "aa_focus"
-      || item.kind === "aa_focus_matrix"
-      || (item.kind === "aa_upgrade" && safeText(item.templateId) !== "aa_workshop_slot_token")
-    );
+    const aaEquippable = item.region === "aa"
+      && !hasLootEffectKey(item, "aa_mana_max_flat")
+      && !hasLootEffectKey(item, "aa_extra_workshop_slot")
+      && (
+        item.kind === "aa_focus"
+        || item.kind === "aa_focus_matrix"
+      );
     if (!aaEquippable) {
       return {
         nextState: sourceState,
