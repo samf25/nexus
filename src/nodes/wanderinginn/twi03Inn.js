@@ -16,11 +16,11 @@ export const TWI03_SPECIAL_REWARD_SEQUENCE = Object.freeze([
 ]);
 
 export const TWI03_SPECIAL_REWARD_THRESHOLDS = Object.freeze([
-  4,
-  10,
+  8,
   20,
-  36,
-  52,
+  40,
+  70,
+  110,
 ]);
 
 const SPECIAL_GUEST_TIER_GATES = Object.freeze([1, 3, 5, 7, 9]);
