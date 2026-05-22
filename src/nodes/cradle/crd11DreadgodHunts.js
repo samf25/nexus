@@ -281,7 +281,7 @@ function resolvePlayerMove(current, move) {
     next.player.hp = leech.hp;
     next.player.madra = leech.madra;
     next.enemy.hp = Math.max(0, next.enemy.hp - inflicted);
-    next.enemy.stunnedTurns = Math.max(1, next.enemy.stunnedTurns);
+    next.enemy.stunnedTurns = Math.max(2, next.enemy.stunnedTurns);
     next.log = [...next.log, `Empty Palm detonates aura channels for ${inflicted}.${leech.gainedHp || leech.gainedMadra ? ` Consume restores ${leech.gainedHp} HP / ${leech.gainedMadra} Madra.` : ""}`].slice(-10);
     return next;
   }
