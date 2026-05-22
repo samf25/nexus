@@ -362,7 +362,7 @@ function resolvePlayerAction(runtime, actionId) {
         enemy: {
           ...enemy,
           hp: Math.max(0, enemy.hp - inflicted),
-          stunnedTurns: Math.max(enemy.stunnedTurns, 1),
+          stunnedTurns: Math.max(enemy.stunnedTurns, 2),
         },
       },
       `Empty Palm strikes for ${inflicted}. Elder Rahm's channels sputter.${leech.gainedHp || leech.gainedMadra ? ` Consume restores ${leech.gainedHp} HP / ${leech.gainedMadra} Madra.` : ""}`,
