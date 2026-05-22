@@ -1,5 +1,6 @@
 import { normalizeArcaneSystemState } from "./arcaneAscension.js";
 import { prestigeModifiersFromState } from "./prestige.js";
+import { wormCardById } from "../nodes/worm/wormData.js";
 
 const LOOT_REGIONS = Object.freeze(["crd", "worm", "dcc", "aa"]);
 
@@ -261,6 +262,38 @@ function dccAbilityDisplayName(abilityId) {
     crowdbreaker: "Crowdbreaker",
   };
   return known[key] || titleCaseFromSnake(key);
+}
+
+function wormEffectiveMaxHpAfterShardChange(sourceState, lootState, cardId) {
+  const wormState = sourceState && sourceState.systems && sourceState.systems.worm
+    ? sourceState.systems.worm
+    : {};
+  const deck = wormState.deck && typeof wormState.deck === "object" ? wormState.deck : {};
+  const card = wormCardById(cardId);
+  if (!card || !deck[cardId]) {
+    return 0;
+  }
+
+  const boosts = getWormCapeLootBonuses({
+    systems: { worm: wormState },
+    inventory: { loot: lootState },
+  }, cardId, Date.now());
+
+  const permanentBoosts = wormState.capeBoostsByCardId
+    && typeof wormState.capeBoostsByCardId === "object"
+    && wormState.capeBoostsByCardId[cardId]
+    && typeof wormState.capeBoostsByCardId[cardId] === "object"
+      ? wormState.capeBoostsByCardId[cardId]
+      : {};
+
+  const endurance = Math.max(
+    0,
+    Number(card.endurance || 0)
+      + Math.max(0, Number(permanentBoosts.endurance || 0))
+      + Math.max(0, Number(boosts.endurance || 0)),
+  );
+
+  return Math.max(40, Math.round(endurance * 50));
 }
 
 function signedNumber(value, digits = 2) {
@@ -1828,11 +1861,56 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
     }
     slots[slotIndex] = null;
     nextLoadouts.worm.shardSlotsByCape[cardId] = slots;
+    
+    const nextLoot = {
+      ...lootState,
+      loadouts: nextLoadouts,
+    };
+    
+    let nextState = withLootState(sourceState, nextLoot);
+    
+    const wormState = nextState.systems && nextState.systems.worm
+      ? nextState.systems.worm
+      : null;
+    const deck = wormState && wormState.deck && typeof wormState.deck === "object"
+      ? wormState.deck
+      : {};
+    const entry = deck[cardId];
+    
+    if (entry) {
+      const nextMaxHp = wormEffectiveMaxHpAfterShardChange(nextState, nextLoot, cardId);
+      if (nextMaxHp > 0) {
+        const clampedHp = clamp(
+          Math.round(safeFinite(entry.currentHp, nextMaxHp)),
+          0,
+          nextMaxHp,
+        );
+    
+        nextState = {
+          ...nextState,
+          systems: {
+            ...(nextState.systems || {}),
+            worm: {
+              ...wormState,
+              deck: {
+                ...deck,
+                [cardId]: {
+                  ...entry,
+                  currentHp: clampedHp,
+                  sickbayMaxHp: Math.min(
+                    Math.max(0, Math.round(safeFinite(entry.sickbayMaxHp, 0))),
+                    nextMaxHp,
+                  ),
+                },
+              },
+            },
+          },
+        };
+      }
+    }
+    
     return {
-      nextState: withLootState(sourceState, {
-        ...lootState,
-        loadouts: nextLoadouts,
-      }),
+      nextState,
       changed: true,
       message: `Cleared shard slot ${slotIndex + 1} for ${cardId}.`,
     };
