@@ -400,9 +400,13 @@ function ownedDeckEntries(state, now = nowMs(), options = {}) {
       continue;
     }
     const maxHp = maxHpForCard(card, options);
+    const effectiveMaxHp = Math.max(
+      maxHp,
+      Math.round(safeNumber(entry && entry.sickbayMaxHp, 0)),
+    );
     const currentHp = inSickbay(normalized, cardId)
       ? healedHpForEntry(entry, card, now, options)
-      : clamp(Math.round(safeNumber(entry.currentHp, maxHp)), 0, maxHp);
+      : clamp(Math.round(safeNumber(entry.currentHp, effectiveMaxHp)), 0, effectiveMaxHp);
     entries.push({
       card,
       cardId,
