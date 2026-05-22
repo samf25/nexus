@@ -259,9 +259,10 @@ function createQuest(seed, tier, completedCount, reputation = 0, summary = {}) {
   const bonusDifficulty = Number(summary.questDifficultyBonus || 0);
   const depth = Math.max(0, tier - 1) + Math.floor(Math.max(0, reputation) / 20) + Math.floor(Math.max(0, completedCount) / 8) + bonusDifficulty;
   const difficulty = clamp(1 + Math.floor(depth), 1, 5);
+  const baseAmount = typeDef.baseAmount + (typeDef.growth * depth);
   const amount = typeDef.type === "sacrifice_int"
     ? 1
-    : Math.max(1, typeDef.baseAmount + (typeDef.growth * depth));
+    : Math.max(1, Math.round(baseAmount * (typeDef.type === "madra" ? difficulty * difficulty : 1)));
   const repReward = Math.max(
     4,
     6 + (tier * 3) + Math.floor(completedCount / 2) + Math.floor(reputation / 12) + safeInt(summary.repBonus, 0) + difficulty,
@@ -478,10 +479,7 @@ export function reduceTwi03Runtime(runtime, action, context = {}) {
   };
 }
 
-function requirementText(quest) {
-  if (safeText(quest.requestText)) {
-    return safeText(quest.requestText);
-  }
+function requirementCostText(quest) {
   if (quest.requirementType === "madra") {
     return `Deliver ${quest.amount} Madra`;
   }
@@ -492,6 +490,14 @@ function requirementText(quest) {
     return `Deliver ${quest.amount} Gold`;
   }
   return "Sacrifice a cape with INT > 5";
+}
+
+function requirementText(quest) {
+  const costText = requirementCostText(quest);
+  if (safeText(quest.requestText)) {
+    return `${safeText(quest.requestText)} — ${costText}`;
+  }
+  return costText;
 }
 
 function eligibleSacrificeCards(state) {
