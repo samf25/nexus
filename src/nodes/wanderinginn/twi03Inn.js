@@ -84,8 +84,8 @@ const SPECIAL_REWARD_GUESTS = Object.freeze([
   Object.freeze({
     character: "Teriarch",
     reward: "The Transient, Ephemeral, Fleeting Vault of the Mortal World. The Evanescent Safe of Passing Moments, the Faded Chest of Then and Them. The Box of Incontinuity",
-    requirementType: "sacrifice_int",
-    amount: 1,
+    requirementType: "aa_crystal",
+    amount: 1000,
     repReward: 90,
     title: "Pay a rare price for something that should not remain.",
   }),
@@ -223,14 +223,7 @@ function specialQuestForIndex(index) {
     id: `special-${index}`,
     character: guest.character,
     requirementType: guest.requirementType,
-    requirementLabel:
-      guest.requirementType === "madra"
-        ? "Madra"
-        : guest.requirementType === "clout"
-          ? "Clout"
-          : guest.requirementType === "gold"
-            ? "Gold"
-            : "Cape Sacrifice",
+    requirementLabel: guest.requirementType === "madra" ? "Madra" : guest.requirementType === "clout" ? "Clout" : guest.requirementType === "gold" ? "Gold" : guest.requirementType === "aa_crystal" ? "Mana Crystals" : "Unknown",
     amount: guest.amount,
     repReward: guest.repReward,
     lootChance: 0.35,
@@ -250,16 +243,14 @@ function createQuest(seed, tier, completedCount, reputation = 0, summary = {}) {
   const pool = characterPoolForTier(tier);
   const character = pool[randomIndex(seed + 31, pool.length)] || "Guest";
   const preferredType = guestPreferredType(character, tier, seed);
-  const availableTypes = QUEST_TYPES;
+  const availableTypes = QUEST_TYPES.filter((entry) => entry.type !== "aa_crystal" || tier >= 2);
   const fallbackType = availableTypes[randomIndex(seed + 17, availableTypes.length)] || QUEST_TYPES[0];
   const typeDef = availableTypes.find((entry) => entry.type === preferredType) || fallbackType;
   const bonusDifficulty = Number(summary.questDifficultyBonus || 0);
   const depth = Math.max(0, tier - 1) + Math.floor(Math.max(0, reputation) / 20) + Math.floor(Math.max(0, completedCount) / 8) + bonusDifficulty;
   const difficulty = clamp(1 + Math.floor(depth), 1, 5);
   const baseAmount = typeDef.baseAmount + (typeDef.growth * depth);
-  const amount = typeDef.type === "sacrifice_int"
-    ? 1
-    : Math.max(1, Math.round(baseAmount * (typeDef.type === "madra" ? difficulty * difficulty : 1)));
+  const amount = Math.max(1, Math.round(baseAmount * (typeDef.type === "madra" ? difficulty * difficulty : 1)));
   const repReward = Math.max(
     4,
     6 + (tier * 3) + Math.floor(completedCount / 2) + Math.floor(reputation / 12) + safeInt(summary.repBonus, 0) + difficulty,
@@ -527,7 +518,7 @@ function ownedAmountForRequirement(state, quest) {
     return Number(meta.gold || 0);
   }
   if (quest.requirementType === "aa_crystal") {
-    const arcane = state && state.systems && state.systems.arcane ? state.systems.arcane : {};
+    const arcane = state && state.systems && state.systems.arcane && typeof state.systems.arcane === "object" ? state.systems.arcane : {};
     return Number(arcane.manaCrystals || 0);
   }
   return eligibleSacrificeCards(state || {}).length;
