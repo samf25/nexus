@@ -1725,28 +1725,16 @@ function dispatchActiveNodeAction(action) {
           );
           applied = true;
         }
-      } else if (requirementType === "sacrifice_int") {
-        const selectedCardId = String(runtimeAction.sacrificeCardId || "");
-        const selectedCard = selectedCardId ? wormCardById(selectedCardId) : null;
-        const validInt = selectedCard && Number(selectedCard.info || 0) > 5;
-        if (!validInt) {
-          applied = false;
+      } else if (requirementType === "aa_crystal") {
+        const spend = spendManaCrystals(working, amount);
+        if (spend.changed) {
+          working = spend.nextState;
+          applied = true;
         } else {
-          const sacrifice = reduceWormSystemState(
-            working.systems.worm,
-            {
-              type: "worm-sacrifice-cape",
-              cardId: runtimeAction.sacrificeCardId,
-            },
-            Date.now(),
-            wormPrestigeOptions(working),
-          );
-          if (sacrifice.changed) {
-            working = updateSystemState(working, "worm", sacrifice.nextState);
-            applied = true;
-          }
+          message = spend.message || "Not enough mana crystals.";
         }
       }
+
 
       if (applied) {
         const baseRepReward = Math.max(1, Number(runtimeAction.repReward) || 0);
