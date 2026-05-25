@@ -95,7 +95,7 @@ const QUEST_TYPES = Object.freeze([
   Object.freeze({ type: "madra", baseAmount: 30, growth: 25, label: "Madra" }),
   Object.freeze({ type: "clout", baseAmount: 18, growth: 14, label: "Clout" }),
   Object.freeze({ type: "gold", baseAmount: 28, growth: 22, label: "Gold" }),
-  Object.freeze({ type: "sacrifice_int", baseAmount: 1, growth: 0, label: "Cape Sacrifice" }),
+  Object.freeze({ type: "aa_crystal", baseAmount: 12, growth: 9, label: "Mana Crystals" }),
 ]);
 
 const DEFAULT_GUEST_PALETTE = Object.freeze({ accent: "#a88761", soft: "#3d2818", glow: "#f1d6ab", trait: "guest" });
@@ -163,8 +163,8 @@ function guestPalette(character, isSpecial = false) {
 
 function guestPreferredType(character, tier, seed) {
   const choices = ["madra", "clout", "gold"];
-  if (tier >= 3) {
-    choices.push("sacrifice_int");
+  if (tier >= 2) {
+    choices.push("aa_crystal");
   }
   const palette = guestPalette(character);
   if (palette.trait === "scholar") {
@@ -172,9 +172,6 @@ function guestPreferredType(character, tier, seed) {
   }
   if (palette.trait === "merchant") {
     return "gold";
-  }
-  if (palette.trait === "strange" && tier >= 3) {
-    return randomIndex(seed + 91, 2) === 0 ? "clout" : "sacrifice_int";
   }
   if (palette.trait === "traveler") {
     return "clout";
@@ -253,7 +250,7 @@ function createQuest(seed, tier, completedCount, reputation = 0, summary = {}) {
   const pool = characterPoolForTier(tier);
   const character = pool[randomIndex(seed + 31, pool.length)] || "Guest";
   const preferredType = guestPreferredType(character, tier, seed);
-  const availableTypes = QUEST_TYPES.filter((entry) => entry.type !== "sacrifice_int" || (tier + Number(summary.questDifficultyBonus || 0)) >= 3);
+  const availableTypes = QUEST_TYPES;
   const fallbackType = availableTypes[randomIndex(seed + 17, availableTypes.length)] || QUEST_TYPES[0];
   const typeDef = availableTypes.find((entry) => entry.type === preferredType) || fallbackType;
   const bonusDifficulty = Number(summary.questDifficultyBonus || 0);
@@ -489,6 +486,9 @@ function requirementCostText(quest) {
   if (quest.requirementType === "gold") {
     return `Deliver ${quest.amount} Gold`;
   }
+  if (quest.requirementType === "aa_crystal") {
+    return `Deliver ${quest.amount} Mana Crystals`;
+  }
   return "Sacrifice a cape with INT > 5";
 }
 
@@ -525,6 +525,10 @@ function ownedAmountForRequirement(state, quest) {
     const dcc = getNodeRuntime(state || {}, "DCC01", () => ({}));
     const meta = dcc && dcc.meta && typeof dcc.meta === "object" ? dcc.meta : {};
     return Number(meta.gold || 0);
+  }
+  if (quest.requirementType === "aa_crystal") {
+    const arcane = state && state.systems && state.systems.arcane ? state.systems.arcane : {};
+    return Number(arcane.manaCrystals || 0);
   }
   return eligibleSacrificeCards(state || {}).length;
 }
