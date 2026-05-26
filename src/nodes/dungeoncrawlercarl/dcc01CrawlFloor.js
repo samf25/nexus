@@ -2,7 +2,13 @@ import { escapeHtml } from "../../templates/shared.js";
 import { renderArtifactSymbol } from "../../core/artifacts.js";
 import { renderRegionSymbol } from "../../core/symbology.js";
 import { prestigeModifiersFromState } from "../../systems/prestige.js";
-import { formatLootItemEffectSummary, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
+import {
+  estimateLootShopPrice,
+  formatLootItemEffectSummary,
+  isManualSocketLootItem,
+  lootInventoryFromState,
+  rollRegionalLoot,
+} from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "DCC01";
@@ -11,6 +17,12 @@ const BASE_FLOOR_ROOMS = 18;
 const ROOM_WIDTH = 13;
 const ROOM_HEIGHT = 9;
 const ENEMY_ACTION_INTERVAL_MS = 1000;
+const DCC_BUY_SHOP_REGIONS = Object.freeze(["crd", "worm", "dcc", "aa"]);
+const DCC_BUY_SHOP_FLOOR_CONFIG = Object.freeze({
+  3: Object.freeze({ itemCount: 3, rarityBias: 4, minRarity: "common" }),
+  4: Object.freeze({ itemCount: 4, rarityBias: 8, minRarity: "uncommon" }),
+  5: Object.freeze({ itemCount: 5, rarityBias: 13, minRarity: "rare" }),
+});
 
 function safeText(value) {
   return String(value || "").trim();
@@ -827,6 +839,7 @@ function dccModifiers(state) {
     goldGainBonus: Math.max(0, Number(source.goldGainBonus) || 0),
     rareDropBonus: Math.max(0, Number(source.rareDropBonus) || 0),
     shopPriceDivider: Math.max(1, Number(source.shopPriceDivider) || 1),
+    shopSellMultiplier: Math.max(1, Number(source.shopSellMultiplier) || 1),
     mapRevealChanceBonus: Math.max(0, Number(source.mapRevealChanceBonus) || 0),
     startWithSponsorSkill: Boolean(source.startWithSponsorSkill),
     extraAbilitySlots: Math.max(0, Number(source.extraAbilitySlots) || 0),
@@ -838,6 +851,73 @@ function dccModifiers(state) {
     startingGoldBonus: Math.max(0, Math.floor(Number(source.startingGoldBonus) || 0)),
     bonusLootRollChance: Math.max(0, Number(source.bonusLootRollChance) || 0),
   };
+}
+
+function dccBuyShopFloorConfig(floor) {
+  const key = Math.max(1, Math.floor(Number(floor) || 1));
+  return DCC_BUY_SHOP_FLOOR_CONFIG[key] || null;
+}
+
+function dccBuyShopDiscountPct(shopPriceDivider) {
+  const divider = Math.max(1, Number(shopPriceDivider) || 1);
+  return clamp(1 - (1 / divider), 0, 0.75);
+}
+
+function dccBuyShopPrice(item, shopPriceDivider) {
+  const base = estimateLootShopPrice(item, {
+    buyDiscountPct: dccBuyShopDiscountPct(shopPriceDivider),
+    shopRegion: "dcc",
+  });
+  return Math.max(1, Math.round(base * 1.45));
+}
+
+function normalizeDccBuyShopEntry(entry) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  return {
+    id: String(source.id || ""),
+    item: source.item && typeof source.item === "object" ? { ...source.item } : null,
+    price: Math.max(1, Math.floor(Number(source.price) || 1)),
+    sold: Boolean(source.sold),
+  };
+}
+
+function generateDccBuyShopStock(floor, seed, shopPriceDivider) {
+  const config = dccBuyShopFloorConfig(floor);
+  if (!config) {
+    return [];
+  }
+  const stock = [];
+  const usedKeys = new Set();
+  const rng = createRng((Number(seed) || 0) + (Math.max(1, Math.floor(Number(floor) || 1)) * 1973));
+  let attempts = 0;
+  while (stock.length < config.itemCount && attempts < 80) {
+    attempts += 1;
+    const sourceRegion = randomPick(rng, DCC_BUY_SHOP_REGIONS) || "dcc";
+    const roll = rollRegionalLoot({
+      sourceRegion,
+      triggerType: `dcc-floor-${floor}-buy-shop`,
+      rarityBias: config.rarityBias,
+      minRarity: config.minRarity,
+      includeAaRegion: true,
+      now: Number(seed) || Date.now(),
+      seed: attempts * 977,
+    });
+    if (!roll) {
+      continue;
+    }
+    const dedupeKey = `${String(roll.region || "")}:${String(roll.templateId || "")}:${String(roll.rarity || "")}`;
+    if (usedKeys.has(dedupeKey)) {
+      continue;
+    }
+    usedKeys.add(dedupeKey);
+    stock.push({
+      id: `buy-${floor}-${stock.length + 1}-${attempts}`,
+      item: { ...roll },
+      price: dccBuyShopPrice(roll, shopPriceDivider),
+      sold: false,
+    });
+  }
+  return stock;
 }
 
 function dccProgressFromState(state) {
@@ -1677,6 +1757,15 @@ function createInitialRuntime() {
 }
 
 function withLootEventsFromBagGrowth(previousRuntime, nextRuntime, actionType) {
+  const explicitEvents = nextRuntime && Array.isArray(nextRuntime.lootEvents)
+    ? nextRuntime.lootEvents.filter((entry) => entry && typeof entry === "object")
+    : [];
+  if (explicitEvents.length) {
+    return {
+      ...nextRuntime,
+      lootEvents: explicitEvents,
+    };
+  }
   const before = previousRuntime && previousRuntime.run && Array.isArray(previousRuntime.run.bag)
     ? previousRuntime.run.bag.length
     : 0;
@@ -1784,6 +1873,7 @@ function buildRoomState(run, room, entryDoorDirection = "") {
     chest: null,
     encounterMarker: null,
     shop: null,
+    buyShop: null,
     stairs: null,
   };
   if (!room) {
@@ -1826,6 +1916,11 @@ function buildRoomState(run, room, entryDoorDirection = "") {
   if (room.type === "shop") {
     state.shop = randomRoomPoint(rand, blocked);
     blocked.add(roomKey(state.shop.x, state.shop.y));
+  }
+
+  if (room.type === "start" && dccBuyShopFloorConfig(run.floor)) {
+    state.buyShop = randomRoomPoint(rand, blocked);
+    blocked.add(roomKey(state.buyShop.x, state.buyShop.y));
   }
 
   if (room.type === "stairs") {
@@ -2015,10 +2110,12 @@ function startFloor(runtime, state, floor = 1) {
     goldMultiplier: stats.goldMultiplier,
     damageReduction: modifiers.damageReduction,
     shopPriceDivider: modifiers.shopPriceDivider,
+    shopSellMultiplier: modifiers.shopSellMultiplier,
     tomeDropChanceBonus: modifiers.tomeDropChanceBonus,
     skillDamageMultiplier: modifiers.skillDamageMultiplier,
     potionHealingMultiplier: modifiers.potionHealingMultiplier,
     bonusLootRollChance: modifiers.bonusLootRollChance,
+    buyShopStock: generateDccBuyShopStock(floor, seed + 501, modifiers.shopPriceDivider),
     bag: [],
     hasFloorMap: createRng(seed + 97)() < Math.max(0, modifiers.mapRevealChanceBonus),
     abilitySlots: slots,
@@ -2155,6 +2252,12 @@ function shopStackKey(item) {
   ].join("::");
 }
 
+function dccSellValue(item, run) {
+  const base = shopValueForItem(item);
+  const multiplier = Math.max(1, Number(run && run.shopSellMultiplier) || 1);
+  return Math.max(1, Math.round(base * multiplier));
+}
+
 function startShopEvent(run) {
   const bag = Array.isArray(run && run.bag) ? run.bag : [];
   const activeTab =
@@ -2183,7 +2286,7 @@ function startShopEvent(run) {
   for (const [key, entry] of stackMap.entries()) {
     const item = entry.item;
     const indices = Array.isArray(entry.indices) ? entry.indices.slice() : [];
-    const value = shopValueForItem(item);
+    const value = dccSellValue(item, run);
     const quantity = indices.length;
     if (!quantity) {
       continue;
@@ -2245,6 +2348,34 @@ function startShopEvent(run) {
   };
 }
 
+function startBuyShopEvent(run) {
+  const stock = Array.isArray(run && run.buyShopStock)
+    ? run.buyShopStock.map(normalizeDccBuyShopEntry)
+    : [];
+  run.event = {
+    id: "buy-shop",
+    mode: "buy-shop",
+    title: "Sponsor Market Stall",
+    text: "A polished kiosk offers off-region salvage in exchange for hard crawl gold.",
+    stock,
+    options: [
+      ...stock
+        .filter((entry) => entry.item && !entry.sold)
+        .map((entry) => ({
+          id: `buy-loot-${entry.id}`,
+          effect: "buy-loot",
+          stockId: entry.id,
+          label: `Buy ${entry.item.label}`,
+        })),
+      {
+        id: "leave-buy-shop",
+        label: "Leave market",
+        effect: "leave-buy-shop",
+      },
+    ],
+  };
+}
+
 function closeEncounterModal(runtime) {
   const run = runtime.run;
   if (!run || !run.event) {
@@ -2255,6 +2386,10 @@ function closeEncounterModal(runtime) {
   if (mode === "shop") {
     addLog(run, "You step away from the pop-up bazaar.");
     return "Shop closed.";
+  }
+  if (mode === "buy-shop") {
+    addLog(run, "You step away from the sponsor market stall.");
+    return "Market closed.";
   }
   addLog(run, "You step away from the encounter.");
   return "Encounter closed.";
@@ -2305,6 +2440,8 @@ function enterRoom(run, roomId, entryDoorDirection = "") {
     }
   } else if (room.type === "shop") {
     addLog(run, "A pop-up bazaar has appeared in this room.");
+  } else if (room.type === "start" && dccBuyShopFloorConfig(run.floor)) {
+    addLog(run, "A sponsor market stall glows near the entrance.");
   }
 }
 
@@ -2896,6 +3033,44 @@ function resolveEncounter(runtime, optionId) {
     return `Sold ${bulkSize > 1 ? `${bulkSize}x ` : ""}${item.label}.`;
   }
 
+  if (event.mode === "buy-shop") {
+    if (optionId === "leave-buy-shop") {
+      run.event = null;
+      addLog(run, "You leave the sponsor market stall.");
+      return "Market closed.";
+    }
+    const buyOption = (event.options || []).find((entry) => entry.id === optionId && entry.effect === "buy-loot");
+    if (!buyOption) {
+      return "Market option unavailable.";
+    }
+    const stock = Array.isArray(run.buyShopStock) ? run.buyShopStock : [];
+    const entryIndex = stock.findIndex((entry) => String(entry && entry.id) === String(buyOption.stockId || ""));
+    if (entryIndex < 0) {
+      startBuyShopEvent(run);
+      return "That item is no longer available.";
+    }
+    const stockEntry = normalizeDccBuyShopEntry(stock[entryIndex]);
+    if (!stockEntry.item || stockEntry.sold) {
+      startBuyShopEvent(run);
+      return "That item is no longer available.";
+    }
+    if (runtime.meta.gold < stockEntry.price) {
+      return `Need ${stockEntry.price} gold.`;
+    }
+    runtime.meta.gold -= stockEntry.price;
+    stock[entryIndex] = {
+      ...stockEntry,
+      sold: true,
+    };
+    runtime.lootEvents = [
+      ...(Array.isArray(runtime.lootEvents) ? runtime.lootEvents : []),
+      { customDrop: { ...stockEntry.item } },
+    ];
+    addLog(run, `Bought ${stockEntry.item.label} for ${stockEntry.price} gold.`);
+    startBuyShopEvent(run);
+    return `${stockEntry.item.label} purchased.`;
+  }
+
   const option = (event.options || []).find((entry) => entry.id === optionId);
   if (!option) {
     return "Encounter option unavailable.";
@@ -3267,11 +3442,12 @@ function descendFloor(runtime, state) {
   }
   runtime.solved = true;
   runtime.meta.bestFloor = Math.max(runtime.meta.bestFloor, nextFloor);
+  const nextSeed = Date.now() + nextFloor * 7919;
   const nextRun = {
     ...run,
     floor: nextFloor,
-    seed: Date.now() + nextFloor * 7919,
-    map: generateFloorMap(Date.now() + nextFloor * 7919, nextFloor),
+    seed: nextSeed,
+    map: generateFloorMap(nextSeed, nextFloor),
     currentRoomId: "",
     combat: null,
     event: null,
@@ -3279,6 +3455,7 @@ function descendFloor(runtime, state) {
     nextEnemyActAt: 0,
     bossDefeated: false,
     hasFloorMap: false,
+    buyShopStock: generateDccBuyShopStock(nextFloor, nextSeed + 501, run.shopPriceDivider),
     log: [`Floor ${nextFloor} opens. Keep moving.`],
   };
   nextRun.currentRoomId = nextRun.map.startRoomId;
@@ -3321,6 +3498,13 @@ function resolveTileInteraction(runtime, contextState) {
     if (!run.event) {
       startShopEvent(run);
       return "Shop opened.";
+    }
+  }
+
+  if (roomState.buyShop && player.x === roomState.buyShop.x && player.y === roomState.buyShop.y) {
+    if (!run.event) {
+      startBuyShopEvent(run);
+      return "Market opened.";
     }
   }
 
@@ -3816,6 +4000,10 @@ function roomViewMarkup(run) {
         glyph = "$";
         kind = "shop";
       }
+      if (roomState.buyShop && x === roomState.buyShop.x && y === roomState.buyShop.y) {
+        glyph = "S";
+        kind = "buy-shop";
+      }
       if (roomState.chest && x === roomState.chest.x && y === roomState.chest.y) {
         glyph = "C";
         kind = "chest";
@@ -3890,6 +4078,68 @@ function combatMarkup(run) {
 function encounterMarkup(run) {
   if (!run.event) {
     return "";
+  }
+  if (run.event.mode === "buy-shop") {
+    const stock = Array.isArray(run.buyShopStock)
+      ? run.buyShopStock.map(normalizeDccBuyShopEntry).filter((entry) => entry.item)
+      : [];
+    const available = stock.filter((entry) => !entry.sold);
+    return `
+      <div class="dcc-modal-backdrop" role="dialog" aria-label="${escapeHtml(run.event.title)}">
+        <section class="card dcc-modal dcc-encounter-modal dcc-shop-modal dcc-buy-shop-modal">
+          <header class="dcc-modal-header">
+            <div>
+              <h3>${escapeHtml(run.event.title)}</h3>
+              <p class="muted">${escapeHtml(run.event.text)}</p>
+            </div>
+            <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="dcc-exit-encounter">Leave</button>
+          </header>
+          <div class="dcc-shop-panel">
+            <div class="dcc-shop-summary">
+              <span>Available Stock</span>
+              <strong>${escapeHtml(String(available.length))}</strong>
+            </div>
+            <div class="dcc-shop-list">
+              ${
+                available.length
+                  ? available.map((entry) => {
+                    const item = entry.item;
+                    const effectSummary = formatLootItemEffectSummary(item) || "Unknown effect";
+                    const metaLine = [
+                      String(item.region || "").toUpperCase(),
+                      String(item.kind || "").replaceAll("_", " "),
+                      String(item.rarity || "").toUpperCase(),
+                    ].filter(Boolean).join(" · ");
+                    return `
+                      <article class="dcc-shop-row dcc-buy-shop-row">
+                        <div class="dcc-shop-item-copy">
+                          <h4>${escapeHtml(item.label)}</h4>
+                          <p>${escapeHtml(metaLine)}</p>
+                          <p class="dcc-buy-shop-effect">${escapeHtml(effectSummary)}</p>
+                        </div>
+                        <div class="dcc-shop-item-value">
+                          <span>${escapeHtml(String(entry.price))} gold</span>
+                          <div class="toolbar dcc-shop-actions">
+                            <button
+                              type="button"
+                              data-node-id="${NODE_ID}"
+                              data-node-action="dcc-encounter-option"
+                              data-option-id="${escapeHtml(`buy-loot-${entry.id}`)}"
+                            >
+                              Buy
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    `;
+                  }).join("")
+                  : `<p class="muted">The stall is picked clean for this floor.</p>`
+              }
+            </div>
+          </div>
+        </section>
+      </div>
+    `;
   }
   if (run.event.mode === "shop") {
     const sellOptions = (run.event.options || []).filter((option) => option && option.effect === "sell");

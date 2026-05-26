@@ -472,6 +472,11 @@ function skillTargetWeight(actionType, target) {
   return 1;
 }
 
+function rangeDefenseBonus(target, attacker) {
+  const hasStealth = Number(attacker && attacker.stealthStacks || 0) > 0;
+  return hasStealth ? 0 : effectiveStat(target, "range");
+}
+
 function pickInfoDebuffStat(state, target, seed) {
   const statPick = pickWeighted(
     INFO_DEBUFF_KEYS,
@@ -724,7 +729,7 @@ function resolveAttack(state, actor, order) {
 
   const attackScore = attackRoll.value + effectiveStat(actor, "attack");
   const defenseScore =
-    defenseRoll.value + Math.max(0, effectiveStat(target, "defense") + effectiveStat(target, "range") - 6);
+    defenseRoll.value + Math.max(0, effectiveStat(target, "defense") + rangeDefenseBonus(target, actor) - 6);
 
   if (attackScore <= defenseScore) {
     logLine(
@@ -886,7 +891,7 @@ function resolveManipulation(state, actor, order) {
   const score = attackRoll.value + effectiveStat(actor, "manipulation");
   const resist =
     defenseRoll.value +
-    Math.max(0, effectiveStat(target, "manipulation") + effectiveStat(target, "range") - 3);
+    Math.max(0, effectiveStat(target, "manipulation") + rangeDefenseBonus(target, actor) - 3);
 
   if (score <= resist) {
     logLine(

@@ -7094,6 +7094,13 @@ a:hover {
   border-color: #c09a4d;
 }
 
+.dcc-room-cell.is-buy-shop {
+  background: radial-gradient(circle at 35% 35%, #2f5d46, #163226 72%);
+  color: #eaffcf;
+  border-color: #8fdb91;
+  box-shadow: inset 0 0 0 1px rgba(220, 255, 190, 0.18);
+}
+
 .dcc-room-cell.is-stairs {
   background: #243f55;
   color: #c9eeff;
@@ -7332,6 +7339,23 @@ a:hover {
   background:
     radial-gradient(circle at top right, rgba(206, 159, 82, 0.08), transparent 34%),
     linear-gradient(180deg, rgba(28, 21, 13, 0.98), rgba(13, 17, 27, 0.98));
+}
+
+.dcc-buy-shop-modal .dcc-modal-header {
+  border-bottom: 1px solid rgba(142, 196, 159, 0.22);
+}
+
+.dcc-buy-shop-row {
+  grid-template-columns: minmax(0, 1.8fr) minmax(170px, 0.8fr);
+  background:
+    linear-gradient(135deg, rgba(31, 53, 41, 0.92), rgba(18, 28, 23, 0.96)),
+    radial-gradient(circle at top right, rgba(156, 226, 171, 0.18), transparent 52%);
+  border-color: rgba(143, 201, 150, 0.22);
+}
+
+.dcc-buy-shop-effect {
+  color: #dce9d9;
+  text-transform: none;
 }
 
 .dcc-shop-item-copy {

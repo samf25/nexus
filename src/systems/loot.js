@@ -1137,13 +1137,14 @@ export function rollRegionalLoot({
   outRegionChance = 0,
   dropChance = 1,
   forceOutRegion = false,
+  includeAaRegion = false,
   now = Date.now(),
   seed = 0,
 } = {}) {
   const normalizedSource = normalizeRegion(sourceRegion);
   const triggerKey = safeText(triggerType).toLowerCase();
-  const includeAaRegion = normalizedSource === "aa" || triggerKey.startsWith("aa03");
-  const regionUniverse = includeAaRegion ? LOOT_REGIONS : LOOT_REGIONS.filter((regionId) => regionId !== "aa");
+  const aaEnabled = Boolean(includeAaRegion) || normalizedSource === "aa" || triggerKey.startsWith("aa03");
+  const regionUniverse = aaEnabled ? LOOT_REGIONS : LOOT_REGIONS.filter((regionId) => regionId !== "aa");
   const numericBias = safeFinite(rarityBias, 0);
   const rng = createRng((hashText(`${normalizedSource}:${triggerType}:${now}`) + (Number(seed) || 0)) >>> 0);
 
