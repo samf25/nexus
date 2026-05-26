@@ -11,7 +11,7 @@ import {
   pulsePhaseDelaySeconds,
 } from "./rhythmCore.js";
 import { prestigeModifiersFromState } from "../../systems/prestige.js";
-import { formatDurationRemaining, formatLootItemEffectSummary, getCradleActiveBoosts, getCradleLootModifiers, getCradleSlotSummaryEntries, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
+import { formatDurationRemaining, getCradleActiveBoosts, getCradleLootModifiers, getCradleSlotSummaryEntries, isManualSocketLootItem, lootInventoryFromState } from "../../systems/loot.js";
 import { renderSlotRing } from "../../ui/slotRing.js";
 
 const NODE_ID = "CRD02";
@@ -2118,20 +2118,63 @@ function soulCircuitMarkup({
   `;
 }
 
-function combatLoadoutMarkup({ lootState, selectedLootItemId, equippedCombatId, combatRelics }) {
+function combatSummaryEntries(combatSlotIds, lootState) {
+  const slots = Array.isArray(combatSlotIds) ? combatSlotIds : [];
+  const items = lootState && lootState.items && typeof lootState.items === "object" ? lootState.items : {};
+  let madraGainMultiplier = 1;
+  let cyclingCostDivider = 1;
+  let combatAttackMultiplier = 1;
+
+  slots
+    .filter(Boolean)
+    .map((itemId) => items[itemId])
+    .filter(Boolean)
+    .forEach((item) => {
+      const effects = Array.isArray(item.effects) ? item.effects : [];
+      effects.forEach((effect) => {
+        if (effect.key === "madra_gain_mult") {
+          madraGainMultiplier *= Math.max(1, Number(effect.value) || 1);
+        }
+        if (effect.key === "cycling_cost_divider") {
+          cyclingCostDivider *= Math.max(1, Number(effect.value) || 1);
+        }
+        if (effect.key === "crd_attack_mult") {
+          combatAttackMultiplier *= Math.max(1, Number(effect.value) || 1);
+        }
+      });
+    });
+
+  const entries = [];
+  if (Math.abs(madraGainMultiplier - 1) > 0.001) {
+    entries.push({ label: "Madra gain", value: `x${madraGainMultiplier.toFixed(2)}` });
+  }
+  if (Math.abs(cyclingCostDivider - 1) > 0.001) {
+    entries.push({ label: "Cycling cost", value: `/${cyclingCostDivider.toFixed(2)}` });
+  }
+  if (Math.abs(combatAttackMultiplier - 1) > 0.001) {
+    entries.push({ label: "Cradle attack", value: `x${combatAttackMultiplier.toFixed(2)}` });
+  }
+  return entries;
+}
+
+function combatLoadoutMarkup({ unlockedCombatSlots, combatSlotIds, lootState, selectedLootItemId }) {
   const selectedLoot = selectedLootItemId ? lootState.items[selectedLootItemId] : null;
-  const equippedItem = equippedCombatId ? lootState.items[equippedCombatId] : null;
   const clickToEquip = Boolean(selectedLoot && isManualSocketLootItem(selectedLoot, "crd") && selectedLoot.kind === "combat_item");
-  const clickToUnequip = Boolean(equippedItem) && !clickToEquip;
-  const slots = [
-    {
-      filled: Boolean(equippedItem),
+  const visibleCount = Math.max(1, Math.min(4, Number(unlockedCombatSlots) || 1));
+  const slotIds = Array.isArray(combatSlotIds) ? combatSlotIds : [];
+  const summaryEntries = combatSummaryEntries(slotIds.slice(0, visibleCount), lootState);
+  const slots = Array.from({ length: visibleCount }, (_, index) => {
+    const itemId = slotIds[index] || null;
+    const item = itemId ? lootState.items[itemId] : null;
+    const clickToUnequip = Boolean(item) && !clickToEquip;
+    return {
+      filled: Boolean(item),
       clickable: clickToEquip || clickToUnequip,
-      title: equippedItem ? `${equippedItem.label} (${equippedItem.rarity || "common"})` : "Empty combat gear slot",
-      ariaLabel: "Combat gear slot",
-      symbolHtml: equippedItem
+      title: item ? `${item.label} (${item.rarity || "common"})` : "Empty combat gear slot",
+      ariaLabel: `Combat gear slot ${index + 1}`,
+      symbolHtml: item
         ? renderArtifactSymbol({
-            artifactName: equippedItem.label,
+            artifactName: item.label,
             className: "slot-ring-symbol artifact-symbol",
           })
         : "",
@@ -2139,44 +2182,41 @@ function combatLoadoutMarkup({ lootState, selectedLootItemId, equippedCombatId, 
         ? {
             "data-action": "loot-equip-target",
             "data-region": "crd",
-            "data-slot-id": "-1",
+            "data-target-id": "combat",
+            "data-slot-id": String(index),
           }
         : clickToUnequip
           ? {
               "data-action": "loot-unequip-target",
               "data-region": "crd",
               "data-target-id": "combat",
+              "data-slot-id": String(index),
             }
           : {},
-    },
-  ];
+    };
+  });
 
   return `
     <section class="crd02-panel">
-      <h4>Combat Gear</h4>
+      <h4>Combat Gear (${visibleCount}/4)</h4>
       ${renderSlotRing({
         slots,
         className: "crd02-combat-slot-ring",
         radiusPct: 41,
-        ariaLabel: "Cradle combat gear slot",
+        ariaLabel: "Cradle combat gear ring",
       })}
       <div class="slot-bonus-summary">
-        <span class="slot-bonus-kicker">Equipped Buff</span>
+        <span class="slot-bonus-kicker">Slotted Buffs</span>
         <div class="slot-bonus-grid">
           ${
-            equippedItem
-              ? formatLootItemEffectSummary(equippedItem, { maxEffects: 6 }).split(" | ").map((entry) => {
-                const parts = String(entry).split(": ");
-                const label = parts[0] || "Effect";
-                const value = parts.slice(1).join(": ") || "";
-                return `
-                  <article class="slot-bonus-chip">
-                    <span>${escapeHtml(label)}</span>
-                    <strong>${escapeHtml(value)}</strong>
-                  </article>
-                `;
-              }).join("")
-              : '<p class="slot-bonus-empty">No combat relic equipped.</p>'
+            summaryEntries.length
+              ? summaryEntries.map((entry) => `
+                <article class="slot-bonus-chip">
+                  <span>${escapeHtml(entry.label)}</span>
+                  <strong>${escapeHtml(entry.value)}</strong>
+                </article>
+              `).join("")
+              : '<p class="slot-bonus-empty">No combat relics equipped.</p>'
           }
         </div>
       </div>
@@ -2261,15 +2301,17 @@ export function renderCrd02Experience(context) {
   const manualReward = manualMadraGain(runtime, runtime.manual.open ? runtime.manual.patternIndex : null);
   const lootState = lootInventoryFromState(context.state || {}, nowMs());
   const unlockedSoulSlots = Math.max(3, Number(lootState.progression && lootState.progression.crdSoulCrystalSlots) || 3);
+  const unlockedCombatSlots = Math.max(1, Math.min(4, Number(lootState.progression && lootState.progression.crdCombatGearSlots) || 1));
   const soulSlotIds =
     lootState.loadouts && lootState.loadouts.cradle && Array.isArray(lootState.loadouts.cradle.soulCrystalSlots)
       ? lootState.loadouts.cradle.soulCrystalSlots
       : [];
+  const combatSlotIds =
+    lootState.loadouts && lootState.loadouts.cradle && Array.isArray(lootState.loadouts.cradle.combatItemSlots)
+      ? lootState.loadouts.cradle.combatItemSlots
+      : [];
   const crdLootItems = Object.values(lootState.items || {}).filter((item) => item.region === "crd");
   const soulCrystals = crdLootItems.filter((item) => item.kind === "soul_crystal");
-  const combatRelics = crdLootItems.filter((item) => item.kind === "combat_item" || item.templateId === "crd_combat_relic");
-  const equippedCombatId =
-    lootState.loadouts && lootState.loadouts.cradle ? lootState.loadouts.cradle.combatItemId : null;
   const selectedLootItemId = String(context.selectedLootItemId || "");
   const selectedArtifact = String(context.selectedArtifactReward || "");
   const hasIronPotionSelected = rewardMatches(selectedArtifact, IRON_BREAKTHROUGH_ARTIFACT);
@@ -2383,10 +2425,10 @@ export function renderCrd02Experience(context) {
     soulCrystals,
   });
   const combatPanel = combatLoadoutMarkup({
+    unlockedCombatSlots,
+    combatSlotIds,
     lootState,
     selectedLootItemId,
-    equippedCombatId,
-    combatRelics,
   });
   const currentSoulfire = Math.max(0, Number(runtime.soulfire && runtime.soulfire.amount) || 0);
   const soulfirePerSecond = passiveSoulfirePerSecond(runtime);

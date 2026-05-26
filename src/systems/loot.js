@@ -16,6 +16,7 @@ const RARITY_CONFIG = Object.freeze({
 
 const SLOT_CAPS = Object.freeze({
   crdSoulCrystalSlots: 6,
+  crdCombatGearSlots: 4,
   wormShardSlotsPerCape: 3,
   wormSickbaySlots: 4,
   wormHiringRarityBonus: 3,
@@ -65,6 +66,16 @@ const LOOT_TABLES = Object.freeze({
       weight: 0.55,
       effects: Object.freeze([
         Object.freeze({ key: "crd_soul_slot_plus", type: "flat", base: 1, perTier: 0 }),
+      ]),
+    }),
+    Object.freeze({
+      templateId: "crd_combat_slot_token",
+      label: "Combat Relic Harness",
+      kind: "slot_expansion",
+      stackable: true,
+      weight: 0.52,
+      effects: Object.freeze([
+        Object.freeze({ key: "crd_combat_slot_plus", type: "flat", base: 1, perTier: 0 }),
       ]),
     }),
     Object.freeze({
@@ -317,6 +328,7 @@ function effectSummaryLabelAndValue(effect) {
     cycling_cost_divider: { label: "Cycling cost", value: `/${Number(value).toFixed(2)}` },
     crd_attack_mult: { label: "Cradle attack", value: `x${Number(value).toFixed(2)}` },
     crd_soul_slot_plus: { label: "Soul slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
+    crd_combat_slot_plus: { label: "Combat slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     worm_shard_slot_plus: { label: "Shard slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     worm_sickbay_slot_plus: { label: "Sickbay slots", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
     worm_hiring_rarity_plus: { label: "Hiring quality", value: `${Math.round(value) >= 0 ? "+" : ""}${Math.round(value)}` },
@@ -884,10 +896,18 @@ function normalizeActiveEffect(candidate) {
 function normalizeCradleLoadout(candidate) {
   const source = candidate && typeof candidate === "object" ? candidate : {};
   const incomingSlots = Array.isArray(source.soulCrystalSlots) ? source.soulCrystalSlots : [];
+  const incomingCombatSlots = Array.isArray(source.combatItemSlots) ? source.combatItemSlots : [];
+  const legacyCombatItemId = safeText(source.combatItemId) || null;
   const slots = Array.from({ length: SLOT_CAPS.crdSoulCrystalSlots }, (_, index) => safeText(incomingSlots[index]) || null);
+  const combatItemSlots = Array.from({ length: SLOT_CAPS.crdCombatGearSlots }, (_, index) => {
+    if (index === 0 && legacyCombatItemId && !safeText(incomingCombatSlots[0])) {
+      return legacyCombatItemId;
+    }
+    return safeText(incomingCombatSlots[index]) || null;
+  });
   return {
     soulCrystalSlots: slots,
-    combatItemId: safeText(source.combatItemId) || null,
+    combatItemSlots,
   };
 }
 
@@ -956,7 +976,7 @@ export function defaultLootInventoryState() {
     loadouts: {
       cradle: {
         soulCrystalSlots: Array.from({ length: SLOT_CAPS.crdSoulCrystalSlots }, () => null),
-        combatItemId: null,
+        combatItemSlots: Array.from({ length: SLOT_CAPS.crdCombatGearSlots }, () => null),
       },
       worm: {
         shardSlotsByCape: {},
@@ -970,6 +990,7 @@ export function defaultLootInventoryState() {
     },
     progression: {
       crdSoulCrystalSlots: 3,
+      crdCombatGearSlots: 1,
       wormShardSlotsPerCape: 1,
       wormShardSlotCountsByCape: {},
       wormSickbaySlots: 1,
@@ -1002,6 +1023,7 @@ function normalizeProgression(candidate) {
   }
   return {
     crdSoulCrystalSlots: clamp(Math.floor(safeFinite(source.crdSoulCrystalSlots, 3)), 3, SLOT_CAPS.crdSoulCrystalSlots),
+    crdCombatGearSlots: clamp(Math.floor(safeFinite(source.crdCombatGearSlots, 1)), 1, SLOT_CAPS.crdCombatGearSlots),
     wormShardSlotsPerCape: clamp(Math.floor(safeFinite(source.wormShardSlotsPerCape, 1)), 1, SLOT_CAPS.wormShardSlotsPerCape),
     wormShardSlotCountsByCape,
     wormSickbaySlots: clamp(Math.floor(safeFinite(source.wormSickbaySlots, 1)), 1, SLOT_CAPS.wormSickbaySlots),
@@ -1466,6 +1488,23 @@ export function consumeLootItem(state, itemInstanceId, now = Date.now()) {
         message = "Cradle soul crystal slot capacity increased.";
         handled = true;
       }
+      if (effect.key === "crd_combat_slot_plus") {
+        const nextCap = clamp(
+          nextLoot.progression.crdCombatGearSlots + Math.max(1, Math.floor(effect.value || 0)),
+          1,
+          SLOT_CAPS.crdCombatGearSlots,
+        );
+        if (nextCap === nextLoot.progression.crdCombatGearSlots) {
+          return {
+            nextState: sourceState,
+            changed: false,
+            message: "Combat gear slot capacity is already at maximum.",
+          };
+        }
+        nextLoot.progression.crdCombatGearSlots = nextCap;
+        message = "Cradle combat gear slot capacity increased.";
+        handled = true;
+      }
       if (effect.key === "worm_sickbay_slot_plus") {
         nextLoot.progression.wormSickbaySlots = clamp(
           nextLoot.progression.wormSickbaySlots + Math.max(1, Math.floor(effect.value || 0)),
@@ -1555,7 +1594,7 @@ function clearItemFromAllSlots(loadouts, itemId) {
     cradle: {
       ...loadouts.cradle,
       soulCrystalSlots: (loadouts.cradle.soulCrystalSlots || []).map((slotItemId) => (slotItemId === itemId ? null : slotItemId)),
-      combatItemId: loadouts.cradle.combatItemId === itemId ? null : loadouts.cradle.combatItemId,
+      combatItemSlots: (loadouts.cradle.combatItemSlots || []).map((slotItemId) => (slotItemId === itemId ? null : slotItemId)),
     },
     worm: {
       ...loadouts.worm,
@@ -1606,14 +1645,23 @@ export function equipLootItem(state, { region, targetId = "", slotId, itemInstan
     }
 
     if (item.kind === "combat_item") {
-      nextLoadouts.cradle.combatItemId = itemId;
+      const slotIndex = clamp(Math.floor(safeFinite(slotId, 0)), 0, SLOT_CAPS.crdCombatGearSlots - 1);
+      const unlocked = Math.max(1, lootState.progression.crdCombatGearSlots);
+      if (slotIndex >= unlocked) {
+        return {
+          nextState: sourceState,
+          changed: false,
+          message: "That combat gear slot is locked.",
+        };
+      }
+      nextLoadouts.cradle.combatItemSlots[slotIndex] = itemId;
       return {
         nextState: withLootState(sourceState, {
           ...lootState,
           loadouts: nextLoadouts,
         }),
         changed: true,
-        message: "Cradle combat item equipped.",
+        message: `Cradle combat relic equipped to slot ${slotIndex + 1}.`,
       };
     }
 
@@ -1788,7 +1836,7 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
     cradle: {
       ...lootState.loadouts.cradle,
       soulCrystalSlots: (lootState.loadouts.cradle.soulCrystalSlots || []).slice(),
-      combatItemId: lootState.loadouts.cradle.combatItemId,
+      combatItemSlots: (lootState.loadouts.cradle.combatItemSlots || []).slice(),
     },
     worm: {
       ...lootState.loadouts.worm,
@@ -1807,21 +1855,25 @@ export function unequipLootItem(state, { region, targetId = "", slotId } = {}) {
 
   if (regionKey === "crd") {
     if (safeText(targetId).toLowerCase() === "combat") {
-      if (!nextLoadouts.cradle.combatItemId) {
+      const explicitSlot = Number.isFinite(Number(slotId)) ? clamp(Math.floor(safeFinite(slotId, 0)), 0, SLOT_CAPS.crdCombatGearSlots - 1) : null;
+      const slotIndex = explicitSlot != null
+        ? explicitSlot
+        : nextLoadouts.cradle.combatItemSlots.findIndex(Boolean);
+      if (slotIndex < 0 || !nextLoadouts.cradle.combatItemSlots[slotIndex]) {
         return {
           nextState: sourceState,
           changed: false,
           message: "Combat gear slot already empty.",
         };
       }
-      nextLoadouts.cradle.combatItemId = null;
+      nextLoadouts.cradle.combatItemSlots[slotIndex] = null;
       return {
         nextState: withLootState(sourceState, {
           ...lootState,
           loadouts: nextLoadouts,
         }),
         changed: true,
-        message: "Cleared combat gear slot.",
+        message: `Cleared combat gear slot ${slotIndex + 1}.`,
       };
     }
     const slotIndex = clamp(Math.floor(safeFinite(slotId, 0)), 0, SLOT_CAPS.crdSoulCrystalSlots - 1);
@@ -2085,8 +2137,10 @@ export function getCradleLootModifiers(state, now = Date.now()) {
   const loot = lootInventoryFromState(state, now);
   const crystalSlots = loot.loadouts.cradle.soulCrystalSlots || [];
   const equipped = crystalSlots.filter(Boolean);
-  const combatItemId = loot.loadouts.cradle.combatItemId ? [loot.loadouts.cradle.combatItemId] : [];
-  const staticEffects = collectItemEffects(loot, [...equipped, ...combatItemId]);
+  const combatItemSlots = Array.isArray(loot.loadouts.cradle.combatItemSlots)
+    ? loot.loadouts.cradle.combatItemSlots.filter(Boolean)
+    : [];
+  const staticEffects = collectItemEffects(loot, [...equipped, ...combatItemSlots]);
   const activeEffects = aggregateEffects(loot.activeEffects, now).filter((effect) => effect.region === "crd");
 
   const combined = [...staticEffects, ...activeEffects];
@@ -2316,7 +2370,10 @@ export function getArcaneLootModifiers(state, now = Date.now()) {
 export function getCradleSlotSummaryEntries(state, now = Date.now()) {
   const loot = lootInventoryFromState(state, now);
   const crystalSlots = loot.loadouts.cradle.soulCrystalSlots || [];
-  const equipped = crystalSlots.filter(Boolean);
+  const combatItemSlots = Array.isArray(loot.loadouts.cradle.combatItemSlots)
+    ? loot.loadouts.cradle.combatItemSlots
+    : [];
+  const equipped = [...crystalSlots.filter(Boolean), ...combatItemSlots.filter(Boolean)];
   const staticEffects = collectItemEffects(loot, equipped);
   let madraGainMultiplier = 1;
   let cyclingCostDivider = 1;
@@ -2521,7 +2578,10 @@ export function isLootItemEquipped(state, itemId) {
   if (cradleSlots.includes(targetId)) {
     return true;
   }
-  if (safeText(loot.loadouts.cradle && loot.loadouts.cradle.combatItemId) === targetId) {
+  const cradleCombatSlots = Array.isArray(loot.loadouts.cradle && loot.loadouts.cradle.combatItemSlots)
+    ? loot.loadouts.cradle.combatItemSlots
+    : [];
+  if (cradleCombatSlots.includes(targetId)) {
     return true;
   }
 
