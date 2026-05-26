@@ -1739,6 +1739,7 @@ function dispatchActiveNodeAction(action) {
       if (applied) {
         const baseRepReward = Math.max(1, Number(runtimeAction.repReward) || 0);
         const finalRepReward = baseRepReward;
+        working = awardTwiReputation(working, finalRepReward);
         const twiRuntime = getNodeRuntime(working, "TWI03", () => ({}));
         const currentRewardIndex = Math.max(0, Math.floor(Number(twiRuntime && twiRuntime.specialRewardIndex ? twiRuntime.specialRewardIndex : 0)));
         let specialReward = "";
