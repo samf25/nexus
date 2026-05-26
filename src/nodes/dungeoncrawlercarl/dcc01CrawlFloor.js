@@ -19,9 +19,9 @@ const ROOM_HEIGHT = 9;
 const ENEMY_ACTION_INTERVAL_MS = 1000;
 const DCC_BUY_SHOP_REGIONS = Object.freeze(["crd", "worm", "dcc", "aa"]);
 const DCC_BUY_SHOP_FLOOR_CONFIG = Object.freeze({
-  3: Object.freeze({ itemCount: 3, rarityBias: 4, minRarity: "common" }),
-  4: Object.freeze({ itemCount: 4, rarityBias: 8, minRarity: "uncommon" }),
-  5: Object.freeze({ itemCount: 5, rarityBias: 13, minRarity: "rare" }),
+  3: Object.freeze({ itemCount: 3, rarityBias: 2, minRarity: "common" }),
+  4: Object.freeze({ itemCount: 4, rarityBias: 4, minRarity: "uncommon" }),
+  5: Object.freeze({ itemCount: 5, rarityBias: 8, minRarity: "rare" }),
 });
 
 function safeText(value) {
