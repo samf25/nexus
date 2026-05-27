@@ -682,20 +682,6 @@ export function reduceCrd07Runtime(runtime, action, context = {}) {
     };
   }
 
-  if (action.type === "crd07-dev-underlord") {
-    return {
-      ...current,
-      solved: true,
-      pendingUnderlordAdvance: true,
-      claimPopup: {
-        open: true,
-        title: "Developer Shortcut",
-        lines: ["Queued Underlord advancement for testing."],
-      },
-      lastMessage: "Developer shortcut queued: Underlord advancement.",
-    };
-  }
-
   return current;
 }
 
@@ -765,12 +751,6 @@ export function buildCrd07ActionFromElement(element) {
   if (actionName === "crd07-close-claim-popup") {
     return {
       type: "crd07-close-claim-popup",
-      at: Date.now(),
-    };
-  }
-  if (actionName === "crd07-dev-underlord") {
-    return {
-      type: "crd07-dev-underlord",
       at: Date.now(),
     };
   }
@@ -859,7 +839,6 @@ function homeTabMarkup(runtime, context) {
           >
             Set Revelation and Advance
           </button>
-          <button type="button" class="ghost" data-node-id="${NODE_ID}" data-node-action="crd07-dev-underlord">Dev: Underlord</button>
         </div>
       </section>
     `;
