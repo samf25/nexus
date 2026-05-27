@@ -257,9 +257,7 @@ const ABILITY_BOOKS = Object.freeze([
     minFloor: 5,
     weight: 0.3,
     mode: "learn",
-    boosts: Object.freeze([
-      Object.freeze({ stat: "block", amount: 3, rarity: "legendary" }),
-    ]),
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_crowdbreaker",
@@ -269,9 +267,7 @@ const ABILITY_BOOKS = Object.freeze([
     minFloor: 5,
     weight: 0.26,
     mode: "learn",
-    boosts: Object.freeze([
-      Object.freeze({ stat: "damage", amount: 4, rarity: "legendary" }),
-    ]),
+    boosts: Object.freeze([]),
   }),
   Object.freeze({
     itemId: "book_pocket_sand_ii",
@@ -280,7 +276,7 @@ const ABILITY_BOOKS = Object.freeze([
     rarity: "rare",
     minFloor: 3,
     weight: 2.6,
-    mode: "learn",
+    mode: "enhance",
     boosts: Object.freeze([
       Object.freeze({ stat: "damage", amount: 3, rarity: "rare" }),
       Object.freeze({ stat: "stamina", amount: -1, rarity: "rare" }),
@@ -293,7 +289,7 @@ const ABILITY_BOOKS = Object.freeze([
     rarity: "rare",
     minFloor: 4,
     weight: 2.15,
-    mode: "learn",
+    mode: "enhance",
     boosts: Object.freeze([
       Object.freeze({ stat: "damage", amount: 2, rarity: "rare" }),
       Object.freeze({ stat: "block", amount: 2, rarity: "rare" }),
@@ -306,7 +302,7 @@ const ABILITY_BOOKS = Object.freeze([
     rarity: "epic",
     minFloor: 4,
     weight: 1.55,
-    mode: "learn",
+    mode: "enhance",
     boosts: Object.freeze([
       Object.freeze({ stat: "damage", amount: 4, rarity: "epic" }),
       Object.freeze({ stat: "stamina", amount: -1, rarity: "rare" }),
@@ -319,7 +315,7 @@ const ABILITY_BOOKS = Object.freeze([
     rarity: "rare",
     minFloor: 3,
     weight: 2.35,
-    mode: "learn",
+    mode: "enhance",
     boosts: Object.freeze([
       Object.freeze({ stat: "block", amount: 3, rarity: "rare" }),
     ]),
@@ -331,7 +327,7 @@ const ABILITY_BOOKS = Object.freeze([
     rarity: "legendary",
     minFloor: 5,
     weight: 0.5,
-    mode: "learn",
+    mode: "enhance",
     boosts: Object.freeze([
       Object.freeze({ stat: "damage", amount: 4, rarity: "legendary" }),
       Object.freeze({ stat: "stamina", amount: -1, rarity: "epic" }),
@@ -471,6 +467,30 @@ const ABILITY_BOOKS = Object.freeze([
     boosts: Object.freeze([
       Object.freeze({ stat: "damage", amount: 5, rarity: "legendary" }),
       Object.freeze({ stat: "range", amount: 1, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_killbox_geometry_field",
+    label: "Killbox Geometry Shield Plate",
+    abilityId: "killbox_geometry",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.16,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "block", amount: 3, rarity: "legendary" }),
+    ]),
+  }),
+  Object.freeze({
+    itemId: "enhance_crowdbreaker_choreo",
+    label: "Crowdbreaker Impact Notes",
+    abilityId: "crowdbreaker",
+    rarity: "legendary",
+    minFloor: 5,
+    weight: 0.15,
+    mode: "enhance",
+    boosts: Object.freeze([
+      Object.freeze({ stat: "damage", amount: 4, rarity: "legendary" }),
     ]),
   }),
   Object.freeze({
@@ -2877,7 +2897,7 @@ function learnBook(run, itemIndex, slotIndex) {
 
   if (mode === "enhance") {
     if (!slots.includes(abilityId) && abilityId !== "basic") {
-      return "Learn that technique before enhancing it.";
+      return "Equip that technique before enhancing it.";
     }
     applyAbilityBoosts(run, abilityId, boosts);
     bag.splice(index, 1);
@@ -2896,7 +2916,6 @@ function learnBook(run, itemIndex, slotIndex) {
   }
 
   slots[resolvedSlot] = abilityId;
-  applyAbilityBoosts(run, abilityId, boosts);
   bag.splice(index, 1);
   return `${ABILITIES[abilityId].label} learned in slot ${resolvedSlot + 1}.`;
 }
