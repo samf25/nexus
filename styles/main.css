@@ -6675,6 +6675,53 @@ a:hover {
   color: #d4e7ff;
 }
 
+.pge-head-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pge-head-chip,
+.pge-completed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(137, 176, 232, 0.42);
+  background: rgba(11, 22, 43, 0.82);
+  color: #dce9fb;
+  font-size: 0.82rem;
+}
+
+.pge-head-chip strong {
+  color: #f0f6ff;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pge-head-chip.is-progress {
+  border-color: rgba(135, 210, 181, 0.42);
+  background: rgba(13, 35, 33, 0.82);
+  color: #ddf8ea;
+}
+
+.pge-completed-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pge-completed-chip {
+  border-color: rgba(198, 175, 108, 0.42);
+  background: rgba(44, 33, 15, 0.82);
+  color: #f4e4b1;
+}
+
 .pge-choice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -6713,6 +6760,13 @@ a:hover {
   box-shadow: inset 0 0 0 1px rgba(215, 187, 119, 0.18);
 }
 
+.pge-choice.has-story-gate {
+  border-color: #9b86d1;
+  background:
+    radial-gradient(circle at top left, rgba(183, 151, 255, 0.12), transparent 40%),
+    linear-gradient(180deg, #161d3f, #0d172f);
+}
+
 .pge-choice-badges {
   display: flex;
   flex-wrap: wrap;
@@ -6743,6 +6797,11 @@ a:hover {
 .pge-choice-badge.is-role {
   border-color: rgba(231, 204, 132, 0.5);
   color: #f4dfaa;
+}
+
+.pge-choice-badge.is-story {
+  border-color: rgba(191, 161, 255, 0.5);
+  color: #e4d7ff;
 }
 
 .pge-choice[data-pge-requirement]::after {
@@ -6778,11 +6837,42 @@ a:hover {
   font-size: 0.72rem;
 }
 
+.pge-choice-detail {
+  display: block;
+  margin-top: 2px;
+  color: #c9d6eb;
+  line-height: 1.35;
+}
+
 .pge-choice.is-locked {
   border-color: #655f73;
   background: #121827;
   color: #b2bed5;
   cursor: not-allowed;
+}
+
+.pge-choice.is-story-locked,
+.pge-choice:disabled {
+  border-color: #655f73;
+  background:
+    radial-gradient(circle at top left, rgba(118, 104, 156, 0.16), transparent 44%),
+    linear-gradient(180deg, #11182d, #0d1323);
+  color: #b7c2d8;
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px rgba(168, 151, 211, 0.12);
+}
+
+.pge-choice.is-story-locked:hover,
+.pge-choice.is-story-locked:focus-visible,
+.pge-choice:disabled:hover,
+.pge-choice:disabled:focus-visible {
+  border-color: #655f73;
+  box-shadow: inset 0 0 0 1px rgba(168, 151, 211, 0.12);
+}
+
+.pge-choice.is-story-locked .pge-choice-detail,
+.pge-choice:disabled .pge-choice-detail {
+  color: #d6cee8;
 }
 
 .pge-terminal h4,
@@ -6805,6 +6895,59 @@ a:hover {
 .pge-terminal.is-adjudication {
   border-color: #8aa7d2;
   background: linear-gradient(180deg, #172740, #111d31);
+}
+
+.pge-reward-modal .crd02-tech-surface {
+  max-width: 540px;
+  border-color: rgba(156, 192, 244, 0.52);
+  background:
+    radial-gradient(circle at top center, rgba(129, 173, 255, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(12, 21, 43, 0.98), rgba(8, 15, 31, 0.98));
+}
+
+.pge-reward-modal p {
+  margin: 0 0 10px;
+}
+
+.pge-reward-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pge-reward-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(143, 181, 235, 0.34);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 34, 63, 0.84), rgba(12, 23, 43, 0.9));
+}
+
+.pge-reward-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(170, 205, 255, 0.34);
+  background: rgba(10, 19, 38, 0.9);
+}
+
+.pge-reward-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.pge-reward-copy strong {
+  color: #eff6ff;
+}
+
+.pge-reward-copy span {
+  color: #b6c6de;
+  font-size: 0.84rem;
 }
 
 .pge-dev-tools {

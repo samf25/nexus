@@ -2896,6 +2896,23 @@ function dispatchActiveNodeAction(action) {
         (currentRuntime) => ({
           ...(currentRuntime && typeof currentRuntime === "object" ? currentRuntime : {}),
           pendingRewards: [],
+          rewardPopup: /^PGE0[2-6]$/u.test(String(node.node_id || "")) && rewardsToGrant.length
+            ? {
+              open: true,
+              title: "Story Reward",
+              text: rewardsToGrant.length === 1
+                ? "This conclusion grants a new artifact."
+                : "This conclusion grants new artifacts.",
+              rewards: rewardsToGrant,
+            }
+            : (
+              currentRuntime &&
+              typeof currentRuntime === "object" &&
+              currentRuntime.rewardPopup &&
+              typeof currentRuntime.rewardPopup === "object"
+            )
+              ? currentRuntime.rewardPopup
+              : { open: false, title: "", text: "", rewards: [] },
         }),
         () => experience.initialState({ node, state: next }),
       );

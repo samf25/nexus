@@ -55,6 +55,34 @@ function adjudicationScene(id, text) {
   };
 }
 
+const PGE_WIN_TITLES = Object.freeze({
+  PGE02: Object.freeze({
+    "Underlord Revelation I": "Dawn Wall",
+    "Overlord Revelation I": "Villain's Reversal",
+    "Archlord Revelation I": "Dark-Water Escape",
+  }),
+  PGE03: Object.freeze({
+    "Underlord Revelation II": "Gallery Succession",
+    "Overlord Revelation II": "Seal-Chain Verdict",
+    "Archlord Revelation II": "Empty Throne Rumor",
+  }),
+  PGE04: Object.freeze({
+    "Underlord Revelation Cipher": "Lawful Inheritor",
+    "Overlord Revelation Cipher": "Sealed Lesser Claim",
+    "Archlord Revelation Cipher": "Floodline Survivor",
+  }),
+  PGE05: Object.freeze({
+    "Edict of the Turning Knife": "Mercy Bound",
+    "Accord of Borrowed Crowns": "Witnessed Process",
+    "Writ of the Glass Tribunal": "Bounded Fear",
+  }),
+  PGE06: Object.freeze({
+    "Bridge-Supper Compact": "Guest-Right Holds",
+    "Accord of Borrowed Crowns": "Faster Than Vengeance",
+    "Writ of the Glass Tribunal": "Private Surrender",
+  }),
+});
+
 const PGE_STORIES = Object.freeze({
   PGE01: {
     nodeId: "PGE01",
@@ -874,6 +902,17 @@ function normalizeRuntime(candidate, story) {
       Array.isArray(source.pendingRewards)
         ? source.pendingRewards.map((entry) => String(entry || "")).filter((entry) => entry).slice(-8)
         : [],
+    rewardPopup:
+      source.rewardPopup && typeof source.rewardPopup === "object"
+        ? {
+          open: Boolean(source.rewardPopup.open),
+          title: String(source.rewardPopup.title || ""),
+          text: String(source.rewardPopup.text || ""),
+          rewards: Array.isArray(source.rewardPopup.rewards)
+            ? source.rewardPopup.rewards.map((entry) => String(entry || "")).filter((entry) => entry).slice(-8)
+            : [],
+        }
+        : { open: false, title: "", text: "", rewards: [] },
     winRewardHistory:
       source.winRewardHistory && typeof source.winRewardHistory === "object"
         ? Object.fromEntries(
@@ -981,6 +1020,64 @@ function mergeUnique(values) {
   return [...new Set(values.filter((entry) => entry))];
 }
 
+const PGE_FLAG_LABELS = Object.freeze({
+  frame_threefold: "Rule of Three defense",
+  frame_villain: "Villain framing",
+  frame_culvert: "Culvert extraction framing",
+  frame_panic: "Panic response",
+  lever_hold: "Inner gate hold plan",
+  lever_reversal: "Claimant reversal trap",
+  lever_exfil: "Dark-water extraction plan",
+  lever_chaos: "Chaos assault plan",
+  frame_archer: "Gallery sniper framing",
+  frame_legal: "Law-and-seals framing",
+  frame_rumor: "Mask-and-rumor framing",
+  frame_reactive: "Reactive framing",
+  lever_arrow: "Mirror shot proof",
+  lever_legal: "Seal-chain proof",
+  lever_rumor: "Rumor-engine finish",
+  lever_stall: "Delay-and-stall line",
+  frame_choir: "Claimant ritual approach",
+  frame_lock: "Ossuary lockline approach",
+  frame_flood: "Flood-gallery approach",
+  frame_rush: "Rush-the-center approach",
+  lever_crown: "Drowned crown seating",
+  lever_seal: "Lesser-claim seal",
+  lever_river: "Floodline escape",
+  lever_greed: "Open-everything greed play",
+  frame_mercy: "Restoration framing",
+  frame_law: "Lawful transition framing",
+  frame_deterrence: "Deterrence framing",
+  frame_drift: "Officer improvisation",
+  lever_mercy: "Treaty-pin mercy doctrine",
+  lever_law: "Public process doctrine",
+  lever_fear: "Bounded fear doctrine",
+  lever_drift: "Uncontrolled reprisal drift",
+  frame_guest: "Guest-right hosting",
+  frame_audit: "Cup-and-ledger audit",
+  frame_shadow: "Corridor shadow play",
+  lever_guest: "Guest-right reconciliation",
+  lever_audit: "Mercy-bell audit",
+  lever_shadow: "Private surrender leverage",
+  lever_blame: "Premature blame line",
+});
+
+function readableFlagLabel(flag) {
+  const key = String(flag || "");
+  return PGE_FLAG_LABELS[key] || key.replaceAll("_", " ");
+}
+
+function completedWinTitles(nodeId, runtime) {
+  const storyTitles = PGE_WIN_TITLES[String(nodeId || "")] || {};
+  const history =
+    runtime && runtime.winRewardHistory && typeof runtime.winRewardHistory === "object"
+      ? runtime.winRewardHistory
+      : {};
+  return Object.entries(storyTitles)
+    .filter(([rewardArtifact]) => Boolean(history[rewardArtifact]))
+    .map(([, title]) => title);
+}
+
 function fallbackSceneId(nodeId, choice, stage = "path") {
   if (choice && typeof choice.onMissingFlagsNext === "string" && choice.onMissingFlagsNext) {
     return choice.onMissingFlagsNext;
@@ -991,7 +1088,7 @@ function fallbackSceneId(nodeId, choice, stage = "path") {
 function visibleChoiceData(currentScene, context, story) {
   const sceneLookup = scenesById(story);
   const lockedRequirementSymbols = [];
-  const visibleChoices = (currentScene.choices || []).filter((choice) => {
+  const choiceStates = (currentScene.choices || []).map((choice) => {
     const nextId = choiceNextId(choice);
     const nextScene = sceneLookup[nextId] || null;
     const hardLock = requiresCheck({
@@ -1001,7 +1098,23 @@ function visibleChoiceData(currentScene, context, story) {
     }, context, { includeFlags: false });
     if (hardLock.locked) {
       lockedRequirementSymbols.push(...hardLock.missingRole, ...hardLock.missingArtifacts);
-      return false;
+      return {
+        choice,
+        nextScene,
+        hidden: true,
+        storyLocked: false,
+      };
+    }
+    let storyLocked = false;
+    let missingFlags = [];
+    const flagLock = requiresCheck({
+      requiresRole: choice.requiresRole,
+      requiresArtifacts: choice.requiresArtifacts,
+      requiresFlags: choice.requiresFlags,
+    }, context, { includeRole: false, includeArtifacts: false, includeFlags: true });
+    if (flagLock.missingFlags.length) {
+      storyLocked = true;
+      missingFlags = flagLock.missingFlags;
     }
     if (nextScene && nextScene.type === "terminal") {
       const terminalHardLock = requiresCheck({
@@ -1011,11 +1124,32 @@ function visibleChoiceData(currentScene, context, story) {
       }, context, { includeFlags: false });
       if (terminalHardLock.locked) {
         lockedRequirementSymbols.push(...terminalHardLock.missingRole, ...terminalHardLock.missingArtifacts);
-        return false;
+        return {
+          choice,
+          nextScene,
+          hidden: true,
+          storyLocked: false,
+        };
+      }
+      const terminalFlagLock = requiresCheck({
+        requiresRole: nextScene.requiresRole,
+        requiresArtifacts: nextScene.requiresArtifacts,
+        requiresFlags: nextScene.requiresFlags,
+      }, context, { includeRole: false, includeArtifacts: false, includeFlags: true });
+      if (terminalFlagLock.missingFlags.length) {
+        storyLocked = true;
+        missingFlags = mergeUnique([...missingFlags, ...terminalFlagLock.missingFlags]);
       }
     }
-    return true;
+    return {
+      choice,
+      nextScene,
+      hidden: false,
+      storyLocked,
+      missingFlags: mergeUnique(missingFlags),
+    };
   });
+  const visibleChoices = choiceStates.filter((entry) => !entry.hidden);
   return {
     visibleChoices,
     uniqueSymbols: mergeUnique(lockedRequirementSymbols),
@@ -1067,9 +1201,7 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
   return `
     ${symbolStrip}
     <div class="pge-choice-grid">
-      ${visibleChoices.map((choice) => {
-        const nextId = choiceNextId(choice);
-        const nextScene = sceneLookup[nextId] || null;
+      ${visibleChoices.map(({ choice, nextScene, storyLocked, missingFlags = [] }) => {
         const artifactRequirements = mergeUnique([
           ...listFrom(choice.requiresArtifacts),
           ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresArtifacts) : []),
@@ -1078,6 +1210,7 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
           ...listFrom(choice.requiresRole),
           ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresRole) : []),
         ]);
+        const storyRequirements = missingFlags.map((flag) => readableFlagLabel(flag));
         const requirementBits = [];
         if (artifactRequirements.length) {
           requirementBits.push(
@@ -1089,11 +1222,17 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
             `Requires ${roleRequirements.join(roleRequirements.length > 1 ? ", " : "")} role${roleRequirements.length > 1 ? "s" : ""}`,
           );
         }
+        if (storyRequirements.length) {
+          requirementBits.push(
+            `Requires earlier choice: ${storyRequirements.join(", ")}`,
+          );
+        }
         const requirementText = requirementBits.join(" \u2022 ");
         const hasArtifactRequirement = artifactRequirements.length > 0;
         const hasRoleRequirement = roleRequirements.length > 0;
+        const hasStoryRequirement = storyRequirements.length > 0;
         const badgeMarkup =
-          hasArtifactRequirement || hasRoleRequirement
+          hasArtifactRequirement || hasRoleRequirement || hasStoryRequirement
             ? `
               <span class="pge-choice-badges" aria-hidden="true">
                 ${hasArtifactRequirement
@@ -1102,20 +1241,28 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
                 ${hasRoleRequirement
                   ? `<span class="pge-choice-badge is-role">Role</span>`
                   : ""}
+                ${hasStoryRequirement
+                  ? `<span class="pge-choice-badge is-story">Story</span>`
+                  : ""}
               </span>
             `
             : "";
+        const detailMarkup = requirementText
+          ? `<small class="pge-choice-detail">${escapeHtml(requirementText)}</small>`
+          : "";
         return `
           <button
             type="button"
-            class="pge-choice${hasArtifactRequirement ? " has-artifact-gate" : ""}${hasRoleRequirement ? " has-role-gate" : ""}"
+            class="pge-choice${hasArtifactRequirement ? " has-artifact-gate" : ""}${hasRoleRequirement ? " has-role-gate" : ""}${hasStoryRequirement ? " has-story-gate" : ""}${storyLocked ? " is-story-locked" : ""}"
             data-node-id="${escapeHtml(nodeId)}"
             data-node-action="pge-choose"
             data-choice-id="${escapeHtml(choice.id)}"
             ${requirementText ? `data-pge-requirement="${escapeHtml(requirementText)}" title="${escapeHtml(requirementText)}"` : ""}
+            ${storyLocked ? "disabled aria-disabled=\"true\"" : ""}
           >
             <span>${escapeHtml(choice.text)}</span>
             ${badgeMarkup}
+            ${detailMarkup}
           </button>
         `;
       }).join("")}
@@ -1190,6 +1337,43 @@ function renderLockedPanel(nodeId, runtime, currentScene, now = Date.now()) {
   `;
 }
 
+function renderRewardPopup(nodeId, runtime) {
+  const popup = runtime && runtime.rewardPopup && typeof runtime.rewardPopup === "object" ? runtime.rewardPopup : null;
+  if (!popup || !popup.open) {
+    return "";
+  }
+  const rewards = Array.isArray(popup.rewards) ? popup.rewards.map((entry) => String(entry || "")).filter((entry) => entry) : [];
+  return `
+    <div class="crd02-tech-modal pge-reward-modal" role="dialog" aria-label="Story reward">
+      <section class="crd02-tech-surface">
+        <header>
+          <h3>${escapeHtml(String(popup.title || "Story Reward"))}</h3>
+          <button
+            type="button"
+            class="ghost"
+            data-node-id="${escapeHtml(nodeId)}"
+            data-node-action="pge-close-reward-popup"
+          >
+            Close
+          </button>
+        </header>
+        <p>${escapeHtml(String(popup.text || "A new artifact settles into your keeping."))}</p>
+        <div class="pge-reward-list">
+          ${rewards.map((reward) => `
+            <article class="pge-reward-item">
+              <span class="pge-reward-symbol">${renderArtifactSymbol({ artifactName: reward, className: "artifact-symbol" })}</span>
+              <div class="pge-reward-copy">
+                <strong>${escapeHtml(reward)}</strong>
+                <span>Added to your artifact inventory.</span>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function createInitialRuntime(story) {
   return {
     sceneId: story.startSceneId,
@@ -1204,6 +1388,12 @@ function createInitialRuntime(story) {
     lastMessage: "",
     routeVisitNonce: 0,
     pendingRewards: [],
+    rewardPopup: {
+      open: false,
+      title: "",
+      text: "",
+      rewards: [],
+    },
     winRewardHistory: {},
   };
 }
@@ -1240,10 +1430,28 @@ function reduceAdventureRuntime(nodeId, runtime, action, context) {
       ...createInitialRuntime(story),
       lastMessage: "Story rewound.",
       routeVisitNonce: current.routeVisitNonce,
+      rewardPopup: {
+        open: false,
+        title: "",
+        text: "",
+        rewards: [],
+      },
       winRewardHistory:
         current.winRewardHistory && typeof current.winRewardHistory === "object"
           ? { ...current.winRewardHistory }
           : {},
+    };
+  }
+
+  if (action.type === "pge-close-reward-popup") {
+    return {
+      ...current,
+      rewardPopup: {
+        open: false,
+        title: "",
+        text: "",
+        rewards: [],
+      },
     };
   }
 
@@ -1450,17 +1658,34 @@ function renderAdventure(nodeId, context) {
   const currentScene = sceneLookup[runtime.sceneId];
   const activeRole = activePracticalGuideRoleFromState(context.state);
   const lockActive = hasActiveLock(nodeId, runtime, context && context.now ? context.now : Date.now());
+  const completedTitles = completedWinTitles(nodeId, runtime);
+  const completedCount = completedTitles.length;
+  const headerMeta = `
+    <div class="pge-head-chips">
+      <span class="pge-head-chip"><strong>Role</strong> ${escapeHtml(activeRole || "None")}</span>
+      <span class="pge-head-chip"><strong>Choices</strong> ${escapeHtml(String(runtime.choiceCount))}</span>
+      ${
+        /^PGE0[2-6]$/u.test(String(nodeId || ""))
+          ? `<span class="pge-head-chip is-progress"><strong>Completed</strong> ${escapeHtml(String(completedCount))}/3</span>`
+          : ""
+      }
+    </div>
+  `;
+  const completedMarkup = completedTitles.length
+    ? `
+      <div class="pge-completed-strip" aria-label="Completed storylines">
+        ${completedTitles.map((title) => `<span class="pge-completed-chip">${escapeHtml(title)}</span>`).join("")}
+      </div>
+    `
+    : "";
 
   return `
     <article class="pge-node" data-node-id="${escapeHtml(nodeId)}">
       <section class="card pge-head">
         <h3>${escapeHtml(story.title)}</h3>
         <p>${escapeHtml(story.subtitle || "")}</p>
-        <p class="muted">
-          <strong>Active Role:</strong> ${escapeHtml(activeRole || "None")}
-          &nbsp;|&nbsp;
-          <strong>Choices Made:</strong> ${escapeHtml(String(runtime.choiceCount))}
-        </p>
+        ${headerMeta}
+        ${completedMarkup}
       </section>
 
       ${
@@ -1480,6 +1705,7 @@ function renderAdventure(nodeId, context) {
       }
 
       ${lockActive ? renderLockedPanel(nodeId, runtime, currentScene, context && context.now ? context.now : Date.now()) : renderTerminal(nodeId, story, runtime, currentScene)}
+      ${renderRewardPopup(nodeId, runtime)}
     </article>
   `;
 }
@@ -1499,6 +1725,12 @@ function buildAdventureActionFromElement(nodeId, element) {
   if (actionName === "pge-restart") {
     return {
       type: "pge-restart",
+      at: Date.now(),
+    };
+  }
+  if (actionName === "pge-close-reward-popup") {
+    return {
+      type: "pge-close-reward-popup",
       at: Date.now(),
     };
   }
