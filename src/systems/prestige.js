@@ -699,9 +699,7 @@ export function prestigeResetCost(regionId, resetCount = 0) {
   if (!region) {
     return Infinity;
   }
-
-  const count = Math.max(0, Math.floor(safeFinite(resetCount, 0)));
-  return Math.max(1, Math.round(region.baseResetCost * Math.pow(region.growth, count)));
+  return Math.max(1, Math.round(region.baseResetCost));
 }
 
 export function nextPrestigeResetCost(prestigeState, regionId) {
@@ -774,10 +772,9 @@ function prestigeResetAwardFromValues(regionDef, amount, resetCount) {
     return 0;
   }
   const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
-  const resetPressure = 1 + (Math.log1p(Math.max(0, resetCount)) * 0.045);
   const firstThreshold = Math.max(
     1,
-    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)),
   );
   if (currency < firstThreshold) {
     return 0;
@@ -794,10 +791,9 @@ function prestigeNextAwardAt(regionDef, resetCount, award) {
     return 1;
   }
   const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
-  const resetPressure = 1 + (Math.log1p(Math.max(0, resetCount)) * 0.045);
   const firstThreshold = Math.max(
     1,
-    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)),
   );
   if (currentAward <= 0) {
     return Math.ceil(firstThreshold);
