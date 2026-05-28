@@ -509,14 +509,16 @@ export function validateCrd11Runtime(runtime) {
   return Boolean(runtime && runtime.solved);
 }
 
-export function reduceCrd11Runtime(runtime, action) {
+export function reduceCrd11Runtime(runtime, action, context = {}) {
   const current = normalizeRuntime(runtime);
   if (!action || typeof action !== "object") {
     return current;
   }
 
   if (action.type === "crd11-start-hunt") {
-    if (!action.ready) {
+    const liveProfile = combatProfileFromState(context.state || {});
+    const ready = action.ready || liveProfile.ready;
+    if (!ready) {
       return {
         ...current,
         lastMessage: "Only completed Archlord paths can challenge the Dreadgods.",
