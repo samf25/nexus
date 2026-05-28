@@ -981,13 +981,14 @@ function externalFloorArtifactName(floor) {
 
 function deriveBaseStats(meta, modifiers) {
   const slotCount = Math.max(2, 2 + meta.upgrades.slots + modifiers.extraAbilitySlots);
+  const rarityGoldBonus = Math.max(0, meta.upgrades.rare * 0.05);
   return {
     maxHp: 70 + (meta.upgrades.hp * 12) + modifiers.maxHpBonus,
     attack: 8 + (meta.upgrades.attack * 2) + modifiers.attackBonus,
     maxStamina: 6 + (meta.upgrades.stamina * 2) + modifiers.maxStaminaBonus,
     slotCount,
     rareBonus: Math.min(0.45, (meta.upgrades.rare * 0.05) + modifiers.rareDropBonus),
-    goldMultiplier: 1 + modifiers.goldGainBonus,
+    goldMultiplier: 1 + rarityGoldBonus + modifiers.goldGainBonus,
   };
 }
 
@@ -3192,7 +3193,10 @@ function resolveEncounter(runtime, optionId) {
     return "You leave with sponsor-baited momentum.";
   }
   if (option.effect === "gain_gold_cache") {
-    const gold = randomInt(rand, 14, 28) + Math.max(0, run.floor - 1) * 3;
+    const gold = Math.max(
+      1,
+      Math.round((randomInt(rand, 14, 28) + Math.max(0, run.floor - 1) * 3) * Math.max(1, Number(run.goldMultiplier || 1))),
+    );
     runtime.meta.gold += gold;
     room.cleared = true;
     run.event = null;
@@ -3214,7 +3218,10 @@ function resolveEncounter(runtime, optionId) {
       addLog(run, `Encounter reward: ${item.label}.`);
       return "The sponsor drone drops real loot.";
     }
-    const gold = randomInt(rand, 18, 34) + Math.max(0, run.floor - 1) * 3;
+    const gold = Math.max(
+      1,
+      Math.round((randomInt(rand, 18, 34) + Math.max(0, run.floor - 1) * 3) * Math.max(1, Number(run.goldMultiplier || 1))),
+    );
     runtime.meta.gold += gold;
     room.cleared = true;
     run.event = null;
@@ -3264,7 +3271,10 @@ function resolveEncounter(runtime, optionId) {
     return "The package contains a usable technique manual.";
   }
   if (option.effect === "gain_gold_big") {
-    const gold = randomInt(rand, 26, 44) + Math.max(0, run.floor - 1) * 4;
+    const gold = Math.max(
+      1,
+      Math.round((randomInt(rand, 26, 44) + Math.max(0, run.floor - 1) * 4) * Math.max(1, Number(run.goldMultiplier || 1))),
+    );
     runtime.meta.gold += gold;
     room.cleared = true;
     run.event = null;
