@@ -1096,14 +1096,11 @@ function visibleChoiceData(currentScene, context, story) {
       requiresArtifacts: choice.requiresArtifacts,
       requiresFlags: choice.requiresFlags,
     }, context, { includeFlags: false });
+    const missingRole = [...hardLock.missingRole];
+    const missingArtifacts = [...hardLock.missingArtifacts];
+    let hardLocked = hardLock.locked;
     if (hardLock.locked) {
       lockedRequirementSymbols.push(...hardLock.missingRole, ...hardLock.missingArtifacts);
-      return {
-        choice,
-        nextScene,
-        hidden: true,
-        storyLocked: false,
-      };
     }
     let storyLocked = false;
     let missingFlags = [];
@@ -1124,12 +1121,9 @@ function visibleChoiceData(currentScene, context, story) {
       }, context, { includeFlags: false });
       if (terminalHardLock.locked) {
         lockedRequirementSymbols.push(...terminalHardLock.missingRole, ...terminalHardLock.missingArtifacts);
-        return {
-          choice,
-          nextScene,
-          hidden: true,
-          storyLocked: false,
-        };
+        hardLocked = true;
+        missingRole.push(...terminalHardLock.missingRole);
+        missingArtifacts.push(...terminalHardLock.missingArtifacts);
       }
       const terminalFlagLock = requiresCheck({
         requiresRole: nextScene.requiresRole,
@@ -1145,7 +1139,10 @@ function visibleChoiceData(currentScene, context, story) {
       choice,
       nextScene,
       hidden: false,
+      hardLocked,
       storyLocked,
+      missingRole: mergeUnique(missingRole),
+      missingArtifacts: mergeUnique(missingArtifacts),
       missingFlags: mergeUnique(missingFlags),
     };
   });
@@ -1201,15 +1198,9 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
   return `
     ${symbolStrip}
     <div class="pge-choice-grid">
-      ${visibleChoices.map(({ choice, nextScene, storyLocked, missingFlags = [] }) => {
-        const artifactRequirements = mergeUnique([
-          ...listFrom(choice.requiresArtifacts),
-          ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresArtifacts) : []),
-        ]);
-        const roleRequirements = mergeUnique([
-          ...listFrom(choice.requiresRole),
-          ...(nextScene && nextScene.type === "terminal" ? listFrom(nextScene.requiresRole) : []),
-        ]);
+      ${visibleChoices.map(({ choice, nextScene, hardLocked, storyLocked, missingArtifacts = [], missingRole = [], missingFlags = [] }) => {
+        const artifactRequirements = mergeUnique(missingArtifacts);
+        const roleRequirements = mergeUnique(missingRole);
         const storyRequirements = missingFlags.map((flag) => readableFlagLabel(flag));
         const requirementBits = [];
         if (artifactRequirements.length) {
@@ -1250,15 +1241,16 @@ function renderChoices(nodeId, currentScene, runtime, context, story) {
         const detailMarkup = requirementText
           ? `<small class="pge-choice-detail">${escapeHtml(requirementText)}</small>`
           : "";
+        const disabled = hardLocked || storyLocked;
         return `
           <button
             type="button"
-            class="pge-choice${hasArtifactRequirement ? " has-artifact-gate" : ""}${hasRoleRequirement ? " has-role-gate" : ""}${hasStoryRequirement ? " has-story-gate" : ""}${storyLocked ? " is-story-locked" : ""}"
+            class="pge-choice${hasArtifactRequirement ? " has-artifact-gate" : ""}${hasRoleRequirement ? " has-role-gate" : ""}${hasStoryRequirement ? " has-story-gate" : ""}${hardLocked ? " is-hard-locked" : ""}${storyLocked ? " is-story-locked" : ""}"
             data-node-id="${escapeHtml(nodeId)}"
             data-node-action="pge-choose"
             data-choice-id="${escapeHtml(choice.id)}"
             ${requirementText ? `data-pge-requirement="${escapeHtml(requirementText)}" title="${escapeHtml(requirementText)}"` : ""}
-            ${storyLocked ? "disabled aria-disabled=\"true\"" : ""}
+            ${disabled ? "disabled aria-disabled=\"true\"" : ""}
           >
             <span>${escapeHtml(choice.text)}</span>
             ${badgeMarkup}
