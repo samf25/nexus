@@ -411,7 +411,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "body",
       tier: 2,
       shape: "diamond",
-      prereqs: [{ id: "sponsor-might", level: 2 }, { id: "field-medicine", level: 1 }],
+      prereqs: [{ id: "sponsor-might", level: 1 }, { id: "field-medicine", level: 1 }],
       effect: "Increase starting stamina every run.",
     }),
     branchNode({
@@ -420,7 +420,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "body",
       tier: 3,
       shape: "hex",
-      prereqs: [{ id: "conditioning-program", level: 2 }, { id: "market-favors", level: 1 }],
+      prereqs: [{ id: "conditioning-program", level: 1 }, { id: "market-favors", level: 1 }],
       effect: "Reduce incoming damage in crawl combat.",
     }),
     branchNode({
@@ -437,7 +437,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "wealth",
       tier: 2,
       shape: "diamond",
-      prereqs: [{ id: "sponsor-bounty", level: 2 }, { id: "sponsor-might", level: 1 }],
+      prereqs: [{ id: "sponsor-bounty", level: 1 }, { id: "sponsor-might", level: 1 }],
       effect: "Shop prices become more favorable.",
     }),
     branchNode({
@@ -446,7 +446,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "wealth",
       tier: 3,
       shape: "hex",
-      prereqs: [{ id: "market-favors", level: 2 }, { id: "skill-index", level: 1 }],
+      prereqs: [{ id: "market-favors", level: 1 }, { id: "skill-index", level: 1 }],
       effect: "Increase the odds of starting with map knowledge.",
     }),
     branchNode({
@@ -463,7 +463,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "arsenal",
       tier: 2,
       shape: "diamond",
-      prereqs: [{ id: "sponsor-arsenal", level: 2 }, { id: "sponsor-bounty", level: 1 }],
+      prereqs: [{ id: "sponsor-arsenal", level: 1 }, { id: "sponsor-bounty", level: 1 }],
       effect: "Increase the chance of finding technique tomes.",
     }),
     branchNode({
@@ -472,7 +472,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "arsenal",
       tier: 3,
       shape: "hex",
-      prereqs: [{ id: "skill-index", level: 2 }, { id: "conditioning-program", level: 1 }],
+      prereqs: [{ id: "skill-index", level: 1 }, { id: "conditioning-program", level: 1 }],
       effect: "Increase the damage dealt by learned crawler abilities.",
     }),
     branchNode({
@@ -489,7 +489,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "sustain",
       tier: 2,
       shape: "diamond",
-      prereqs: [{ id: "field-medicine", level: 2 }, { id: "sponsor-might", level: 1 }],
+      prereqs: [{ id: "field-medicine", level: 1 }, { id: "sponsor-might", level: 1 }],
       effect: "Start deeper crawls with extra supplies and a little gold.",
     }),
     branchNode({
@@ -498,7 +498,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "sustain",
       tier: 3,
       shape: "hex",
-      prereqs: [{ id: "ration-cache", level: 2 }, { id: "sponsor-bounty", level: 2 }],
+      prereqs: [{ id: "ration-cache", level: 1 }, { id: "sponsor-bounty", level: 1 }],
       effect: "Increase the odds that fights yield extra loot rolls.",
     }),
     branchNode({
@@ -508,7 +508,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       tier: 3,
       shape: "hex",
       costs: [18],
-      prereqs: [{ id: "floor-reader", level: 2 }, { id: "execution-patterns", level: 2 }],
+      prereqs: [{ id: "floor-reader", level: 1 }, { id: "execution-patterns", level: 1 }],
       effect: "Claim the DCC Floor-5 Key and open the final external floor gate.",
     }),
     endlessNode({
@@ -517,7 +517,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "apex",
       tier: 3,
       shape: "star",
-      prereqs: [{ id: "execution-patterns", level: 2 }, { id: "scavenger-instinct", level: 1 }],
+      prereqs: [{ id: "execution-patterns", level: 1 }, { id: "scavenger-instinct", level: 1 }],
       baseCost: 20,
       growth: 1.18,
       effect: "Endless investment. Add raw crawl combat power when the late floors start to outrun everything else.",
