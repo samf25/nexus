@@ -2737,7 +2737,7 @@ function dispatchActiveNodeAction(action) {
     }
 
     if (node.node_id === "CRD10" && runtime && String(runtime.pendingLordPath || "")) {
-      const lordPath = String(runtime.pendingLordPath || "").trim().toLowerCase();
+      const lordPath = String(runtime.pendingLordPath || runtime.resolvedLordPath || "").trim().toLowerCase();
       if (lordPath === "sage" || lordPath === "herald") {
         next = updateNodeRuntime(
           next,
@@ -2764,6 +2764,7 @@ function dispatchActiveNodeAction(action) {
           (currentRuntime) => ({
             ...(currentRuntime && typeof currentRuntime === "object" ? currentRuntime : {}),
             pendingLordPath: "",
+            resolvedLordPath: lordPath,
           }),
           () => experience.initialState({ node, state: next }),
         );

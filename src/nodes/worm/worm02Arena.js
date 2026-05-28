@@ -286,20 +286,21 @@ function applyCardBonus(card, bonus) {
   return next;
 }
 
-function loadoutCards(cardPayload, bonusesByCardId = {}) {
+function loadoutCards(cardPayload, bonusesByCardId = {}, ownedEntriesById = {}) {
   return (cardPayload || [])
     .map((entry) => {
       const cardId = safeText(entry && entry.cardId);
       if (!cardId) {
         return null;
       }
-      const card = wormCardById(cardId);
-      if (!card) {
+      const ownedEntry = ownedEntriesById && ownedEntriesById[cardId] ? ownedEntriesById[cardId] : null;
+      const baseCard = ownedEntry && ownedEntry.card ? ownedEntry.card : wormCardById(cardId);
+      if (!baseCard) {
         return null;
       }
       const currentHp = Number(entry && entry.currentHp);
       const resolved = {
-        ...card,
+        ...baseCard,
         currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
       };
       return applyCardBonus(resolved, bonusesByCardId[cardId] || null);
@@ -558,11 +559,16 @@ export function validateWorm02Runtime(runtime) {
   return Boolean(runtime && runtime.bossDefeated);
 }
 
-export function reduceWorm02Runtime(runtime, action) {
+export function reduceWorm02Runtime(runtime, action, context = {}) {
   const current = normalizeRuntime(runtime);
   if (!action || typeof action !== "object") {
     return current;
   }
+  const wormState = normalizeWormSystemState(
+    context && context.state && context.state.systems ? context.state.systems.worm : {},
+    Date.now(),
+  );
+  const ownedEntriesById = loadoutEntryById(wormOwnedCards(wormState, Date.now()));
 
   if (action.type === "worm02-toggle-help") {
     return {
@@ -634,8 +640,8 @@ export function reduceWorm02Runtime(runtime, action) {
       ? action.capeBonusesByCardId
       : {};
     const playerCards = requestedPlayerCards.length
-      ? loadoutCards(requestedPlayerCards, bonusesByCardId)
-      : loadoutCards(requestedLoadout.map((cardId) => ({ cardId })), bonusesByCardId);
+      ? loadoutCards(requestedPlayerCards, bonusesByCardId, ownedEntriesById)
+      : loadoutCards(requestedLoadout.map((cardId) => ({ cardId })), bonusesByCardId, ownedEntriesById);
     const enemyCards = (Array.isArray(action.enemyCardIds) ? action.enemyCardIds : [])
       .map((cardId) => wormCardById(cardId))
       .filter((card) => card)
@@ -684,8 +690,8 @@ export function reduceWorm02Runtime(runtime, action) {
       ? action.capeBonusesByCardId
       : {};
     const playerCards = requestedPlayerCards.length
-      ? loadoutCards(requestedPlayerCards, bonusesByCardId)
-      : loadoutCards(requestedLoadout.map((cardId) => ({ cardId })), bonusesByCardId);
+      ? loadoutCards(requestedPlayerCards, bonusesByCardId, ownedEntriesById)
+      : loadoutCards(requestedLoadout.map((cardId) => ({ cardId })), bonusesByCardId, ownedEntriesById);
     if (playerCards.length < 2) {
       return {
         ...current,

@@ -186,6 +186,7 @@ function normalizeRuntime(candidate) {
     heraldPoints: Math.max(0, Math.floor(Number(source.heraldPoints) || 0)),
     tieBias: ["sage", "herald"].includes(String(source.tieBias || "")) ? String(source.tieBias) : "",
     pendingLordPath: ["sage", "herald"].includes(String(source.pendingLordPath || "")) ? String(source.pendingLordPath) : "",
+    resolvedLordPath: ["sage", "herald"].includes(String(source.resolvedLordPath || "")) ? String(source.resolvedLordPath) : "",
     player: source.player && typeof source.player === "object"
       ? {
         hp: Math.max(0, Number(source.player.hp) || 0),
@@ -271,6 +272,7 @@ function finalizePath(current) {
     phase: "complete",
     solved: true,
     pendingLordPath: winner,
+    resolvedLordPath: winner,
     player: null,
     enemy: null,
     battleNextScene: "",
@@ -674,7 +676,7 @@ export function buildCrd10ActionFromElement(element) {
 export function renderCrd10Experience(context) {
   const runtime = normalizeRuntime(context.runtime);
   const profile = combatProfileFromState(context.state || {});
-  const lordPathAlready = normalizeText(profile.lordPath);
+  const lordPathAlready = normalizeText(profile.lordPath || runtime.resolvedLordPath);
 
   if (runtime.phase === "complete" || lordPathAlready === "sage" || lordPathAlready === "herald") {
     const label = lordPathAlready === "herald" ? "Herald" : lordPathAlready === "sage" ? "Sage" : "Ascended";

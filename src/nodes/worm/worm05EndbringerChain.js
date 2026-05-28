@@ -120,6 +120,38 @@ function applyCardBonus(card, bonus) {
   return next;
 }
 
+function ownedEntryById(wormSystemState = {}) {
+  const wormState = normalizeWormSystemState(wormSystemState, Date.now());
+  const byId = {};
+  for (const entry of wormOwnedCards(wormState, Date.now())) {
+    if (!entry || !entry.cardId) {
+      continue;
+    }
+    byId[entry.cardId] = entry;
+  }
+  return byId;
+}
+
+function resolveRequestedPlayerCards(cardPayload, bonusesByCardId = {}, state = {}) {
+  const ownedById = ownedEntryById(state && state.systems ? state.systems.worm : {});
+  return (cardPayload || [])
+    .map((entry) => {
+      const cardId = safeText(entry && entry.cardId);
+      const ownedEntry = ownedById[cardId];
+      if (!cardId || !ownedEntry || !ownedEntry.card) {
+        return null;
+      }
+      const currentHp = Number(entry && entry.currentHp);
+      const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(state || {}, cardId, Date.now());
+      return applyCardBonus({
+        ...ownedEntry.card,
+        currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
+      }, bonus);
+    })
+    .filter((card) => card && typeof card === "object")
+    .slice(0, 2);
+}
+
 function topPlayerCards(wormState, contextState) {
   const owned = wormOwnedCards(wormState, Date.now())
     .filter((entry) => Number(entry.currentHp || 0) > 0)
@@ -659,22 +691,7 @@ function reduceBossRuntime(current, action, context, config) {
     const requestedLoadout = requestedPlayerCards.length
       ? requestedPlayerCards.map((entry) => safeText(entry.cardId)).slice(0, 2)
       : current.playerLoadout;
-    const playerCards = requestedPlayerCards
-      .map((entry) => {
-        const cardId = safeText(entry && entry.cardId);
-        const card = loadWormCardCatalog().find((candidate) => safeText(candidate.id) === cardId);
-        if (!card) {
-          return null;
-        }
-        const currentHp = Number(entry && entry.currentHp);
-        const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(context.state || {}, cardId, Date.now());
-        return applyCardBonus({
-          ...card,
-          currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
-        }, bonus);
-      })
-      .filter((card) => card && typeof card === "object")
-      .slice(0, 2);
+    const playerCards = resolveRequestedPlayerCards(requestedPlayerCards, bonusesByCardId, context.state || {});
     if (playerCards.length < 2) {
       return {
         ...current,
@@ -1715,22 +1732,7 @@ export function reduceWorm08Runtime(runtime, action, context = {}) {
     const requestedLoadout = requestedPlayerCards.length
       ? requestedPlayerCards.map((entry) => safeText(entry.cardId)).slice(0, 2)
       : current.playerLoadout;
-    const playerCards = requestedPlayerCards
-      .map((entry) => {
-        const cardId = safeText(entry && entry.cardId);
-        const card = loadWormCardCatalog().find((candidate) => safeText(candidate.id) === cardId);
-        if (!card) {
-          return null;
-        }
-        const currentHp = Number(entry && entry.currentHp);
-        const bonus = bonusesByCardId[cardId] || getWormCapeLootBonuses(context.state || {}, cardId, Date.now());
-        return applyCardBonus({
-          ...card,
-          currentHp: Number.isFinite(currentHp) ? Math.max(0, Math.round(currentHp)) : undefined,
-        }, bonus);
-      })
-      .filter((card) => card && typeof card === "object")
-      .slice(0, 2);
+    const playerCards = resolveRequestedPlayerCards(requestedPlayerCards, bonusesByCardId, context.state || {});
     if (playerCards.length < 2) {
       return {
         ...current,

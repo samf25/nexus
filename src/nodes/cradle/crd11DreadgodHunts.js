@@ -89,6 +89,14 @@ function readCrd02Runtime(state) {
   return runtime && typeof runtime === "object" ? runtime : {};
 }
 
+function readCrd10Runtime(state) {
+  if (!state || !state.nodeRuntime || typeof state.nodeRuntime !== "object") {
+    return {};
+  }
+  const runtime = state.nodeRuntime.CRD10;
+  return runtime && typeof runtime === "object" ? runtime : {};
+}
+
 function normalizeDefeated(value) {
   const source = value && typeof value === "object" ? value : {};
   const result = {};
@@ -110,12 +118,18 @@ function countDefeated(defeated) {
 
 function combatProfileFromState(state) {
   const crd02 = readCrd02Runtime(state);
+  const crd10 = readCrd10Runtime(state);
   const upgrades = crd02.upgrades && typeof crd02.upgrades === "object" ? crd02.upgrades : {};
   const lordPathUpgrades = crd02.lordPathUpgrades && typeof crd02.lordPathUpgrades === "object"
     ? crd02.lordPathUpgrades
     : {};
   const stage = normalizeCombatStage(crd02.cultivationStage || "foundation");
-  const lordPath = normalizeText(crd02.lordPath || "");
+  const lordPath = normalizeText(
+    crd02.lordPath
+      || crd10.resolvedLordPath
+      || crd10.pendingLordPath
+      || "",
+  );
   const pathReady = lordPath === "sage" || lordPath === "herald";
   const ironBody = Number(upgrades["blood-forged-iron-body"] || 0);
   const soulCloak = Number(upgrades["soul-cloak"] || 0);
