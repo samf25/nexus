@@ -1268,7 +1268,7 @@ export function reduceWorm06Runtime(runtime, action, context = {}) {
   }
 
   if (action.type === "worm06-start-job") {
-    if (current.solved) {
+    if (current.battle) {
       return current;
     }
     const difficulty = normalizeDifficulty(action.difficulty);
@@ -1526,9 +1526,9 @@ export function renderWorm06Experience(context) {
     : `
               <p><strong>Status:</strong> ${runtime.bossCleared ? "Triumvirate defeated" : "Operations ongoing"}</p>
               <div class="toolbar">
-                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="easy" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Easy Cleanup</button>
-                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="medium" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Medium Cleanup</button>
-                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="hard" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Hard Cleanup</button>
+                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="easy" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Easy Cleanup</button>
+                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="medium" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Medium Cleanup</button>
+                <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-job" data-difficulty="hard" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Hard Cleanup</button>
                 <button type="button" data-node-id="${WORM06_NODE_ID}" data-node-action="worm06-start-bosses" ${runtime.battle || runtime.bossCleared ? "disabled" : ""}>Fight The Bosses</button>
               </div>
             `

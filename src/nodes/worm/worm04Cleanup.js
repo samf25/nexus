@@ -477,7 +477,7 @@ export function reduceWorm04Runtime(runtime, action, context = {}) {
   }
 
   if (action.type === "worm04-start-job") {
-    if (current.solved) {
+    if (current.battle) {
       return current;
     }
     const difficulty = safeText(action.difficulty).toLowerCase();
@@ -721,9 +721,9 @@ export function renderWorm04Experience(context) {
               <p><strong>Slaughterhouse members defeated:</strong> ${escapeHtml(String(runtime.defeatedMembers.length))}/${escapeHtml(String(S9_MEMBERS.length))}</p>
               <p><strong>Remaining:</strong> ${escapeHtml(String(remainingCount))}</p>
               <div class="toolbar">
-                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="easy" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Easy Cleanup</button>
-                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="medium" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Medium Cleanup</button>
-                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="hard" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle || runtime.solved ? "disabled" : ""}>Hard Cleanup</button>
+                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="easy" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Easy Cleanup</button>
+                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="medium" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Medium Cleanup</button>
+                <button type="button" data-node-id="${NODE_ID}" data-node-action="worm04-start-job" data-difficulty="hard" data-base-clout-reward="${escapeHtml(String(baseReward))}" ${runtime.battle ? "disabled" : ""}>Hard Cleanup</button>
               </div>
             `
         }
