@@ -97,6 +97,27 @@ function readCrd10Runtime(state) {
   return runtime && typeof runtime === "object" ? runtime : {};
 }
 
+function inferCrd10LordPath(runtime) {
+  const current = runtime && typeof runtime === "object" ? runtime : {};
+  const explicit = normalizeText(current.resolvedLordPath || current.pendingLordPath || "");
+  if (explicit === "sage" || explicit === "herald") {
+    return explicit;
+  }
+  const solved = Boolean(current.solved) || normalizeText(current.phase || "") === "complete";
+  if (!solved) {
+    return "";
+  }
+  const sage = Math.max(0, Number(current.sagePoints) || 0);
+  const herald = Math.max(0, Number(current.heraldPoints) || 0);
+  if (sage > herald) {
+    return "sage";
+  }
+  if (herald > sage) {
+    return "herald";
+  }
+  return normalizeText(current.tieBias || "") === "herald" ? "herald" : "sage";
+}
+
 function normalizeDefeated(value) {
   const source = value && typeof value === "object" ? value : {};
   const result = {};
@@ -126,8 +147,7 @@ function combatProfileFromState(state) {
   const stage = normalizeCombatStage(crd02.cultivationStage || "foundation");
   const lordPath = normalizeText(
     crd02.lordPath
-      || crd10.resolvedLordPath
-      || crd10.pendingLordPath
+      || inferCrd10LordPath(crd10)
       || "",
   );
   const pathReady = lordPath === "sage" || lordPath === "herald";

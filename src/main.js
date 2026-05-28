@@ -182,6 +182,27 @@ const MATH_VAULT_BONUS_ARTIFACT_PLACEMENTS = Object.freeze({
   LOG04: "River-Map of Silt",
 });
 
+function inferCrd10LordPath(runtime) {
+  const source = runtime && typeof runtime === "object" ? runtime : {};
+  const explicit = String(source.resolvedLordPath || source.pendingLordPath || "").trim().toLowerCase();
+  if (explicit === "sage" || explicit === "herald") {
+    return explicit;
+  }
+  const solved = Boolean(source.solved) || String(source.phase || "").trim().toLowerCase() === "complete";
+  if (!solved) {
+    return "";
+  }
+  const sage = Math.max(0, Number(source.sagePoints) || 0);
+  const herald = Math.max(0, Number(source.heraldPoints) || 0);
+  if (sage > herald) {
+    return "sage";
+  }
+  if (herald > sage) {
+    return "herald";
+  }
+  return String(source.tieBias || "").trim().toLowerCase() === "herald" ? "herald" : "sage";
+}
+
 function artifactSourceGroup(source) {
   const text = String(source || "").trim();
   if (["Hall of Proofs", "Prime Vault", "Symmetry Forge", "Curved Atlas"].includes(text)) {
@@ -2737,7 +2758,7 @@ function dispatchActiveNodeAction(action) {
     }
 
     if (node.node_id === "CRD10" && runtime && String(runtime.pendingLordPath || "")) {
-      const lordPath = String(runtime.pendingLordPath || runtime.resolvedLordPath || "").trim().toLowerCase();
+      const lordPath = inferCrd10LordPath(runtime);
       if (lordPath === "sage" || lordPath === "herald") {
         next = updateNodeRuntime(
           next,

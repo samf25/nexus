@@ -282,6 +282,27 @@ function finalizePath(current) {
   };
 }
 
+function inferResolvedLordPath(runtime) {
+  const current = runtime && typeof runtime === "object" ? runtime : {};
+  const explicit = normalizeText(current.resolvedLordPath || current.pendingLordPath || "");
+  if (explicit === "sage" || explicit === "herald") {
+    return explicit;
+  }
+  const solved = Boolean(current.solved) || String(current.phase || "").toLowerCase() === "complete";
+  if (!solved) {
+    return "";
+  }
+  const sage = Math.max(0, Number(current.sagePoints) || 0);
+  const herald = Math.max(0, Number(current.heraldPoints) || 0);
+  if (sage > herald) {
+    return "sage";
+  }
+  if (herald > sage) {
+    return "herald";
+  }
+  return current.tieBias === "herald" ? "herald" : "sage";
+}
+
 function applyChoice(current, choice) {
   const next = {
     ...current,
@@ -502,7 +523,15 @@ export function initialCrd10Runtime() {
 }
 
 export function synchronizeCrd10Runtime(runtime) {
-  return normalizeRuntime(runtime);
+  const normalized = normalizeRuntime(runtime);
+  const inferred = inferResolvedLordPath(normalized);
+  if (!inferred || normalized.resolvedLordPath === inferred) {
+    return normalized;
+  }
+  return {
+    ...normalized,
+    resolvedLordPath: inferred,
+  };
 }
 
 export function validateCrd10Runtime(runtime) {
