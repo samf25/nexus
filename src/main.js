@@ -794,8 +794,44 @@ function rewardsMap(state) {
     : {};
 }
 
-function stripDeprecatedRewardsFromState(state) {
+function repairLegacyCradleLordPathState(state) {
   const source = state && typeof state === "object" ? state : {};
+  const nodeRuntime = source.nodeRuntime && typeof source.nodeRuntime === "object" ? source.nodeRuntime : {};
+  const crd10 = nodeRuntime.CRD10 && typeof nodeRuntime.CRD10 === "object" ? nodeRuntime.CRD10 : null;
+  if (!crd10) {
+    return source;
+  }
+
+  const inferredLordPath = inferCrd10LordPath(crd10);
+  if (inferredLordPath !== "sage" && inferredLordPath !== "herald") {
+    return source;
+  }
+
+  const crd02 = nodeRuntime.CRD02 && typeof nodeRuntime.CRD02 === "object" ? nodeRuntime.CRD02 : {};
+  const currentCrd02Path = String(crd02.lordPath || "").trim().toLowerCase();
+  const currentCrd10Resolved = String(crd10.resolvedLordPath || "").trim().toLowerCase();
+  if (currentCrd02Path === inferredLordPath && currentCrd10Resolved === inferredLordPath) {
+    return source;
+  }
+
+  return {
+    ...source,
+    nodeRuntime: {
+      ...nodeRuntime,
+      CRD02: {
+        ...crd02,
+        lordPath: inferredLordPath,
+      },
+      CRD10: {
+        ...crd10,
+        resolvedLordPath: inferredLordPath,
+      },
+    },
+  };
+}
+
+function stripDeprecatedRewardsFromState(state) {
+  const source = repairLegacyCradleLordPathState(state);
   const rewards = rewardsMap(source);
   const keys = Object.keys(rewards);
   if (!keys.length) {
