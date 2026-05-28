@@ -762,6 +762,13 @@ export function canAffordPrestigeReset(state, regionId) {
   return prestigeResetAward(state, regionId) > 0;
 }
 
+function prestigeResetPressure(regionId, resetCount) {
+  if (safeText(regionId) !== "cradle") {
+    return 1;
+  }
+  return 1 + (Math.log1p(Math.max(0, resetCount)) * 0.045);
+}
+
 function prestigeResetAwardFromValues(regionDef, amount, resetCount) {
   const region = regionDef && typeof regionDef === "object" ? regionDef : null;
   if (!region) {
@@ -772,9 +779,10 @@ function prestigeResetAwardFromValues(regionDef, amount, resetCount) {
     return 0;
   }
   const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
+  const resetPressure = prestigeResetPressure(region.id, resetCount);
   const firstThreshold = Math.max(
     1,
-    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)),
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
   );
   if (currency < firstThreshold) {
     return 0;
@@ -791,9 +799,10 @@ function prestigeNextAwardAt(regionDef, resetCount, award) {
     return 1;
   }
   const baseline = Math.max(1, prestigeResetCost(region.id, resetCount));
+  const resetPressure = prestigeResetPressure(region.id, resetCount);
   const firstThreshold = Math.max(
     1,
-    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)),
+    baseline * Math.max(0.01, safeFinite(region.firstPayoutThreshold, 0.2)) * resetPressure,
   );
   if (currentAward <= 0) {
     return Math.ceil(firstThreshold);
