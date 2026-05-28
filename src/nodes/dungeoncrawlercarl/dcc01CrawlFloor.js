@@ -3760,12 +3760,6 @@ function reduceDccRuntime(runtime, action, context = {}) {
         lastMessage: "You must unlock Floor 3 before setting this checkpoint.",
       };
     }
-    if (action.checkpointEligible !== true) {
-      return {
-        ...current,
-        lastMessage: "Reach Floor 3 in this crawl before anchoring a checkpoint.",
-      };
-    }
     return {
       ...current,
       lastMessage: "Checkpoint stabilized at Floor 3.",
@@ -4786,7 +4780,7 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
   const hasCheckpointPyramid = Boolean(rewards["Checkpoint Pyramid"]);
   const artifact = safeText(selectedArtifact);
   const pyramidSelected = artifact === "Checkpoint Pyramid";
-  const canSetCheckpoint = pyramidSelected && progress.floor3Unlocked && progress.checkpointEligible;
+  const canSetCheckpoint = pyramidSelected && progress.floor3Unlocked;
   const showCheckpointButton = hasCheckpointPyramid;
   return `
     <section class="card dcc-outside">
@@ -4810,7 +4804,6 @@ function outsideMarkup(runtime, state, selectedArtifact = "") {
                 data-artifact="${escapeHtml(artifact)}"
                 data-ready="${canSetCheckpoint ? "true" : "false"}"
                 data-floor3-unlocked="${progress.floor3Unlocked ? "true" : "false"}"
-                data-checkpoint-eligible="${progress.checkpointEligible ? "true" : "false"}"
                 ${canSetCheckpoint ? "" : "disabled"}
               >
                 Set Checkpoint: Floor 3

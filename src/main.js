@@ -1595,8 +1595,7 @@ function dispatchActiveNodeAction(action) {
       node.node_id === "DCC01" &&
       action.type === "dcc-apply-checkpoint-pyramid" &&
       action.ready === true &&
-      action.floor3Unlocked === true &&
-      action.checkpointEligible === true
+      action.floor3Unlocked === true
     ) {
       const currentDccSystem =
         next && next.systems && next.systems.dungeonCrawl && typeof next.systems.dungeonCrawl === "object"
@@ -1605,7 +1604,6 @@ function dispatchActiveNodeAction(action) {
       next = updateSystemState(next, "dungeonCrawl", {
         ...currentDccSystem,
         checkpointFloor: 3,
-        checkpointEligible: false,
       });
       next = consumeReward(next, "Checkpoint Pyramid", "DCC01");
     }
