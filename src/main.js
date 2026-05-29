@@ -3927,7 +3927,17 @@ function renderApp(route = getCurrentRoute()) {
 
   const unlockedNodeIds = computeUnlockedNodeIds(blueprintIndex, appState);
   const solvedSet = new Set(appState.solvedNodeIds || []);
-  const finalSolved = solvedSet.has(FINAL_VICTORY_NODE_ID);
+  const finalNode = blueprintIndex.nodesById.get(FINAL_VICTORY_NODE_ID) || null;
+  const finalExperience = finalNode ? getNodeExperience(FINAL_VICTORY_NODE_ID) : null;
+  const finalRuntime =
+    finalNode && finalExperience
+      ? readNodeRuntime(appState, finalNode, finalExperience)
+      : null;
+  const finalSolved =
+    solvedSet.has(FINAL_VICTORY_NODE_ID) ||
+    (finalExperience && typeof finalExperience.validateRuntime === "function"
+      ? Boolean(finalExperience.validateRuntime(finalRuntime))
+      : Boolean(finalRuntime && finalRuntime.solved));
   const routeNode = blueprintIndex.nodesByRoute.get(route) || null;
   const viewingFinalNode = Boolean(routeNode && routeNode.node_id === FINAL_VICTORY_NODE_ID);
   if (finalSolved && route !== FINAL_VICTORY_ROUTE && !viewingFinalNode) {
