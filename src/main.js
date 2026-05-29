@@ -3070,6 +3070,8 @@ function dispatchActiveNodeAction(action) {
 
       setBanner(`${node.node_id} solved. Reward added: ${solveRewardLabel(node)}${bonusReward}.`);
     }
+
+    return next;
   });
 
   renderApp();
