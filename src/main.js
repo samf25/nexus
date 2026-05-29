@@ -124,7 +124,6 @@ const DEPRECATED_REWARD_NAMES = new Set([
   "Curvature Chip",
   "Transport Arrow",
   "Story Beat A",
-  "Ashen Treaty Pins",
 ]);
 let appState = loadState();
 let deskFocusNodeId = null;
@@ -830,12 +829,29 @@ function repairLegacyCradleLordPathState(state) {
   };
 }
 
+function repairLegacyWormArenaArtifactState(state) {
+  const source = state && typeof state === "object" ? state : {};
+  const rewards = rewardsMap(source);
+  const worm =
+    source && source.systems && source.systems.worm && typeof source.systems.worm === "object"
+      ? source.systems.worm
+      : null;
+  if (!worm || !worm.arenaFirstWinsByDifficulty || !worm.arenaFirstWinsByDifficulty.easy) {
+    return source;
+  }
+  if (rewards["Ashen Treaty Pins"]) {
+    return source;
+  }
+
+  return grantArtifactReward(source, "Ashen Treaty Pins", "WORM02", "Worm");
+}
+
 function stripDeprecatedRewardsFromState(state) {
   const source = repairLegacyCradleLordPathState(state);
   const rewards = rewardsMap(source);
   const keys = Object.keys(rewards);
   if (!keys.length) {
-    return source;
+    return repairLegacyWormArenaArtifactState(source);
   }
 
   let changed = false;
@@ -849,16 +865,17 @@ function stripDeprecatedRewardsFromState(state) {
   }
 
   if (!changed) {
-    return source;
+    return repairLegacyWormArenaArtifactState(source);
   }
 
-  return {
+  const stripped = {
     ...source,
     inventory: {
       ...(source.inventory || {}),
       rewards: nextRewards,
     },
   };
+  return repairLegacyWormArenaArtifactState(stripped);
 }
 
 appState = stripDeprecatedRewardsFromState(appState);
