@@ -1827,6 +1827,12 @@ a:hover {
   color: #e7ffd3;
 }
 
+.completion-banner-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 .hub03-node {
   display: grid;
   gap: 10px;

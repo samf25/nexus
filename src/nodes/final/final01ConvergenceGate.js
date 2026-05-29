@@ -1885,7 +1885,7 @@ export function synchronizeFinal01Runtime(runtime, context = {}) {
           ...normalized.artifactPuzzleState,
           synthesisSolved: true,
         },
-        lastMessage: "Convergence complete. The final proof route opens.",
+        lastMessage: "Convergence sealed.",
       };
     }
   }
@@ -3466,7 +3466,9 @@ export function renderFinal01Experience(context) {
             : `
               <section class="completion-banner">
                 <p><strong>CONVERGENCE SEALED</strong></p>
-                <p>${escapeHtml(runtime.lastMessage || "The final route accepts your proof.")}</p>
+                <div class="completion-banner-actions">
+                  <button type="button" class="primary" data-action="open-final-victory">Victory</button>
+                </div>
               </section>
             `;
 
