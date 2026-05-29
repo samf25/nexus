@@ -1521,6 +1521,7 @@ function dispatchActiveNodeAction(action) {
   }
 
   const { node, experience } = context;
+  let navigateToVictory = false;
   withState((current) => {
     let next = current;
     let runtimeAction = action;
@@ -3074,6 +3075,13 @@ function dispatchActiveNodeAction(action) {
     return next;
   });
 
+  if (navigateToVictory) {
+    window.setTimeout(() => {
+      navigate(FINAL_VICTORY_ROUTE);
+    }, 1200);
+    renderApp();
+    return true;
+  }
   renderApp();
   if (node.node_id === "MOL01" && action.type === "mol01-begin-sequence") {
     if (mol01RevealTimerId) {
@@ -3920,6 +3928,12 @@ function renderApp(route = getCurrentRoute()) {
   const unlockedNodeIds = computeUnlockedNodeIds(blueprintIndex, appState);
   const solvedSet = new Set(appState.solvedNodeIds || []);
   const finalSolved = solvedSet.has(FINAL_VICTORY_NODE_ID);
+  const routeNode = blueprintIndex.nodesByRoute.get(route) || null;
+  const viewingFinalNode = Boolean(routeNode && routeNode.node_id === FINAL_VICTORY_NODE_ID);
+  if (finalSolved && route !== FINAL_VICTORY_ROUTE && !viewingFinalNode) {
+    navigate(FINAL_VICTORY_ROUTE);
+    return;
+  }
   if (route === FINAL_VICTORY_ROUTE) {
     if (!finalSolved) {
       navigate("/");
@@ -4467,6 +4481,10 @@ function handleClick(event) {
       ),
     );
     setBanner(`${node.node_id} solved. Reward added: ${solveRewardLabel(node)}.`);
+    if (node.node_id === FINAL_VICTORY_NODE_ID) {
+      navigate(FINAL_VICTORY_ROUTE);
+      return;
+    }
     renderApp();
     return;
   }
