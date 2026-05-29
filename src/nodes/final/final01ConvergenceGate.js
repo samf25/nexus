@@ -40,7 +40,7 @@ const RESOURCE_REQUIREMENTS = Object.freeze({
   madra: 6400000,
   soulfire: 960,
   clout: 22000,
-  gold: 28000,
+  gold: 12000,
 });
 const RESOURCE_PENDING_FIELD_BY_NAME = Object.freeze({
   madra: "pendingMadraSpend",
