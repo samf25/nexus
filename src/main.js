@@ -156,6 +156,7 @@ let routeVisitNonce = 0;
 let lastRouteForVisit = "";
 let mol01RevealTimerId = 0;
 let mol01RevealBeatTimerIds = [];
+let forceOpenVictoryRoute = false;
 const AUTO_RENDER_INTERVAL_MS = 2000;
 const AA_TOME_RENDER_INTERVAL_MS = 350;
 const AA_TOME_STEP_MS = 1050;
@@ -3946,10 +3947,11 @@ function renderApp(route = getCurrentRoute()) {
     return;
   }
   if (route === FINAL_VICTORY_ROUTE) {
-    if (!finalVictoryReady) {
+    if (!finalVictoryReady && !forceOpenVictoryRoute) {
       navigate("/");
       return;
     }
+    forceOpenVictoryRoute = false;
     mountVictoryScreen(root);
     bannerMessage = "";
     saveState(appState);
@@ -4495,6 +4497,7 @@ function handleClick(event) {
         );
       });
     }
+    forceOpenVictoryRoute = true;
     navigate(FINAL_VICTORY_ROUTE);
     return;
   }
