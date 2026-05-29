@@ -11,6 +11,24 @@ import {
   pulsePhaseDelaySeconds,
 } from "../cradle/rhythmCore.js";
 import {
+  applyCradleConsumeLeech,
+  applyCradleTechniqueAttackDamage,
+  applyCradleTechniqueDamageReduction,
+  cradleCombatAttackMultiplierFromState,
+  cradleTechniqueAdjustedDodgeChance,
+  cradleTechniqueAdjustedEmptyPalmBaseChance,
+  cradleTechniqueAdjustedMadraCost,
+  cradleTechniqueEffectsFromState,
+  combatStageLabel,
+  emptyPalmSuccessRoll,
+  madraPoolMultiplierForStage,
+  normalizeCombatStage,
+  randomUnit,
+  recentCombatLogLines,
+  rollDamage,
+  rollHollowDomainSuppression,
+} from "../cradle/combatSystem.js";
+import {
   createWormBattleState,
   infoDebuffStatKeys,
   parseWormCombatEventLine,
@@ -19,6 +37,7 @@ import {
 } from "../worm/wormCombatSystem.js";
 import { normalizeWormSystemState, wormOwnedCards } from "../../systems/wormDeck.js";
 import { renderWormCard } from "../worm/wormCardRenderer.js";
+import { getWormCapeLootBonuses } from "../../systems/loot.js";
 import {
   createMemoryGameRuntime,
   reduceMemoryGameBegin,
@@ -33,6 +52,7 @@ const FINAL_SYMBOL_KEY = "final-arc";
 const PHASE_ENTRY = "entry";
 const PHASE_MEMORY = "memory";
 const PHASE_RHYTHM = "rhythm";
+const PHASE_CRD = "crd";
 const PHASE_DUAL = "dual";
 const PHASE_SYNTHESIS = "synthesis";
 const PHASE_COMPLETE = "complete";
@@ -779,6 +799,167 @@ function fallbackWormCard(id, heroName, power, baseStats) {
   };
 }
 
+function applyWormCombatBonus(card, bonus) {
+  const source = bonus && typeof bonus === "object" ? bonus : {};
+  const keys = ["attack", "defense", "endurance", "info", "manipulation", "range", "speed", "stealth"];
+  const next = { ...card };
+  for (const key of keys) {
+    next[key] = Math.max(0, Number(card[key] || 0) + Math.max(0, Number(source[key] || 0)));
+  }
+  next.maxHpMultiplier = Math.max(1, Number(source.maxHpMultiplier || card.maxHpMultiplier || 1));
+  next.damageMultiplier = Math.max(1, Number(source.damageMultiplier || card.damageMultiplier || 1));
+  next.damageReduction = Math.max(0, Number(source.damageReduction || card.damageReduction || 0));
+  return next;
+}
+
+const FINAL_ENDBRINGER_LEGENDARY_SHARDS = Object.freeze({
+  leviathan: Object.freeze({
+    speed: 3,
+    range: 3,
+  }),
+  simurgh: Object.freeze({
+    info: 3,
+    manipulation: 3,
+  }),
+  behemoth: Object.freeze({
+    attack: 3,
+    endurance: 3,
+  }),
+});
+
+const FINAL_EITHAN_TRIAL = Object.freeze({
+  id: "final-eithan-arelius",
+  name: "Eithan Arelius",
+  style: "Pure Madra Supremacy",
+  stage: "archlord",
+  maxHp: 1180,
+  attack: 76,
+  ability: "pure",
+});
+
+function readCrd02Runtime(state) {
+  if (!state || !state.nodeRuntime || typeof state.nodeRuntime !== "object") {
+    return {};
+  }
+  const runtime = state.nodeRuntime.CRD02;
+  return runtime && typeof runtime === "object" ? runtime : {};
+}
+
+function readCrd10Runtime(state) {
+  if (!state || !state.nodeRuntime || typeof state.nodeRuntime !== "object") {
+    return {};
+  }
+  const runtime = state.nodeRuntime.CRD10;
+  return runtime && typeof runtime === "object" ? runtime : {};
+}
+
+function inferCrd10LordPath(runtime) {
+  const current = runtime && typeof runtime === "object" ? runtime : {};
+  const explicit = safeText(current.resolvedLordPath || current.pendingLordPath || "").toLowerCase();
+  if (explicit === "sage" || explicit === "herald") {
+    return explicit;
+  }
+  const solved = Boolean(current.solved) || safeText(current.phase || "").toLowerCase() === "complete";
+  if (!solved) {
+    return "";
+  }
+  const sage = Math.max(0, Number(current.sagePoints) || 0);
+  const herald = Math.max(0, Number(current.heraldPoints) || 0);
+  if (sage > herald) {
+    return "sage";
+  }
+  if (herald > sage) {
+    return "herald";
+  }
+  return safeText(current.tieBias || "").toLowerCase() === "herald" ? "herald" : "sage";
+}
+
+function finalCrdCombatProfileFromState(state) {
+  const crd02 = readCrd02Runtime(state);
+  const crd10 = readCrd10Runtime(state);
+  const upgrades = crd02.upgrades && typeof crd02.upgrades === "object" ? crd02.upgrades : {};
+  const lordPathUpgrades = crd02.lordPathUpgrades && typeof crd02.lordPathUpgrades === "object"
+    ? crd02.lordPathUpgrades
+    : {};
+  const stage = normalizeCombatStage(crd02.cultivationStage || "foundation");
+  const lordPath = safeText(crd02.lordPath || inferCrd10LordPath(crd10) || "").toLowerCase();
+  const pathReady = lordPath === "sage" || lordPath === "herald";
+  const ironBody = Number(upgrades["blood-forged-iron-body"] || 0);
+  const soulCloak = Number(upgrades["soul-cloak"] || 0);
+  const consume = Number(upgrades.consume || 0);
+  const emptyPalm = Number(upgrades["empty-palm"] || 0);
+  const pathSpell = Math.max(0, Number(lordPathUpgrades.sageScript || 0));
+  const pathMight = Math.max(0, Number(lordPathUpgrades.heraldMight || 0));
+  const attackMultiplier = cradleCombatAttackMultiplierFromState(state || {});
+  return {
+    stage,
+    lordPath,
+    ready: stage === "archlord" && pathReady,
+    hasEmptyPalm: emptyPalm > 0,
+    maxHp: 340 + ironBody * 38 + pathMight * 42 + (lordPath === "herald" ? 120 : 0),
+    maxMadra: Math.round((280 + soulCloak * 8 + consume * 10 + pathSpell * 14) * madraPoolMultiplierForStage(stage)) + (lordPath === "sage" ? 90 : 0),
+    meleeBonus: (soulCloak + consume + pathMight * 3) * attackMultiplier,
+    dodgeBonus: soulCloak + pathSpell,
+    spellBonus: (pathSpell * 4 + (lordPath === "sage" ? 6 : 0)) * attackMultiplier,
+    techEffects: cradleTechniqueEffectsFromState(state || {}, stage),
+  };
+}
+
+function normalizeFinalCrdTrial(candidate) {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+  const subphase = ["idle", "battle", "won"].includes(safeText(source.subphase).toLowerCase())
+    ? safeText(source.subphase).toLowerCase()
+    : "idle";
+  return {
+    subphase,
+    player: source.player && typeof source.player === "object"
+      ? {
+        hp: Math.max(0, Number(source.player.hp) || 0),
+        maxHp: Math.max(1, Number(source.player.maxHp) || 1),
+        madra: Math.max(0, Number(source.player.madra) || 0),
+        maxMadra: Math.max(1, Number(source.player.maxMadra) || 1),
+        stage: normalizeCombatStage(source.player.stage || "archlord"),
+        dodgeReady: Boolean(source.player.dodgeReady),
+        dodgeBonus: Math.max(0, Number(source.player.dodgeBonus) || 0),
+        meleeBonus: Math.max(0, Number(source.player.meleeBonus) || 0),
+        spellBonus: Math.max(0, Number(source.player.spellBonus) || 0),
+        techEffects: source.player.techEffects && typeof source.player.techEffects === "object"
+          ? { ...source.player.techEffects }
+          : {},
+        emptyPalm: Boolean(source.player.emptyPalm),
+      }
+      : null,
+    enemy: source.enemy && typeof source.enemy === "object"
+      ? {
+        id: safeText(source.enemy.id || ""),
+        name: safeText(source.enemy.name || "Enemy"),
+        style: safeText(source.enemy.style || "Unknown"),
+        stage: normalizeCombatStage(source.enemy.stage || "archlord"),
+        hp: Math.max(0, Number(source.enemy.hp) || 0),
+        maxHp: Math.max(1, Number(source.enemy.maxHp) || 1),
+        attack: Math.max(1, Number(source.enemy.attack) || 1),
+        ability: safeText(source.enemy.ability || ""),
+        stunnedTurns: Math.max(0, Math.floor(Number(source.enemy.stunnedTurns) || 0)),
+      }
+      : null,
+    seed: Number.isFinite(Number(source.seed)) ? Number(source.seed) >>> 0 : (Date.now() >>> 0),
+    log: Array.isArray(source.log) ? source.log.slice(-10).map((line) => String(line)) : [],
+  };
+}
+
+function finalCrdBarMarkup(label, current, max, className = "") {
+  const safeMax = Math.max(1, Number(max) || 1);
+  const value = Math.max(0, Number(current) || 0);
+  const percent = Math.min(100, Math.max(0, (value / safeMax) * 100));
+  return `
+    <div class="crd04-bar ${className}">
+      <div class="crd04-bar-label">${escapeHtml(label)}</div>
+      <div class="crd04-bar-track"><span style="width:${percent.toFixed(2)}%"></span></div>
+      <div class="crd04-bar-value">${escapeHtml(String(Math.round(value)))}/${escapeHtml(String(Math.round(safeMax)))}</div>
+    </div>
+  `;
+}
+
 function readPlayerWormCards(state) {
   const wormState = normalizeWormSystemState(
     state && state.systems && state.systems.worm && typeof state.systems.worm === "object"
@@ -786,7 +967,7 @@ function readPlayerWormCards(state) {
       : {},
     Date.now(),
   );
-  const ownedEntries = wormOwnedCards(wormState, Date.now());
+  const ownedEntries = wormOwnedCards(wormState, Date.now()).filter((entry) => Number(entry && entry.currentHp) > 0);
   const byId = Object.fromEntries(ownedEntries.map((entry) => [String(entry.cardId || ""), entry]));
   const worm02Runtime =
     state && state.nodeRuntime && state.nodeRuntime.WORM02 && typeof state.nodeRuntime.WORM02 === "object"
@@ -805,8 +986,13 @@ function readPlayerWormCards(state) {
   const pickedEntries = [...selectedEntries, ...fallbackEntries].slice(0, 2);
   const owned = pickedEntries
     .map((entry) => ({
-      ...entry.card,
-      currentHp: entry.currentHp,
+      ...applyWormCombatBonus(
+        {
+          ...entry.card,
+          currentHp: entry.currentHp,
+        },
+        getWormCapeLootBonuses(state || {}, entry.cardId, Date.now()),
+      ),
     }));
   if (owned.length >= 2) {
     return owned;
@@ -824,39 +1010,48 @@ function readPlayerWormCards(state) {
 
 function createFinalWormEnemyTeam() {
   return [
-    fallbackWormCard("final-leviathan", "Leviathan", "Hydrokinetic pressure and relentless motion.", {
-      attack: 12,
-      defense: 10,
-      endurance: 12,
-      info: 9,
-      manipulation: 8,
-      range: 11,
-      speed: 12,
-      stealth: 7,
-      rarity: 9.8,
-    }),
-    fallbackWormCard("final-simurgh", "Simurgh", "Forecast loops and surgical disruption.", {
-      attack: 10,
-      defense: 9,
-      endurance: 11,
-      info: 13,
-      manipulation: 13,
-      range: 12,
-      speed: 11,
-      stealth: 12,
-      rarity: 10,
-    }),
-    fallbackWormCard("final-behemoth", "Behemoth", "Seismic force and catastrophic attrition.", {
-      attack: 14,
-      defense: 13,
-      endurance: 15,
-      info: 7,
-      manipulation: 8,
-      range: 9,
-      speed: 8,
-      stealth: 5,
-      rarity: 10,
-    }),
+    applyWormCombatBonus(
+      fallbackWormCard("final-leviathan", "Leviathan", "Hydrokinetic pressure and relentless motion.", {
+        attack: 12,
+        defense: 10,
+        endurance: 12,
+        info: 9,
+        manipulation: 8,
+        range: 11,
+        speed: 12,
+        stealth: 7,
+        rarity: 9.8,
+      }),
+      FINAL_ENDBRINGER_LEGENDARY_SHARDS.leviathan,
+    ),
+    applyWormCombatBonus(
+      fallbackWormCard("final-simurgh", "Simurgh", "Forecast loops and surgical disruption.", {
+        attack: 10,
+        defense: 9,
+        endurance: 11,
+        info: 13,
+        manipulation: 13,
+        range: 12,
+        speed: 11,
+        stealth: 12,
+        rarity: 10,
+      }),
+      FINAL_ENDBRINGER_LEGENDARY_SHARDS.simurgh,
+    ),
+    applyWormCombatBonus(
+      fallbackWormCard("final-behemoth", "Behemoth", "Seismic force and catastrophic attrition.", {
+        attack: 14,
+        defense: 13,
+        endurance: 15,
+        info: 7,
+        manipulation: 8,
+        range: 9,
+        speed: 8,
+        stealth: 5,
+        rarity: 10,
+      }),
+      FINAL_ENDBRINGER_LEGENDARY_SHARDS.behemoth,
+    ),
   ];
 }
 
@@ -917,7 +1112,7 @@ function normalizeRuntime(runtime, context = {}) {
   const roles = artifactRoleSummary(activeArtifacts);
   const memoryTarget = memoryTargetForRoleSummary(roles);
   const normalizedSeed = Number.isFinite(Number(source.seed)) ? (Number(source.seed) >>> 0) : (Date.now() >>> 0);
-  const phase = [PHASE_ENTRY, PHASE_MEMORY, PHASE_RHYTHM, PHASE_DUAL, PHASE_SYNTHESIS, PHASE_COMPLETE].includes(String(source.phase || ""))
+  const phase = [PHASE_ENTRY, PHASE_MEMORY, PHASE_RHYTHM, PHASE_CRD, PHASE_DUAL, PHASE_SYNTHESIS, PHASE_COMPLETE].includes(String(source.phase || ""))
     ? String(source.phase)
     : PHASE_ENTRY;
   const sourceMemoryGame =
@@ -947,6 +1142,7 @@ function normalizeRuntime(runtime, context = {}) {
       lockin: Boolean(source.checkpoints && source.checkpoints.lockin),
       memory: Boolean(source.checkpoints && source.checkpoints.memory),
       rhythm: Boolean(source.checkpoints && source.checkpoints.rhythm),
+      crd: Boolean(source.checkpoints && source.checkpoints.crd),
       dual: Boolean(source.checkpoints && source.checkpoints.dual),
       synthesis: Boolean(source.checkpoints && source.checkpoints.synthesis),
     },
@@ -956,6 +1152,7 @@ function normalizeRuntime(runtime, context = {}) {
     pendingGoldSpend: Math.max(0, Number(source.pendingGoldSpend || 0)),
     memoryGame,
     rhythm: normalizeRhythm(source.rhythm),
+    cradleTrial: normalizeFinalCrdTrial(source.cradleTrial),
     dual: normalizeDual(source.dual, state, roles),
     synthesis: (() => {
       const normalized = normalizeSynthesisState(source.synthesis, synthesisCatalog);
@@ -1038,6 +1235,234 @@ function resourceRequirementMet(resourceName, resources) {
 function pendingFieldForResource(resourceName) {
   const key = safeText(resourceName).toLowerCase();
   return RESOURCE_PENDING_FIELD_BY_NAME[key] || "";
+}
+
+function startFinalCrdTrial(runtime, state) {
+  const profile = finalCrdCombatProfileFromState(state || {});
+  if (!profile.ready) {
+    return {
+      ...runtime,
+      phase: PHASE_CRD,
+      cradleTrial: normalizeFinalCrdTrial({
+        subphase: "idle",
+        player: null,
+        enemy: null,
+        log: [],
+      }),
+      lastMessage: "Only completed Archlord paths can face Eithan's final lesson.",
+    };
+  }
+  return {
+    ...runtime,
+    phase: PHASE_CRD,
+    cradleTrial: normalizeFinalCrdTrial({
+      subphase: "battle",
+      player: {
+        hp: profile.maxHp,
+        maxHp: profile.maxHp,
+        madra: profile.maxMadra,
+        maxMadra: profile.maxMadra,
+        stage: profile.stage,
+        dodgeReady: false,
+        dodgeBonus: profile.dodgeBonus,
+        meleeBonus: profile.meleeBonus,
+        spellBonus: profile.spellBonus,
+        techEffects: profile.techEffects,
+        emptyPalm: profile.hasEmptyPalm,
+      },
+      enemy: {
+        ...FINAL_EITHAN_TRIAL,
+        hp: FINAL_EITHAN_TRIAL.maxHp,
+        maxHp: FINAL_EITHAN_TRIAL.maxHp,
+        stunnedTurns: 0,
+      },
+      seed: ((Date.now() >>> 0) ^ runtime.seed) >>> 0,
+      log: ["Eithan smiles and lets pure madra sharpen the room."],
+    }),
+    lastMessage: "",
+  };
+}
+
+function resolveFinalCrdPlayerMove(current, move) {
+  const trial = current.cradleTrial;
+  if (!trial.player || !trial.enemy) {
+    return current;
+  }
+  const next = {
+    ...current,
+    cradleTrial: {
+      ...trial,
+      player: { ...trial.player },
+      enemy: { ...trial.enemy },
+    },
+  };
+  const player = next.cradleTrial.player;
+  const enemy = next.cradleTrial.enemy;
+
+  if (move === "dodge") {
+    player.dodgeReady = true;
+    next.cradleTrial.log = [...next.cradleTrial.log, "You set a perfect defensive cadence."].slice(-10);
+    return next;
+  }
+
+  if (move === "empty-palm") {
+    if (!player.emptyPalm) {
+      next.cradleTrial.log = [...next.cradleTrial.log, "You have not learned Empty Palm."].slice(-10);
+      return next;
+    }
+    const cost = cradleTechniqueAdjustedMadraCost(24, player.techEffects);
+    if (player.madra < cost) {
+      next.cradleTrial.log = [...next.cradleTrial.log, "Not enough madra for Empty Palm."].slice(-10);
+      return next;
+    }
+    const roll = rollDamage({
+      seed: next.cradleTrial.seed,
+      salt: 71,
+      base: 44 + player.meleeBonus,
+      spread: 11,
+      attackerStage: player.stage,
+      defenderStage: enemy.stage,
+    });
+    const palmRoll = emptyPalmSuccessRoll({
+      seed: roll.seed,
+      salt: 171,
+      attackerStage: player.stage,
+      defenderStage: enemy.stage,
+      baseChance: cradleTechniqueAdjustedEmptyPalmBaseChance(0.56, player.techEffects),
+      penaltyPerStage: 0.25,
+      minChance: 0.02,
+      severeGapThreshold: 2,
+      severeGapChance: 0.01,
+    });
+    next.cradleTrial.seed = palmRoll.seed;
+    player.madra = Math.max(0, player.madra - cost);
+    if (!palmRoll.success) {
+      next.cradleTrial.log = [...next.cradleTrial.log, "Empty Palm slips aside as Eithan redirects the pressure."].slice(-10);
+      return next;
+    }
+    const inflicted = applyCradleTechniqueAttackDamage(roll.damage, player.techEffects);
+    const leech = applyCradleConsumeLeech({
+      hp: player.hp,
+      maxHp: player.maxHp,
+      madra: player.madra,
+      maxMadra: player.maxMadra,
+      damageDealt: inflicted,
+      effects: player.techEffects,
+    });
+    player.hp = leech.hp;
+    player.madra = leech.madra;
+    enemy.hp = Math.max(0, enemy.hp - inflicted);
+    enemy.stunnedTurns = Math.max(2, enemy.stunnedTurns);
+    next.cradleTrial.log = [...next.cradleTrial.log, `Empty Palm ruptures Eithan's shell for ${inflicted}.${leech.gainedHp || leech.gainedMadra ? ` Consume restores ${leech.gainedHp} HP / ${leech.gainedMadra} Madra.` : ""}`].slice(-10);
+    return next;
+  }
+
+  if (move === "spell") {
+    const cost = cradleTechniqueAdjustedMadraCost(18, player.techEffects);
+    if (player.madra < cost) {
+      next.cradleTrial.log = [...next.cradleTrial.log, "Not enough madra to cast."].slice(-10);
+      return next;
+    }
+    const roll = rollDamage({
+      seed: next.cradleTrial.seed,
+      salt: 79,
+      base: 40 + player.spellBonus * 2,
+      spread: 13,
+      attackerStage: player.stage,
+      defenderStage: enemy.stage,
+    });
+    next.cradleTrial.seed = roll.seed;
+    player.madra = Math.max(0, player.madra - cost);
+    const inflicted = applyCradleTechniqueAttackDamage(roll.damage, player.techEffects);
+    enemy.hp = Math.max(0, enemy.hp - inflicted);
+    next.cradleTrial.log = [...next.cradleTrial.log, `You carve a scripted path through Eithan's pure madra for ${inflicted}.`].slice(-10);
+    return next;
+  }
+
+  const roll = rollDamage({
+    seed: next.cradleTrial.seed,
+    salt: 61,
+    base: 42 + player.meleeBonus * 2,
+    spread: 12,
+    attackerStage: player.stage,
+    defenderStage: enemy.stage,
+  });
+  next.cradleTrial.seed = roll.seed;
+  const inflicted = applyCradleTechniqueAttackDamage(roll.damage, player.techEffects);
+  enemy.hp = Math.max(0, enemy.hp - inflicted);
+  const leech = applyCradleConsumeLeech({
+    hp: player.hp,
+    maxHp: player.maxHp,
+    madra: player.madra,
+    maxMadra: player.maxMadra,
+    damageDealt: inflicted,
+    effects: player.techEffects,
+  });
+  player.hp = leech.hp;
+  player.madra = leech.madra;
+  next.cradleTrial.log = [...next.cradleTrial.log, `You strike for ${inflicted}.${leech.gainedHp || leech.gainedMadra ? ` Consume restores ${leech.gainedHp} HP / ${leech.gainedMadra} Madra.` : ""}`].slice(-10);
+  return next;
+}
+
+function resolveFinalCrdEnemyTurn(current) {
+  const trial = current.cradleTrial;
+  if (!trial.player || !trial.enemy) {
+    return current;
+  }
+  const next = {
+    ...current,
+    cradleTrial: {
+      ...trial,
+      player: { ...trial.player },
+      enemy: { ...trial.enemy },
+    },
+  };
+  const player = next.cradleTrial.player;
+  const enemy = next.cradleTrial.enemy;
+  const enemyTechnique =
+    enemy.ability === "pure"
+      ? "hollow king's pure dismantling"
+      : "lordly assault";
+  if (enemy.stunnedTurns > 0) {
+    enemy.stunnedTurns -= 1;
+    next.cradleTrial.log = [...next.cradleTrial.log, "Eithan glides backward, momentarily staggered."].slice(-10);
+    return next;
+  }
+
+  const dodgeChance = player.dodgeReady
+    ? cradleTechniqueAdjustedDodgeChance(Math.min(0.9, 0.45 + player.dodgeBonus * 0.05), player.techEffects)
+    : 0;
+  if (dodgeChance > 0) {
+    const dodgeRoll = randomUnit(next.cradleTrial.seed, 37);
+    next.cradleTrial.seed = dodgeRoll.seed;
+    if (dodgeRoll.value < dodgeChance) {
+      player.dodgeReady = false;
+      next.cradleTrial.log = [...next.cradleTrial.log, `You slip past Eithan's ${enemyTechnique}.`].slice(-10);
+      return next;
+    }
+  }
+
+  const bonus = enemy.ability === "pure" ? 22 : 12;
+  const suppressRoll = rollHollowDomainSuppression({
+    seed: next.cradleTrial.seed,
+    salt: 173,
+    effects: player.techEffects,
+  });
+  next.cradleTrial.seed = suppressRoll.seed;
+  const roll = rollDamage({
+    seed: suppressRoll.seed,
+    salt: 47,
+    base: enemy.attack + (suppressRoll.success ? Math.round(bonus * 0.4) : bonus),
+    spread: 12,
+    attackerStage: enemy.stage,
+    defenderStage: player.stage,
+  });
+  next.cradleTrial.seed = roll.seed;
+  const mitigated = applyCradleTechniqueDamageReduction(roll.damage, player.techEffects);
+  player.hp = Math.max(0, player.hp - mitigated);
+  player.dodgeReady = false;
+  next.cradleTrial.log = [...next.cradleTrial.log, `${suppressRoll.success ? "Hollow Domain blunts the edge. " : ""}Eithan's ${enemyTechnique} hits for ${mitigated}.`].slice(-10);
+  return next;
 }
 
 
@@ -1374,7 +1799,7 @@ export function initialFinal01Runtime() {
       solved: false,
       entrySockets: { box: false, cookbook: false },
       lockInvestments: { madra: false, soulfire: false, clout: false, gold: false },
-      checkpoints: { lockin: false, memory: false, rhythm: false, dual: false, synthesis: false },
+      checkpoints: { lockin: false, memory: false, rhythm: false, crd: false, dual: false, synthesis: false },
       memoryGame: createMemoryGameRuntime({ targetSuccesses: FINAL_MEMORY_TARGET_SUCCESSES, roll: Math.random() }),
       rhythm: {
         active: false,
@@ -1388,6 +1813,12 @@ export function initialFinal01Runtime() {
         attempts: 0,
         feedback: "",
         feedbackUntil: 0,
+      },
+      cradleTrial: {
+        subphase: "idle",
+        player: null,
+        enemy: null,
+        log: [],
       },
       dual: {
         subphase: "idle",
@@ -1699,9 +2130,9 @@ export function reduceFinal01Runtime(runtime, action, context = {}) {
           lastMessage: "",
         };
       }
-      return startDualBattle({
+      return startFinalCrdTrial({
         ...current,
-        phase: PHASE_DUAL,
+        phase: PHASE_CRD,
         checkpoints: {
           ...current.checkpoints,
           rhythm: true,
@@ -1731,6 +2162,43 @@ export function reduceFinal01Runtime(runtime, action, context = {}) {
 
   if (action.type === "fin01-dual-start" && current.phase === PHASE_DUAL) {
     return startDualBattle(current, state);
+  }
+
+  if (action.type === "fin01-crd-start" && current.phase === PHASE_CRD) {
+    return startFinalCrdTrial(current, state);
+  }
+
+  if (action.type === "fin01-crd-fight-action" && current.phase === PHASE_CRD && current.cradleTrial.subphase === "battle") {
+    let next = resolveFinalCrdPlayerMove(current, safeText(action.move || "melee").toLowerCase());
+    if (next.cradleTrial.enemy && next.cradleTrial.enemy.hp <= 0) {
+      return startDualBattle({
+        ...next,
+        phase: PHASE_DUAL,
+        checkpoints: {
+          ...next.checkpoints,
+          crd: true,
+        },
+        cradleTrial: {
+          ...next.cradleTrial,
+          subphase: "won",
+        },
+      }, state);
+    }
+
+    next = resolveFinalCrdEnemyTurn(next);
+    if (next.cradleTrial.player && next.cradleTrial.player.hp <= 0) {
+      return {
+        ...next,
+        cradleTrial: normalizeFinalCrdTrial({
+          subphase: "idle",
+          player: null,
+          enemy: null,
+          log: [],
+        }),
+        lastMessage: "Eithan disassembles your stance. Recenter and challenge him again.",
+      };
+    }
+    return next;
   }
 
   if (action.type === "fin01-dual-worm-round" && current.phase === PHASE_DUAL && current.dual.subphase === "worm") {
@@ -2447,6 +2915,64 @@ function rhythmMarkup(runtime) {
   `;
 }
 
+function crdMarkup(runtime, context) {
+  const profile = finalCrdCombatProfileFromState(context.state || {});
+  const trial = runtime.cradleTrial;
+  if (!trial.player || !trial.enemy || trial.subphase === "idle") {
+    return `
+      <article class="crd04-node" data-node-id="${NODE_ID}">
+        <section class="crd04-dialog">
+          <h3>Phase D: Hollow King Duel</h3>
+          <p>Eithan Arelius waits with a smile and enough pure madra control to shame the Dreadgods.</p>
+          <div class="crd04-actions">
+            <button
+              type="button"
+              data-node-id="${NODE_ID}"
+              data-node-action="fin01-crd-start"
+              ${profile.ready ? "" : "disabled"}
+            >
+              Begin Duel
+            </button>
+          </div>
+          ${runtime.lastMessage ? `<p class="muted">${escapeHtml(runtime.lastMessage)}</p>` : ""}
+        </section>
+      </article>
+    `;
+  }
+
+  const player = trial.player;
+  const enemy = trial.enemy;
+  return `
+    <article class="crd04-node" data-node-id="${NODE_ID}">
+      <section class="crd04-combat-head">
+        <h3>Phase D: Hollow King Duel</h3>
+        <div class="crd04-combat-meta">
+          <span class="crd04-meta-chip"><strong>Your Stage</strong> ${escapeHtml(combatStageLabel(player.stage))}</span>
+          <span class="crd04-meta-chip"><strong>Opponent</strong> ${escapeHtml(enemy.name)}</span>
+          <span class="crd04-meta-chip"><strong>Opponent Stage</strong> ${escapeHtml(combatStageLabel(enemy.stage))}</span>
+        </div>
+      </section>
+      <section class="crd04-bars">
+        ${finalCrdBarMarkup("Health", player.hp, player.maxHp, "is-health")}
+        ${finalCrdBarMarkup("Madra", player.madra, player.maxMadra, "is-madra")}
+      </section>
+      <section class="crd04-bars enemy">
+        ${finalCrdBarMarkup(`${enemy.name} HP`, enemy.hp, enemy.maxHp, "is-enemy")}
+      </section>
+      <section class="crd04-actions">
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-crd-fight-action" data-move="melee">Melee</button>
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-crd-fight-action" data-move="spell">Spell</button>
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-crd-fight-action" data-move="dodge">Dodge</button>
+        <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-crd-fight-action" data-move="empty-palm" ${player.emptyPalm ? "" : "disabled"}>Empty Palm</button>
+      </section>
+      <section class="crd04-log">
+        ${recentCombatLogLines(trial.log, 6).map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+      </section>
+      ${runtime.lastMessage ? `<p class="muted">${escapeHtml(runtime.lastMessage)}</p>` : ""}
+    </article>
+  `;
+}
+
 function normalizePreferenceForActor(combatant, enemyTeam, preference) {
   const preferredType = safeText(preference && preference.type).toLowerCase();
   const actionType = selectableWormActions().includes(preferredType) ? preferredType : "attack";
@@ -2470,6 +2996,7 @@ function normalizePreferenceForActor(combatant, enemyTeam, preference) {
 function playerOrderMarkup(combatant, enemyTeam, preference) {
   const aliveEnemies = enemyTeam.filter((enemy) => Number(enemy.hp || 0) > 0);
   const normalized = normalizePreferenceForActor(combatant, aliveEnemies, preference);
+  const showTarget = ["attack", "info", "manipulation"].includes(normalized.type);
   const actionOptions = selectableWormActions()
     .map(
       (action) =>
@@ -2498,7 +3025,7 @@ function playerOrderMarkup(combatant, enemyTeam, preference) {
           ${actionOptions}
         </select>
       </label>
-      <label>
+      <label data-worm04-target-wrap ${showTarget ? "" : "hidden"}>
         <span>Target</span>
         <select class="worm02-select" data-worm04-order-target>
           ${targetOptions}
@@ -2515,7 +3042,8 @@ function playerOrderMarkup(combatant, enemyTeam, preference) {
 }
 
 function teamCardsMarkup(team, role) {
-  return team
+  const living = (Array.isArray(team) ? team : []).filter((combatant) => Number(combatant && combatant.hp) > 0);
+  return living
     .map((combatant) =>
       renderWormCard(
         {
@@ -2547,7 +3075,7 @@ function dualMarkup(runtime) {
   if (!worm || runtime.dual.subphase === "idle") {
     return `
       <section class="card final01-card">
-        <h3>Phase D: Endbringer Combat Trial</h3>
+        <h3>Phase E: Endbringer Combat Trial</h3>
         <p class="muted">Leviathan, Simurgh, and Behemoth converge as a 3-cape enemy line.</p>
         <div class="toolbar">
           <button type="button" data-node-id="${NODE_ID}" data-node-action="fin01-dual-start">Start Endbringer Trial</button>
@@ -2574,7 +3102,7 @@ function dualMarkup(runtime) {
 
   return `
     <section class="card final01-card">
-      <h3>Phase D: Endbringer Combat Trial</h3>
+      <h3>Phase E: Endbringer Combat Trial</h3>
       <section class="worm02-battle">
         <header class="worm02-battle-header">
           <p><strong>Combat Turn:</strong> ${escapeHtml(String(turnNumber))}</p>
@@ -2912,7 +3440,7 @@ function synthesisMarkup(runtime, context) {
   }
   return `
     <section class="card final01-card">
-      <h3>Phase E: Synthesis</h3>
+      <h3>Phase F: Synthesis</h3>
       ${synthesisStageRailMarkup(synthesis)}
       ${stageBody}
     </section>
@@ -2929,6 +3457,8 @@ export function renderFinal01Experience(context) {
       ? memoryMarkup(runtime)
       : phase === PHASE_RHYTHM
         ? rhythmMarkup(runtime)
+        : phase === PHASE_CRD
+          ? crdMarkup(runtime, context)
         : phase === PHASE_DUAL
           ? dualMarkup(runtime)
           : phase === PHASE_SYNTHESIS
@@ -3019,6 +3549,16 @@ export function buildFinal01ActionFromElement(element) {
   }
   if (actionName === "fin01-rhythm-tap") {
     return { type: "fin01-rhythm-tap", at: Date.now() };
+  }
+  if (actionName === "fin01-crd-start") {
+    return { type: "fin01-crd-start", at: Date.now() };
+  }
+  if (actionName === "fin01-crd-fight-action") {
+    return {
+      type: "fin01-crd-fight-action",
+      move: element.getAttribute("data-move") || "melee",
+      at: Date.now(),
+    };
   }
   if (actionName === "fin01-dual-start") {
     return { type: "fin01-dual-start", at: Date.now() };
