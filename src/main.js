@@ -4473,6 +4473,15 @@ function handleClick(event) {
   }
 
   if (action === "open-final-victory") {
+    const finalNode = blueprintIndex.nodesById.get(FINAL_VICTORY_NODE_ID);
+    if (finalNode) {
+      withState((current) =>
+        applyPostSolveArtifactCleanup(
+          applyNodeSolveSystemOverrides(markNodeSolvedWithOverrides(current, finalNode), finalNode),
+          finalNode,
+        ),
+      );
+    }
     navigate(FINAL_VICTORY_ROUTE);
     return;
   }
