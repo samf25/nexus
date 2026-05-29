@@ -1126,6 +1126,7 @@ function normalizeRuntime(runtime, context = {}) {
   return {
     phase,
     solved: Boolean(source.solved),
+    victoryUnlocked: Boolean(source.victoryUnlocked),
     seed: normalizedSeed,
     entrySockets: {
       box: Boolean(source.entrySockets && source.entrySockets.box),
@@ -1797,6 +1798,7 @@ export function initialFinal01Runtime() {
     {
       phase: PHASE_ENTRY,
       solved: false,
+      victoryUnlocked: false,
       entrySockets: { box: false, cookbook: false },
       lockInvestments: { madra: false, soulfire: false, clout: false, gold: false },
       checkpoints: { lockin: false, memory: false, rhythm: false, crd: false, dual: false, synthesis: false },
@@ -1872,6 +1874,7 @@ export function synchronizeFinal01Runtime(runtime, context = {}) {
         ...normalized,
         phase: PHASE_COMPLETE,
         solved: true,
+        victoryUnlocked: true,
         checkpoints: {
           ...normalized.checkpoints,
           synthesis: true,
@@ -1895,10 +1898,17 @@ export function synchronizeFinal01Runtime(runtime, context = {}) {
       solved: false,
     };
   }
+  if ((normalized.phase === PHASE_COMPLETE || normalized.solved) && !normalized.victoryUnlocked) {
+    normalized = {
+      ...normalized,
+      victoryUnlocked: true,
+    };
+  }
   if (normalized.phase === PHASE_COMPLETE || normalized.solved) {
     return {
       ...normalized,
       solved: true,
+      victoryUnlocked: true,
     };
   }
   return normalized;

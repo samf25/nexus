@@ -3933,19 +3933,20 @@ function renderApp(route = getCurrentRoute()) {
     finalNode && finalExperience
       ? readNodeRuntime(appState, finalNode, finalExperience)
       : null;
-  const finalSolved =
+  const finalVictoryReady =
     solvedSet.has(FINAL_VICTORY_NODE_ID) ||
+    Boolean(finalRuntime && finalRuntime.victoryUnlocked) ||
     (finalExperience && typeof finalExperience.validateRuntime === "function"
       ? Boolean(finalExperience.validateRuntime(finalRuntime))
       : Boolean(finalRuntime && finalRuntime.solved));
   const routeNode = blueprintIndex.nodesByRoute.get(route) || null;
   const viewingFinalNode = Boolean(routeNode && routeNode.node_id === FINAL_VICTORY_NODE_ID);
-  if (finalSolved && route !== FINAL_VICTORY_ROUTE && !viewingFinalNode) {
+  if (finalVictoryReady && route !== FINAL_VICTORY_ROUTE && !viewingFinalNode) {
     navigate(FINAL_VICTORY_ROUTE);
     return;
   }
   if (route === FINAL_VICTORY_ROUTE) {
-    if (!finalSolved) {
+    if (!finalVictoryReady) {
       navigate("/");
       return;
     }
@@ -4475,12 +4476,24 @@ function handleClick(event) {
   if (action === "open-final-victory") {
     const finalNode = blueprintIndex.nodesById.get(FINAL_VICTORY_NODE_ID);
     if (finalNode) {
-      withState((current) =>
-        applyPostSolveArtifactCleanup(
+      const finalExperience = getNodeExperience(FINAL_VICTORY_NODE_ID);
+      withState((current) => {
+        const solved = applyPostSolveArtifactCleanup(
           applyNodeSolveSystemOverrides(markNodeSolvedWithOverrides(current, finalNode), finalNode),
           finalNode,
-        ),
-      );
+        );
+        return updateNodeRuntime(
+          solved,
+          FINAL_VICTORY_NODE_ID,
+          (runtime) => ({
+            ...(runtime && typeof runtime === "object" ? runtime : {}),
+            victoryUnlocked: true,
+          }),
+          () => (finalExperience
+            ? finalExperience.initialState({ node: finalNode, state: solved })
+            : { victoryUnlocked: true }),
+        );
+      });
     }
     navigate(FINAL_VICTORY_ROUTE);
     return;
