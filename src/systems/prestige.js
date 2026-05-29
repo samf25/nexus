@@ -507,7 +507,7 @@ const PRESTIGE_UPGRADES = Object.freeze({
       branch: "clearance",
       tier: 3,
       shape: "hex",
-      costs: [18],
+      costs: [1],
       prereqs: [{ id: "floor-reader", level: 1 }, { id: "execution-patterns", level: 1 }],
       effect: "Claim the DCC Floor-5 Key and open the final external floor gate.",
     }),
